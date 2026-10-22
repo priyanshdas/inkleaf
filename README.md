@@ -2,7 +2,7 @@
 
 A free, open-source PDF editor for Windows, macOS and Linux that works
 entirely offline. Open a PDF, change it, save it. Nothing is uploaded
-anywhere, there are no accounts, and every tool is free.
+anywhere, there are no accounts, and every tool is free. Built by EPD.
 
 [![CI](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml/badge.svg)](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml)
 [![Licence: GPL-3.0-or-later](https://img.shields.io/badge/licence-GPL--3.0--or--later-2b7356)](LICENSE)
@@ -67,9 +67,9 @@ limits. The code is licensed under the GNU GPL, version 3 or later, so you can
 use, study, share and change it. If you share a changed version, it has to
 stay open source under the same licence.
 
-If Inkleaf saves you time, you can support it on
+If Inkleaf saves you time, you can buy me a coffee on
 [Ko-fi](https://ko-fi.com/inkleaf). The app links there too, from
-Help › Support Inkleaf and the About box. (The link lives in
+Help › Buy Me a Coffee, the coffee button in the title bar and the About box. (The link lives in
 `src/shared/config.ts`; `.github/FUNDING.yml` adds the Sponsor button on
 GitHub.)
 

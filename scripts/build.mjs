@@ -53,7 +53,7 @@ const iconNames = [
   'chevron-left', 'chevron-right', 'chevron-down', 'x', 'bold', 'italic',
   'rectangle-horizontal', 'copy', 'plus', 'file-text', 'upload', 'check', 'keyboard',
   'grip-vertical', 'maximize-2', 'shapes', 'info', 'pencil', 'file-plus-2', 'layers',
-  'eye-off', 'lock-open', 'square-pen', 'paint-bucket', 'brush', 'panel-right', 'sun', 'moon', 'monitor', 'clock',
+  'eye-off', 'lock-open', 'square-pen', 'paint-bucket', 'brush', 'panel-right', 'sun', 'moon', 'monitor', 'clock', 'coffee',
   'underline', 'align-left', 'align-center', 'align-right', 'baseline', 'search',
   'message-square', 'stamp', 'text-cursor', 'crop', 'printer', 'bookmark', 'list-tree', 'scan-text', 'file-archive',
   'shield-check', 'git-compare', 'droplets', 'file-image', 'images', 'file-type', 'hash', 'wrench', 'refresh-cw',

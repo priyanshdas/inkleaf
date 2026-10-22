@@ -1243,6 +1243,10 @@ async function renderWelcome() {
               icon('clock'),
               h('p', {}, 'Files you open will show up here. You can also drop a PDF anywhere in this window.')),
       ),
+      h('footer', { class: 'home-foot' },
+        h('span', {}, 'Built by ', h('strong', {}, 'EPD'), ' · Free and open source'),
+        h('button', { class: 'coffee-link', 'data-command': 'donate' }, icon('coffee'), 'Buy me a coffee'),
+      ),
     ),
   );
 }
@@ -1324,14 +1328,14 @@ async function showAbout() {
     body: h('div', { class: 'about' },
       h('p', {}, `Version ${info.version}`),
       h('p', {}, 'A free, open-source PDF editor. Everything happens on this computer; no files are uploaded anywhere.'),
-      h('p', { class: 'muted' }, 'Made by Priyansh Das. Licensed under the GNU GPL, version 3 or later: you’re free to use, study, share and change it.'),
+      h('p', { class: 'muted' }, 'Built by EPD (Priyansh Das). Licensed under the GNU GPL, version 3 or later: you’re free to use, study, share and change it.'),
       h('p', { class: 'muted small' },
         'Built with pdf.js (Apache 2.0), pdf-lib (MIT), lopdf (MIT), Tesseract OCR (Apache 2.0), docx (MIT), Instrument Sans and DejaVu fonts (OFL / Bitstream Vera), Lucide icons (ISC). ',
         `Electron ${info.electron}.`),
     ),
     buttons: [
       { label: 'Source code', value: 'code' },
-      { label: DONATE_URL ? 'Support Inkleaf' : 'Star on GitHub', value: 'support' },
+      { label: DONATE_URL ? 'Buy me a coffee' : 'Star on GitHub', value: 'support' },
       { label: 'Close', value: 'close', primary: true },
     ],
   }).then((choice) => {

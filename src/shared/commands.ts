@@ -128,7 +128,7 @@ export const MENU: MenuSection[] = [
       'separator',
       { label: 'Report a Problem…', command: 'report-problem' },
       { label: 'Inkleaf on GitHub', command: 'open-github' },
-      { label: 'Support Inkleaf…', command: 'donate' },
+      { label: 'Buy Me a Coffee…', command: 'donate' },
       { label: 'About Inkleaf', command: 'about' },
     ],
   },

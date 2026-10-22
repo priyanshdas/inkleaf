@@ -1620,3 +1620,52 @@ kbd {
 @keyframes spin { to { transform: rotate(360deg); } }
 .recover-list { margin: 12px 0 0; padding-left: 18px; color: var(--ink-2); line-height: 1.6; }
 .recover-list strong { color: var(--ink); font-weight: 600; }
+
+/* --- buy me a coffee ----------------------------------------------------------------------------- */
+
+.coffee-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  height: 28px;
+  padding: 0 12px 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--frame-ink);
+  font: 600 12.5px var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.coffee-chip .icon { width: 15px; height: 15px; color: #ffb38a; }
+.coffee-chip:hover { background: rgba(255, 255, 255, 0.14); }
+@media (max-width: 980px) { .coffee-chip span { display: none; } .coffee-chip { padding: 0 7px; } }
+
+.home-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.home-foot strong { color: var(--ink-2); font-weight: 650; letter-spacing: 0.02em; }
+.coffee-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-2);
+  font: 600 12.5px var(--font);
+  cursor: pointer;
+}
+.coffee-link .icon { width: 15px; height: 15px; color: #e8590c; }
+.coffee-link:hover { border-color: #e8590c; color: var(--ink); }
