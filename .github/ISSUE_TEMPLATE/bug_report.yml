@@ -1,0 +1,35 @@
+name: Bug report
+description: Something in Inkleaf doesn't work the way it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Step by step, what you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Opened a scanned invoice
+        2. Clicked Edit text and changed the date
+        3. Saved, and the new date was in the wrong font
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Inkleaf version
+      description: Help › About shows it.
+      placeholder: "2.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS, Linux]
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: The PDF
+      description: Attach it if you can. If it's private, say where it came from (scanner, Word, a website…).

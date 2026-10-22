@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inkleaf</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <div id="app" class="no-doc">
+
+    <!-- Title bar: the OS draws its window buttons on top of the right end
+         (Windows, Linux) or the left end (macOS traffic lights). -->
+    <header id="titlebar" class="titlebar">
+      <button id="brand" class="brand" data-menu="app" aria-haspopup="menu" title="Menu">
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+          <path class="brand-leaf" d="M32 4C18 16 12 28 12 38a20 20 0 0 0 40 0C52 28 46 16 32 4Z"/>
+          <path class="brand-vein" d="M32 18v30M32 48l-5 6M32 48l5 6"/>
+          <circle class="brand-nib" cx="32" cy="30" r="3"/>
+        </svg>
+        <span class="brand-name">Inkleaf</span>
+        <i data-icon="chevron-down"></i>
+      </button>
+      <div id="tabs" class="tabs" role="tablist" aria-label="Open documents"></div>
+      <button class="tab-add" data-command="open" title="Open a PDF in a new tab (Ctrl+O)"><i data-icon="plus"></i></button>
+      <span class="titlebar-drag"></span>
+    </header>
+
+    <!-- Command bar: file actions on the left, page and zoom in the middle -->
+    <header id="commandbar" class="commandbar needs-doc">
+      <div class="cmd-group">
+        <button class="cmd" data-command="open" title="Open (Ctrl+O)"><i data-icon="folder-open"></i></button>
+        <button class="cmd" data-command="save" title="Save (Ctrl+S)"><i data-icon="save"></i></button>
+        <button class="cmd" data-command="print" title="Print (Ctrl+P)"><i data-icon="printer"></i></button>
+        <span class="cmd-sep"></span>
+        <button class="cmd" data-command="undo" title="Undo (Ctrl+Z)"><i data-icon="undo-2"></i></button>
+        <button class="cmd" data-command="redo" title="Redo (Ctrl+Y)"><i data-icon="redo-2"></i></button>
+        <span class="cmd-sep"></span>
+        <button id="save-state" class="save-state" data-menu="autosave" aria-haspopup="menu" title="Auto-save"></button>
+      </div>
+
+      <div class="cmd-group cmd-center">
+        <div class="pager">
+          <button class="cmd" data-command="prev-page" title="Previous page (Page Up)"><i data-icon="chevron-left"></i></button>
+          <input id="page-input" class="page-input" inputmode="numeric" aria-label="Page number">
+          <span id="page-count" class="page-count">of 0</span>
+          <button class="cmd" data-command="next-page" title="Next page (Page Down)"><i data-icon="chevron-right"></i></button>
+        </div>
+        <span class="cmd-sep"></span>
+        <div class="zoom">
+          <button class="cmd" data-command="zoom-out" title="Zoom out (Ctrl+-)"><i data-icon="zoom-out"></i></button>
+          <button class="zoom-label" data-menu="zoom" id="zoom-label" aria-haspopup="menu">100%</button>
+          <button class="cmd" data-command="zoom-in" title="Zoom in (Ctrl+=)"><i data-icon="zoom-in"></i></button>
+        </div>
+      </div>
+
+      <div class="cmd-group cmd-right">
+        <button class="cmd" data-command="find" title="Find (Ctrl+F)"><i data-icon="search"></i></button>
+        <button class="cmd cmd-text" data-menu="tools" aria-haspopup="menu"><i data-icon="wrench"></i><span>Tools</span><i data-icon="chevron-down"></i></button>
+        <button class="cmd cmd-text" data-menu="pages" aria-haspopup="menu"><i data-icon="files"></i><span>Organize</span><i data-icon="chevron-down"></i></button>
+        <span class="cmd-sep"></span>
+        <button class="cmd" data-command="toggle-sidebar" id="toggle-pages" title="Show or hide pages (Ctrl+B)"><i data-icon="panel-left"></i></button>
+        <button class="cmd" data-command="toggle-inspector" id="toggle-inspector" title="Show or hide properties"><i data-icon="panel-right"></i></button>
+      </div>
+    </header>
+
+    <main id="workspace">
+      <!-- Tool rail -->
+      <nav id="rail" class="rail needs-doc" aria-label="Tools" role="radiogroup">
+        <button class="rail-tool" data-tool="select" title="Select (V)"><i data-icon="mouse-pointer-2"></i><span>Select</span></button>
+        <button class="rail-tool" data-tool="hand" title="Pan (H, or hold Space)"><i data-icon="hand"></i><span>Pan</span></button>
+        <span class="rail-sep"></span>
+        <button class="rail-tool" data-tool="edit-text" title="Edit existing text (E)"><i data-icon="text-cursor-input"></i><span>Edit text</span></button>
+        <button class="rail-tool" data-tool="text" title="Add text (T)"><i data-icon="type"></i><span>Add text</span></button>
+        <span class="rail-sep"></span>
+        <button class="rail-tool" data-tool="pen" title="Draw (P)"><i data-icon="pen-line"></i><span>Draw</span></button>
+        <button class="rail-tool" data-tool="highlight" title="Highlight (M)"><i data-icon="highlighter"></i><span>Highlight</span></button>
+        <button class="rail-tool" data-tool="rect" data-shapes title="Shapes (R)"><i data-icon="shapes"></i><span>Shapes</span></button>
+        <span class="rail-sep"></span>
+        <button class="rail-tool" data-tool="whiteout" title="White-out (W)"><i data-icon="rectangle-horizontal"></i><span>White-out</span></button>
+        <button class="rail-tool" data-tool="redact" title="Redact (B)"><i data-icon="eye-off"></i><span>Redact</span></button>
+        <button class="rail-tool" data-tool="eraser" title="Eraser (X)"><i data-icon="eraser"></i><span>Erase</span></button>
+        <span class="rail-sep"></span>
+        <button class="rail-tool" data-tool="note" title="Comment (N)"><i data-icon="message-square"></i><span>Comment</span></button>
+        <button class="rail-tool" data-tool="stamp" title="Stamp (K)"><i data-icon="stamp"></i><span>Stamp</span></button>
+        <button class="rail-tool" data-tool="sign" title="Sign"><i data-icon="signature"></i><span>Sign</span></button>
+        <button class="rail-tool" data-tool="image" title="Insert image"><i data-icon="image"></i><span>Image</span></button>
+      </nav>
+
+      <!-- Page thumbnails -->
+      <aside id="sidebar" class="needs-doc" aria-label="Sidebar" data-pane="pages">
+        <header class="panel-head">
+          <div class="side-tabs" role="tablist">
+            <button class="side-tab" role="tab" data-side="pages" title="Pages"><i data-icon="files"></i><span id="sidebar-count" class="panel-count"></span></button>
+            <button class="side-tab" role="tab" data-side="bookmarks" title="Bookmarks"><i data-icon="bookmark"></i></button>
+            <button class="side-tab" role="tab" data-side="comments" title="Comments"><i data-icon="message-square"></i><span id="comment-count" class="panel-count"></span></button>
+          </div>
+          <span class="spacer"></span>
+          <span class="side-only" data-for="pages">
+            <button class="cmd small" data-command="insert-blank" title="Insert blank page"><i data-icon="file-plus-2"></i></button>
+            <button class="cmd small" data-command="insert-pdf" title="Insert PDF"><i data-icon="file-plus"></i></button>
+          </span>
+        </header>
+        <div class="sidebar-scroll side-pane" data-for="pages">
+          <div id="thumbs" class="thumbs" role="listbox" aria-multiselectable="true"></div>
+        </div>
+        <div id="bookmarks" class="sidebar-scroll side-pane" data-for="bookmarks"></div>
+        <div id="comments" class="sidebar-scroll side-pane" data-for="comments"></div>
+      </aside>
+
+      <section id="viewport" class="viewport needs-doc" data-tool="select" tabindex="-1">
+        <div id="pages" class="pages"></div>
+      </section>
+
+      <!-- Properties for the current tool or selection -->
+      <aside id="inspector" class="inspector needs-doc" aria-label="Properties"></aside>
+
+      <section id="welcome" class="welcome"></section>
+
+      <div id="drop-overlay" class="drop-overlay" hidden>
+        <div class="drop-overlay-card"><i data-icon="upload"></i><span id="drop-overlay-text">Drop to open</span></div>
+      </div>
+      <div id="busy" class="busy" hidden><div class="spinner"></div><span id="busy-text">Working…</span></div>
+    </main>
+  </div>
+
+  <div id="menus"></div>
+  <div id="modal-root"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+</body>
+</html>

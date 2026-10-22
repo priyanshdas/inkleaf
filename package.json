@@ -1,0 +1,140 @@
+{
+  "name": "inkleaf",
+  "productName": "Inkleaf",
+  "version": "2.1.0",
+  "description": "A free, open-source, offline PDF editor: edit text, annotate, sign, fill and build forms, OCR, compress, compare and convert.",
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://github.com/priyanshdas/inkleaf",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/priyanshdas/inkleaf.git"
+  },
+  "bugs": {
+    "url": "https://github.com/priyanshdas/inkleaf/issues"
+  },
+  "main": "app/main.js",
+  "author": "Priyansh Das",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:core": "node scripts/build.mjs --core",
+    "start": "node scripts/build.mjs && electron .",
+    "dev": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node scripts/build.mjs && node tests/smoke.mjs",
+    "test:core": "cd core && cargo test",
+    "dist": "node scripts/build.mjs && electron-builder --publish never",
+    "dist:win": "node scripts/build.mjs && electron-builder --win --publish never",
+    "dist:mac": "node scripts/build.mjs && electron-builder --mac --publish never",
+    "dist:linux": "node scripts/build.mjs && electron-builder --linux --publish never",
+    "release:win": "node scripts/build.mjs && electron-builder --win --publish always",
+    "release": "node scripts/build.mjs && electron-builder --publish always"
+  },
+  "devDependencies": {
+    "@fontsource-variable/instrument-sans": "^5.3.0",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@tesseract.js-data/ben": "1.0.0",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/hin": "1.0.0",
+    "@tesseract.js-data/ita": "1.0.0",
+    "@types/node": "^22.20.5",
+    "docx": "9.8.1",
+    "electron": "^44.9.2",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "lucide-static": "^1.60.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.4.299",
+    "playwright-core": "^1.64.1",
+    "tesseract.js": "7.0.0",
+    "typescript": "^7.0.2"
+  },
+  "build": {
+    "appId": "io.github.priyanshdas.inkleaf",
+    "productName": "Inkleaf",
+    "copyright": "Copyright © 2026 Priyansh Das",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "app/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "pdf",
+        "name": "PDF Document",
+        "description": "PDF Document",
+        "mimeType": "application/pdf",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-${version}-${arch}-${target}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "artifactName": "${productName} Setup ${version}.${ext}",
+      "license": "LICENSE"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "icon": "build/icon.png",
+      "maintainer": "Priyansh Das <75964362+priyanshdas@users.noreply.github.com>",
+      "syncDesktopName": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "priyanshdas",
+        "repo": "inkleaf-releases",
+        "releaseType": "release"
+      }
+    ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "grantFileProtocolExtraPrivileges": false,
+      "onlyLoadAppFromAsar": true
+    },
+    "portable": {
+      "artifactName": "${productName} ${version} Portable.${ext}"
+    },
+    "extraResources": [
+      {
+        "from": "THIRD-PARTY.md",
+        "to": "THIRD-PARTY.md"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      }
+    ]
+  },
+  "desktopName": "inkleaf.desktop",
+  "dependencies": {
+    "electron-updater": "6.8.10"
+  }
+}

@@ -1,0 +1,5 @@
+# lopdf needs randomness for the IVs when encrypting a file. The wasm build
+# has no system source, so we supply our own (see wasm_random in lib.rs),
+# seeded by the host. This keeps the module free of JS imports.
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="custom"']

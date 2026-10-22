@@ -1,0 +1,15 @@
+name: Feature idea
+description: Something you'd like Inkleaf to do
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the problem first, before any solution. "I need to … and can't" is perfect.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How do you imagine it working?

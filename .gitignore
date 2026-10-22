@@ -1,0 +1,9 @@
+node_modules/
+app/
+dist/
+core/target/
+src/renderer/generated/
+*.log
+.DS_Store
+keys/
+tests/bench/big.pdf

@@ -1,0 +1,35 @@
+# Checks every push and pull request: types, the Rust core, and the full
+# end-to-end test that drives the real app.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install tools the tests use
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb poppler-utils qpdf fonts-dejavu unzip
+          pip install pypdf
+
+      - run: npm ci
+      - run: npm run typecheck
+
+      - name: Rust core
+        working-directory: core
+        run: cargo test --release
+
+      - name: End-to-end tests
+        run: xvfb-run -a npm test

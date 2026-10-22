@@ -1,0 +1,36 @@
+# Builds the installers for Windows, macOS and Linux and publishes them to
+# the public releases repository, which is where the installed app looks
+# for updates. Runs when you push a version tag:
+#
+#   git tag v2.1.1 && git push origin v2.1.1
+#
+# Needs a repository secret called RELEASES_TOKEN: a GitHub token that can
+# create releases in priyanshdas/inkleaf-releases (a fine-grained token with
+# "Contents: read and write" on that repository is enough).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build and publish
+        run: npm run release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}

@@ -1,0 +1,22 @@
+{
+  "start → app ready": 1554,
+  "open → tab appears": 345,
+  "open → first page sharp": 521,
+  "jump to page (avg of 5)": 143,
+  "smooth scroll 60 steps → sharp": 4750,
+  "  long tasks while scrolling": 0,
+  "  worst long task (scroll)": 0,
+  "zoom change → sharp (avg of 5)": 278,
+  "pen stroke, 300 moves": 5259,
+  "  long tasks while drawing": 0,
+  "drag a mark, 120 moves": 2066,
+  "  long tasks while dragging": 0,
+  "undo ×20": 272,
+  "typing 180 characters": 1569,
+  "  long tasks while typing": 0,
+  "save (600 marks, 300 pages)": 640,
+  "save with a redaction": 516,
+  "save after reordering": 578,
+  "extract 10 pages": 97,
+  "split into 30 files of 10": 2606
+}

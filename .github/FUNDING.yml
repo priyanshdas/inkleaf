@@ -1,0 +1,5 @@
+# Shows a "Sponsor" button on the repository. Turn on GitHub Sponsors for your
+# account first (github.com/sponsors), then uncomment the line below, and/or
+# add a payment link such as a Razorpay page under "custom".
+# github: priyanshdas
+# custom: ["https://rzp.io/l/your-link"]
