@@ -6,6 +6,7 @@ anywhere, there are no accounts, and every tool is free.
 
 [![CI](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml/badge.svg)](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml)
 [![Licence: GPL-3.0-or-later](https://img.shields.io/badge/licence-GPL--3.0--or--later-2b7356)](LICENSE)
+[![Support on Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/inkleaf)
 
 **Download:** the latest installers are on the
 [releases page](https://github.com/priyanshdas/inkleaf-releases/releases).
@@ -66,11 +67,11 @@ limits. The code is licensed under the GNU GPL, version 3 or later, so you can
 use, study, share and change it. If you share a changed version, it has to
 stay open source under the same licence.
 
-If Inkleaf saves you time, you can support it: there's a **Support Inkleaf**
-item in the Help menu. Point it at your donation page by setting `DONATE_URL`
-in `src/shared/config.ts` (until then it opens the GitHub page, where a star
-helps too). `.github/FUNDING.yml` adds a Sponsor button to the repository once
-filled in.
+If Inkleaf saves you time, you can support it on
+[Ko-fi](https://ko-fi.com/inkleaf). The app links there too, from
+Help › Support Inkleaf and the About box. (The link lives in
+`src/shared/config.ts`; `.github/FUNDING.yml` adds the Sponsor button on
+GitHub.)
 
 ## Contributing
 

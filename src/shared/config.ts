@@ -5,8 +5,7 @@ export const REPO_URL = 'https://github.com/priyanshdas/inkleaf';
 export const ISSUES_URL = `${REPO_URL}/issues/new/choose`;
 
 /**
- * Where "Support Inkleaf" goes: a GitHub Sponsors page, a Razorpay payment
- * link, Buy Me a Coffee… Leave it empty and the menu item opens the
- * project's GitHub page instead (where people can star it).
+ * Where "Support Inkleaf" goes. If it's ever emptied, the menu item opens
+ * the project's GitHub page instead (where people can star it).
  */
-export const DONATE_URL = '';
+export const DONATE_URL = 'https://ko-fi.com/inkleaf';
