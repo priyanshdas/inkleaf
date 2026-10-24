@@ -2372,3 +2372,12 @@ footer {
     border-radius: 2px;
   }
 }
+@media (max-width: 700px) {
+  .feature-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .feature-card {
+    min-width: 0;
+  }
+}
