@@ -21,7 +21,7 @@
     "start": "node scripts/build.mjs && electron .",
     "dev": "node scripts/build.mjs --watch",
     "generate:icons": "node scripts/generate-icons.mjs",
-    "typecheck": "tsc --noEmit -p ",
+    "typecheck": "tsc --noEmit -p .",
     "i18n": "node scripts/i18n.mjs",
     "test": "node scripts/build.mjs && node tests/smoke.mjs",
     "test:core": "cd core && cargo test",
