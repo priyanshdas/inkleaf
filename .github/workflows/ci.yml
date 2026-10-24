@@ -25,6 +25,7 @@ jobs:
           pip install pypdf
 
       - run: npm ci
+      - run: npm build
       - run: npm run typecheck
 
       - name: Rust core
