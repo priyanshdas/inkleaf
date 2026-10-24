@@ -27,6 +27,7 @@
     "test:core": "cd core && cargo test",
     "dist": "node scripts/build.mjs && electron-builder --publish never",
     "dist:win": "node scripts/build.mjs && electron-builder --win --publish never",
+    "dist:win:store": "node scripts/build.mjs && electron-builder --win appx --x64 --publish never",
     "dist:mac": "node scripts/build.mjs && electron-builder --mac --publish never",
     "dist:linux": "node scripts/build.mjs && electron-builder --linux --publish never",
     "release:win": "node scripts/build.mjs && electron-builder --win --publish always",
@@ -62,7 +63,7 @@
     "@types/node": "^22.20.5",
     "docx": "9.8.1",
     "electron": "^44.9.2",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
     "exceljs": "4.4.0",
     "jszip": "3.10.2",
@@ -99,13 +100,20 @@
       }
     ],
     
-        "win": {
+    "win": {
       "target": [
         "nsis",
         "portable"
       ],
       "icon": "build/icon.png",
-      "artifactName": "${productName}-${version}-${arch}-${target}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "appx": {
+      "applicationId": "Inkleaf",
+      "identityName": "PriyanshDas.InkLeaf",
+      "publisher": "CN=6862D623-F74B-49DF-80AE-FB42001FAFC6",
+      "publisherDisplayName": "Priyansh Das",
+      "displayName": "Inkleaf"
     },
     "nsis": {
       "oneClick": false,
