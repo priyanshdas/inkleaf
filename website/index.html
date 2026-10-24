@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
  <meta name="description" content="Inkleaf is a free, open-source PDF editor for Windows. Edit, annotate, sign, OCR, compress, convert, compare, and manage PDFs privately with an offline-first desktop app.">
 
@@ -35,33 +36,49 @@
 <body>
 
   <!-- Navigation -->
-  <header class="navbar">
-    <div class="nav-container">
+<header class="navbar">
+  <div class="nav-container">
 
-      <a href="#" class="brand">
-        <img src="icon-48.png" alt="Inkleaf" class="brand-icon">
-        <span>Inkleaf</span>
-        </a>
+    <a href="#" class="brand">
+      <img src="icon-48.png" alt="Inkleaf" class="brand-icon">
+      <span>Inkleaf</span>
+    </a>
 
-      <nav class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#privacy">Privacy</a>
-        <a href="#opensource">Open Source</a>
-        <a
-          href="https://github.com/priyanshdas/inkleaf"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          GitHub
-        </a>
-      </nav>
-
-      <a class="nav-download" href="#download">
-        Download
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#opensource">Open Source</a>
+      <a
+        href="https://github.com/priyanshdas/inkleaf"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        GitHub
       </a>
+    </nav>
 
-    </div>
-  </header>
+    <a class="nav-download" href="#download">
+      Download
+    </a>
+
+    <button class="mobile-menu-button" aria-label="Open menu" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+  </div>
+
+  <div class="mobile-menu">
+    <a href="#features">Features</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#opensource">Open Source</a>
+    <a href="https://github.com/priyanshdas/inkleaf" target="_blank" rel="noopener noreferrer">
+      GitHub
+    </a>
+    <a href="#download" class="mobile-download">Download</a>
+  </div>
+</header>
 
 
   <!-- Hero -->

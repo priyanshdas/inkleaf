@@ -47,3 +47,23 @@ document.addEventListener("DOMContentLoaded", () => {
     observer.observe(item);
   });
 });
+
+const mobileMenuButton = document.querySelector(".mobile-menu-button");
+const mobileMenu = document.querySelector(".mobile-menu");
+
+if (mobileMenuButton && mobileMenu) {
+  mobileMenuButton.addEventListener("click", () => {
+    const isOpen = mobileMenu.classList.toggle("open");
+
+    mobileMenuButton.classList.toggle("active", isOpen);
+    mobileMenuButton.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  mobileMenu.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      mobileMenu.classList.remove("open");
+      mobileMenuButton.classList.remove("active");
+      mobileMenuButton.setAttribute("aria-expanded", "false");
+    });
+  });
+}
