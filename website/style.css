@@ -2309,12 +2309,24 @@ footer {
   font-size: 10px;
 }
 
-@media (max-width: 700px) {
-    
-.feature-grid {
-  grid-template-columns: 1fr;
-  gap: 14px;
+/* Responsive layout */
+.mobile-menu-toggle {
+  display: none;
 }
+
+@media (max-width: 900px) {
+  .feature-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .feature-card {
+    min-width: 0;
+  }
+
+  .trust-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .site-footer {
     padding: 60px 20px 25px;
   }
@@ -2333,23 +2345,5 @@ footer {
   .footer-bottom {
     flex-direction: column;
     gap: 8px;
-  }
-}
-/* Mobile navigation */
-.mobile-menu-toggle {
-  display: none;
-}
-
-@media (max-width: 900px) {
-  .feature-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .feature-card {
-    min-width: 0;
-  }
-
-  .trust-strip {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
