@@ -42,6 +42,10 @@ fn main() {
             let seed: [u8; 32] = std::array::from_fn(|i| (i as u8).wrapping_mul(37) ^ (std::process::id() as u8));
             inkleaf_core::protect(&read(&args[1]), &request, &seed).map(|out| fs::write(&args[2], out).unwrap())
         }
+        Some("repair") => inkleaf_core::repair(&read(&args[1])).map(|(out, pages)| {
+            fs::write(&args[2], out).unwrap();
+            println!("{pages} pages");
+        }),
         Some("finalize") => inkleaf_core::finalize(&read(&args[1])).map(|out| fs::write(&args[2], out).unwrap()),
         Some("redact") => {
             let jobs: Vec<inkleaf_core::RedactJob> = serde_json::from_str(&args[3]).expect("bad jobs json");

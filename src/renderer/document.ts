@@ -433,6 +433,12 @@ export class EditorDoc extends EventTarget {
     return !EditorDoc.same(this.history[this.cursor], this.savedAt) || this.sourceEdits !== this.sourceEditsSaved;
   }
 
+  /** A document made in Inkleaf (converted, say) that exists nowhere on disk yet. */
+  markUnsaved() {
+    this.sourceEdits++;
+    this.dispatchEvent(new CustomEvent('history'));
+  }
+
   /**
    * Identifies the state a save is being made from. Saving takes a moment,
    * and edits made meanwhile mustn't be marked as saved.

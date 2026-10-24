@@ -38,6 +38,7 @@ async function launch(file, options = {}) {
       ...process.env,
       // a fresh profile per launch unless a test wants to reuse one
       INKLEAF_USER_DATA: profile,
+      ...(options.env ?? {}),
     },
   });
   const win = await app.firstWindow();
@@ -112,8 +113,7 @@ async function save(win, file) {
 /** Closes the app without tripping the "save changes?" prompt. */
 async function quit(app, win) {
   await win.evaluate(() => {
-    const doc = window.__inkleaf.getDoc();
-    doc?.markSaved(doc.name, doc.path);
+    for (const doc of window.__inkleaf.allDocs()) doc.markSaved(doc.name, doc.path);
   });
   // give the "no unsaved changes" message time to reach the main process
   await win.waitForTimeout(300);
@@ -781,10 +781,289 @@ async function autosaveTest() {
   await quit(app, win);
 }
 
+// --- 8. converting to and from PDF ---------------------------------------------------
+
+/** Text of every page of the open document, as pdf.js reads it. */
+const docText = (win) => win.evaluate(async () => {
+  const doc = window.__inkleaf.getDoc();
+  const src = doc.sources.get(doc.mainSource);
+  const parts = [];
+  for (let i = 1; i <= src.pdf.numPages; i++) {
+    const page = await src.pdf.getPage(i);
+    parts.push((await page.getTextContent()).items.map((it) => it.str).join(' '));
+  }
+  return { name: doc.name, pages: src.pdf.numPages, text: parts.join('\n') };
+});
+
+async function convertTest() {
+  console.log('\nConverting to and from PDF');
+
+  // built-in converters (as on a computer without LibreOffice)
+  let { app, win, errors } = await launch(null, { env: { INKLEAF_NO_OFFICE: '1' } });
+  const expect = {
+    'letter.docx': ['Guest welcome letter', 'Kavya Rao', 'Grand Hotel Aurora', 'Suite'],
+    'occupancy.xlsx': ['March', 'Rooms sold', '351000'],
+    'review.pptx': ['Quarterly review', 'Front office team', 'Occupancy up to 81 percent', 'Prepared by Meera'],
+    'rates.csv': ['Breakfast', '14,000'],
+    'notes.md': ['Housekeeping notes', 'Change towels', 'daily'],
+  };
+  for (const [name, words] of Object.entries(expect)) {
+    const before = await win.evaluate(() => window.__inkleaf.tabCount());
+    await stubDialog(app, 'showOpenDialog', [path.join(fixtures, name)]);
+    await win.evaluate(() => { void window.__inkleaf.run('open'); });
+    await win.waitForFunction((n) => window.__inkleaf.tabCount() === n + 1, before, { timeout: 60000 });
+    await waitForPages(win);
+    const got = await docText(win);
+    const missing = words.filter((w) => !got.text.replace(/\s+/g, ' ').includes(w));
+    check(`${name} opens as a PDF (built-in converter)`, got.name === name.replace(/\.[^.]+$/, '.pdf') && !missing.length,
+      `missing: ${missing.join(', ')} | ${got.text.slice(0, 160)}`);
+    if (name === 'review.pptx') check('each slide becomes a page', got.pages === 2, `pages ${got.pages}`);
+  }
+  if (shots) await win.screenshot({ path: path.join(shots, 'converted-pptx.png') });
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+
+  // with LibreOffice, office files keep their exact layout
+  const office = (() => {
+    try {
+      execFileSync('soffice', ['--version'], { stdio: 'pipe' });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  if (office) {
+    ({ app, win, errors } = await launch(null));
+    await stubDialog(app, 'showOpenDialog', [path.join(fixtures, 'review.pptx')]);
+    await win.evaluate(() => { void window.__inkleaf.run('convert-to-pdf'); });
+    await win.waitForFunction(() => window.__inkleaf.tabCount() === 1, null, { timeout: 120000 });
+    await waitForPages(win);
+    const got = await docText(win);
+    check('LibreOffice converts PowerPoint when it’s installed', got.pages === 2 && got.text.includes('Highlights'), got.text.slice(0, 120));
+    await quit(app, win);
+  } else {
+    console.log('  – LibreOffice not installed here; skipped its check');
+  }
+
+  // from PDF to everything else
+  ({ app, win, errors } = await launch(path.join(fixtures, 'table.pdf')));
+  await waitForPages(win);
+  const exportAs = async (title, file) => {
+    await stubDialog(app, 'showSaveDialog', file);
+    await win.evaluate(() => { void window.__inkleaf.run('convert-from-pdf'); });
+    await win.click(`.format-card:has-text("${title}")`);
+    await modalButton(win, 'Convert');
+    await win.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('Saved the')), null, { timeout: 60000 });
+    await win.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()));
+  };
+  const xlsx = path.join(out, 'table.xlsx');
+  await exportAs('Excel', xlsx);
+  const cells = JSON.parse(py(`
+import openpyxl, sys, json
+ws = openpyxl.load_workbook(sys.argv[1]).active
+print(json.dumps([[c.value for c in row] for row in ws.iter_rows()]))
+`, xlsx));
+  check('PDF to Excel finds the table, with numbers as numbers',
+    JSON.stringify(cells[0]) === '["Item","Qty","Amount"]' && cells[1][2] === 25500 && cells[3][0] === 'Laundry', JSON.stringify(cells));
+
+  const pptxFile = path.join(out, 'table.pptx');
+  await exportAs('PowerPoint', pptxFile);
+  const slides = py(`
+import pptx, sys
+d = pptx.Presentation(sys.argv[1])
+print(len(d.slides), d.slides[0].has_notes_slide and 'Laundry' in d.slides[0].notes_slide.notes_text_frame.text)
+`, pptxFile);
+  check('PDF to PowerPoint makes a slide per page with the text in the notes', slides === '1 True', slides);
+
+  for (const [title, ext, word] of [['Plain text', 'txt', 'Room night'], ['Markdown', 'md', '**Item'], ['Web page', 'html', '<strong>Item']]) {
+    const file = path.join(out, `table.${ext}`);
+    await exportAs(title, file);
+    const body = fs.readFileSync(file, 'utf8');
+    check(`PDF to ${title.toLowerCase()}`, body.includes(word) && body.includes('Laundry'), body.slice(0, 160));
+  }
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+}
+
+
+async function moreToolsTest() {
+  console.log('\nScan, repair, PDF/A, web pages, unlock, AI and the tools page');
+  const waitToast = (win, words, timeout = 60000) => win.waitForFunction((w) => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes(w)), words, { timeout });
+  const clearToasts = (win) => win.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()));
+  const newTab = async (win, before, timeout = 60000) => {
+    await win.waitForFunction((n) => window.__inkleaf.tabCount() === n + 1, before, { timeout });
+    await waitForPages(win);
+  };
+
+  // PDF/A, checked with pikepdf's own validator
+  let { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'), { env: { INKLEAF_AI_MOCK: '1' } });
+  await waitForPages(win);
+  const pdfa = path.join(out, 'sample-pdfa.pdf');
+  await stubDialog(app, 'showSaveDialog', pdfa);
+  await win.evaluate(() => { void window.__inkleaf.run('pdf-to-pdfa'); });
+  await win.waitForFunction(() => document.querySelector('.modal-title')?.textContent.includes('PDF/A') || [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('PDF/A')), null, { timeout: 60000 });
+  if (await win.isVisible('.modal')) await modalButton(win, 'OK');
+  const verdict = py(`
+import pikepdf.pdfa, sys
+r = pikepdf.pdfa.validate_written(sys.argv[1], '2b')
+bad = [f'{f.rule}: {f.message}' for f in r.findings if f.kind == 'violation']
+print('passed' if r.passed and not bad else 'failed: ' + '; '.join(bad[:4] or [str(f) for f in r.findings][:4]))
+`, pdfa);
+  check('PDF/A copy passes the PDF/A-2b checks', verdict === 'passed', verdict);
+  check('PDF/A keeps the text', text(pdfa).includes('Invoice number'));
+  await clearToasts(win);
+
+  // AI (with the test stand-in for Anthropic's API)
+  await win.evaluate(() => { void window.__inkleaf.run('ai-summarize'); });
+  await win.waitForSelector('.modal:has-text("AI Summarizer")');
+  await modalButton(win, 'Summarize');
+  await win.waitForSelector('.ai-summary li', { timeout: 30000 });
+  check('AI summary shows up as formatted text', (await win.textContent('.ai-summary')).includes('First key point'));
+  await modalButton(win, 'Add as a comment');
+  await win.waitForTimeout(300);
+  const noted = await win.evaluate(() => {
+    const doc = window.__inkleaf.getDoc();
+    return doc.annots(doc.pages[0].id).some((a) => a.type === 'note' && a.text.includes('AI summary'));
+  });
+  check('summary can be kept as a comment', noted);
+
+  let before = await win.evaluate(() => window.__inkleaf.tabCount());
+  await win.evaluate(() => { void window.__inkleaf.run('ai-translate'); });
+  await win.waitForSelector('.modal:has-text("Translate PDF")');
+  await win.selectOption('.modal select >> nth=0', 'French');
+  await modalButton(win, 'Translate');
+  await newTab(win, before);
+  const translated = await win.evaluate(() => {
+    const doc = window.__inkleaf.getDoc();
+    return { name: doc.name, texts: doc.pages.flatMap((p) => doc.annots(p.id)).filter((a) => a.type === 'replace').map((a) => a.text) };
+  });
+  check('translation lays the new words over a copy of the pages',
+    translated.name.includes('(French)') && translated.texts.some((t) => t.startsWith('[T] Invoice number')), JSON.stringify(translated).slice(0, 200));
+  const frenchFile = path.join(out, 'translated.pdf');
+  await save(win, frenchFile);
+  const frenchText = text(frenchFile);
+  check('translated PDF has the translated text instead of the original', frenchText.includes('[T] Invoice number') && !/^\s*Invoice number/m.test(frenchText), frenchText.slice(0, 200));
+
+  const wordFile = path.join(out, 'translated.docx');
+  await stubDialog(app, 'showSaveDialog', wordFile);
+  await win.evaluate(() => { void window.__inkleaf.run('ai-translate'); });
+  await win.waitForSelector('.modal:has-text("Translate PDF")');
+  await win.selectOption('.modal select >> nth=0', 'Hindi');
+  await modalButton(win, 'Translate');
+  await waitToast(win, 'Hindi translation');
+  const docx = py(`
+import docx, sys
+print(' '.join(p.text for p in docx.Document(sys.argv[1]).paragraphs))
+`, wordFile);
+  check('translating into Hindi makes a Word document', docx.includes('[T] '), docx.slice(0, 160));
+  await clearToasts(win);
+
+  // the tools page
+  await win.evaluate(() => { void window.__inkleaf.run('all-tools'); });
+  await win.waitForSelector('.hub-tool');
+  const counts = await win.evaluate(() => ({ groups: document.querySelectorAll('.hub-group').length, tools: document.querySelectorAll('.hub-tool').length }));
+  check('all tools page lists every tool in seven groups', counts.groups === 7 && counts.tools >= 33, JSON.stringify(counts));
+  if (shots) await win.waitForTimeout(400), await win.screenshot({ path: path.join(shots, 'all-tools.png') });
+  await win.fill('.hub-search', 'excel');
+  const shown = await win.evaluate(() => [...document.querySelectorAll('.hub-tool')].filter((t) => !t.hidden).map((t) => t.querySelector('strong').textContent));
+  check('searching narrows the tools', shown.length === 2 && shown.includes('PDF to Excel'), shown.join(', '));
+  await win.click('.hub-tool:has-text("PDF to Excel")');
+  await win.waitForSelector('.format-card:has(input:checked):has-text("Excel")');
+  check('picking a tool opens it', true);
+  await modalButton(win, 'Cancel');
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+
+  // damaged files
+  const sample = fs.readFileSync(path.join(fixtures, 'sample.pdf'));
+  const badXref = path.join(out, 'bad-xref.pdf');
+  const latin = sample.toString('latin1');
+  fs.writeFileSync(badXref, Buffer.from(latin.replace(/startxref\s+\d+/, 'startxref\n999999'), 'latin1'));
+  const truncated = path.join(out, 'truncated.pdf');
+  // a download that stopped just before the end: every page is there, the index and trailer aren't
+  fs.writeFileSync(truncated, sample.subarray(0, latin.lastIndexOf('xref') - 40));
+
+  ({ app, win, errors } = await launch(null));
+  for (const [file, label] of [[badXref, 'broken index'], [truncated, 'cut-off file']]) {
+    before = await win.evaluate(() => window.__inkleaf.tabCount());
+    await stubDialog(app, 'showOpenDialog', [file]);
+    await win.evaluate(() => { void window.__inkleaf.run('repair'); });
+    await newTab(win, before);
+    const got = await docText(win);
+    check(`repair rescues a PDF with a ${label}`, got.pages >= 1 && got.name.includes('(repaired)'), JSON.stringify(got).slice(0, 160));
+    await waitToast(win, 'Repaired');
+    await clearToasts(win);
+  }
+
+  // unlock
+  const unlocked = path.join(out, 'password-unlocked.pdf');
+  await stubDialog(app, 'showOpenDialog', [path.join(fixtures, 'password.pdf')]);
+  await stubDialog(app, 'showSaveDialog', unlocked);
+  await win.evaluate(() => { void window.__inkleaf.run('unlock'); });
+  await win.waitForSelector('.modal input[type="password"]');
+  await win.fill('.modal input[type="password"]', 'open-sesame');
+  await win.keyboard.press('Enter');
+  await waitToast(win, 'unlocked copy');
+  check('unlock saves a copy without the password', execFileSync('qpdf', ['--show-encryption', unlocked]).toString().includes('not encrypted') && text(unlocked).includes('Invoice number'));
+  await clearToasts(win);
+
+  // web page to PDF, from a little local server
+  const http = await import('node:http');
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<!doctype html><title>Checkout rules</title><h1>Checkout rules</h1><p id="p">Late checkout until 2 pm</p><script>document.getElementById("p").textContent += " on request";</script>');
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  before = await win.evaluate(() => window.__inkleaf.tabCount());
+  await win.evaluate(() => { void window.__inkleaf.run('web-to-pdf'); });
+  await win.fill('.modal input[type="url"]', `http://127.0.0.1:${server.address().port}/`);
+  await modalButton(win, 'Make PDF');
+  await newTab(win, before);
+  const web = await docText(win);
+  server.close();
+  check('web page to PDF prints the page, scripts and all', web.name === 'Checkout rules.pdf' && web.text.includes('Late checkout until 2 pm on request'), JSON.stringify(web).slice(0, 200));
+
+  // scan to PDF from a photo of a page on a dark table
+  const photo = path.join(out, 'photo-of-page.jpg');
+  py(`
+from PIL import Image, ImageDraw, ImageFont
+import sys
+img = Image.new('RGB', (1600, 1200), (52, 46, 40))
+page = Image.new('RGB', (760, 1000), (236, 232, 222))
+d = ImageDraw.Draw(page)
+try:
+    f = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 44)
+except Exception:
+    f = ImageFont.load_default()
+d.text((70, 90), 'Room 304 checklist', fill=(20, 20, 20), font=f)
+page = page.rotate(8, expand=True, fillcolor=(52, 46, 40))
+img.paste(page, (400, 40))
+img.save(sys.argv[1], quality=90)
+`, photo);
+  before = await win.evaluate(() => window.__inkleaf.tabCount());
+  await win.evaluate(() => { void window.__inkleaf.run('scan-to-pdf'); });
+  await win.waitForSelector('.scan');
+  await stubDialog(app, 'showOpenDialog', [photo]);
+  await win.click('.scan button:has-text("Add photos")');
+  await win.waitForSelector('.scan-thumb img');
+  await modalButton(win, 'Make PDF');
+  await newTab(win, before);
+  const scanned = await win.evaluate(() => {
+    const doc = window.__inkleaf.getDoc();
+    const box = doc.viewBox(doc.pages[0]);
+    return { pages: doc.pages.length, w: box.w, h: box.h, name: doc.name };
+  });
+  if (shots) await win.screenshot({ path: path.join(shots, 'scan.png') });
+  check('scan to PDF makes a page from the photo, cropped to the paper',
+    scanned.pages === 1 && Math.round(scanned.w) === 595 && scanned.h > 700 && scanned.name.startsWith('Scan'), JSON.stringify(scanned));
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+}
+
 // ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

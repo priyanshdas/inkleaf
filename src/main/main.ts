@@ -7,6 +7,9 @@ import path from 'node:path';
 import type { OpenedFile, RecentFile, ThemeSetting } from '../shared/api';
 import type { WindowCommand } from '../shared/commands';
 import { buildMenu } from './menu';
+import { CONVERTIBLE } from '../shared/api';
+import { findOffice, htmlToPdf, officeToPdf, urlToPdf } from './convert';
+import { aiStatus, ask, removeKey, setKey, setModel } from './ai';
 import { checkForUpdates, installUpdate, startUpdates } from './updates';
 
 // Lets tests run with a clean profile. Ignored in packaged builds.
@@ -258,10 +261,16 @@ function createWindow(fileToOpen?: OpenedFile): BrowserWindow {
 
 async function readPdf(filePath: string): Promise<OpenedFile> {
   const resolved = path.resolve(filePath);
-  if (path.extname(resolved).toLowerCase() !== '.pdf') {
-    throw new Error('Only PDF files can be opened.');
+  const ext = path.extname(resolved).toLowerCase().slice(1);
+  if (ext !== 'pdf' && !CONVERTIBLE.includes(ext)) {
+    throw new Error('Inkleaf opens PDFs, and documents, spreadsheets, slides, text and pictures it can turn into PDFs.');
   }
   const data = await fs.readFile(resolved);
+  if (ext !== 'pdf') {
+    // converted files open as new, unsaved PDFs: the original is never
+    // written to, so it doesn't get a path or a place in recent files
+    return { path: null, name: path.basename(resolved), data: new Uint8Array(data) };
+  }
   rememberRecent(resolved);
   return { path: resolved, name: path.basename(resolved), data: new Uint8Array(data) };
 }
@@ -279,7 +288,7 @@ async function openFromSystem(filePath: string) {
   const focused = BrowserWindow.getFocusedWindow();
   const target = (focused && windows.get(focused.webContents.id)) ?? [...windows.values()].find((c) => !c.win.isDestroyed());
   if (target) {
-    target.allowedPaths.add(file.path!);
+    if (file.path) target.allowedPaths.add(file.path);
     deliver(target, file);
     if (target.win.isMinimized()) target.win.restore();
     target.win.focus();
@@ -296,7 +305,10 @@ function deliver(ctx: WindowContext, file: OpenedFile) {
 function pdfArgs(argv: string[]): string[] {
   return argv
     .slice(app.isPackaged ? 1 : 2)
-    .filter((arg) => !arg.startsWith('-') && arg.toLowerCase().endsWith('.pdf') && existsSync(arg));
+    .filter((arg) => {
+      const ext = path.extname(arg).toLowerCase().slice(1);
+      return !arg.startsWith('-') && (ext === 'pdf' || CONVERTIBLE.includes(ext)) && existsSync(arg);
+    });
 }
 
 async function writeFileSafely(target: string, data: Uint8Array) {
@@ -364,27 +376,59 @@ function registerIpc() {
   ipcMain.handle('file:open-dialog', async (event) => {
     const ctx = contextFor(event.sender);
     const result = await dialog.showOpenDialog(ctx.win, {
-      title: 'Open PDF',
+      title: 'Open',
       properties: ['openFile'],
-      filters: [{ name: 'PDF documents', extensions: ['pdf'] }],
+      filters: [
+        { name: 'PDFs and files Inkleaf can convert', extensions: ['pdf', ...CONVERTIBLE] },
+        { name: 'PDF documents', extensions: ['pdf'] },
+      ],
     });
     if (result.canceled || !result.filePaths[0]) return null;
     const file = await readPdf(result.filePaths[0]);
-    ctx.allowedPaths.add(file.path!);
+    if (file.path) ctx.allowedPaths.add(file.path);
     return file;
   });
 
   ipcMain.handle('file:open-path', async (event, filePath: string) => {
     const ctx = contextFor(event.sender);
     const file = await readPdf(String(filePath));
-    ctx.allowedPaths.add(file.path!);
+    if (file.path) ctx.allowedPaths.add(file.path);
     return file;
   });
 
-  ipcMain.handle('file:pick-pdfs', async (event) => {
+  ipcMain.handle('file:pick-convertible', async (event) => {
     const ctx = contextFor(event.sender);
     const result = await dialog.showOpenDialog(ctx.win, {
-      title: 'Choose PDFs to insert',
+      title: 'Choose files to convert to PDF',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Documents, spreadsheets, slides, text and pictures', extensions: CONVERTIBLE },
+        { name: 'Word', extensions: ['docx', 'doc', 'odt', 'rtf'] },
+        { name: 'Excel', extensions: ['xlsx', 'xls', 'ods', 'csv'] },
+        { name: 'PowerPoint', extensions: ['pptx', 'ppt', 'odp'] },
+        { name: 'Text and web pages', extensions: ['txt', 'md', 'markdown', 'html', 'htm'] },
+        { name: 'Pictures', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] },
+      ],
+    });
+    if (result.canceled) return [];
+    return Promise.all(result.filePaths.map(async (p) => ({ name: path.basename(p), data: new Uint8Array(await fs.readFile(p)) })));
+  });
+
+  ipcMain.handle('convert:office-available', () => !!findOffice());
+  ipcMain.handle('convert:office', (_event, name: string, data: Uint8Array) => officeToPdf(String(name), data));
+  ipcMain.handle('convert:html', (_event, html: string, page) => htmlToPdf(String(html), page ?? {}));
+  ipcMain.handle('convert:url', (_event, address: string) => urlToPdf(String(address)));
+
+  ipcMain.handle('ai:status', () => aiStatus());
+  ipcMain.handle('ai:set-key', (_event, key: string, model) => setKey(String(key), model));
+  ipcMain.handle('ai:set-model', (_event, model) => setModel(model));
+  ipcMain.handle('ai:remove-key', () => removeKey());
+  ipcMain.handle('ai:ask', (_event, request) => ask(request));
+
+  ipcMain.handle('file:pick-pdfs', async (event, title?: unknown) => {
+    const ctx = contextFor(event.sender);
+    const result = await dialog.showOpenDialog(ctx.win, {
+      title: typeof title === 'string' && title.length < 120 ? title : 'Choose PDFs to insert',
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'PDF documents', extensions: ['pdf'] }],
     });
@@ -443,11 +487,15 @@ function registerIpc() {
 
   ipcMain.handle('file:save-copy', async (event, data: Uint8Array, suggestedName: string, kind: string) => {
     const ctx = contextFor(event.sender);
-    const ext = kind === 'docx' ? 'docx' : 'pdf';
+    const kinds: Record<string, [string, string]> = {
+      pdf: ['PDF document', 'pdf'], docx: ['Word document', 'docx'], xlsx: ['Excel workbook', 'xlsx'],
+      pptx: ['PowerPoint presentation', 'pptx'], txt: ['Plain text', 'txt'], md: ['Markdown', 'md'], html: ['Web page', 'html'],
+    };
+    const [label, ext] = kinds[kind] ?? kinds.pdf;
     const result = await dialog.showSaveDialog(ctx.win, {
-      title: ext === 'docx' ? 'Save Word document' : 'Save a copy',
+      title: ext === 'pdf' ? 'Save a copy' : `Save ${label.toLowerCase()}`,
       defaultPath: safeFileName(suggestedName),
-      filters: [ext === 'docx' ? { name: 'Word document', extensions: ['docx'] } : { name: 'PDF document', extensions: ['pdf'] }],
+      filters: [{ name: label, extensions: [ext] }],
     });
     if (result.canceled || !result.filePath) return null;
     let target = result.filePath;
@@ -649,9 +697,13 @@ if (!app.requestSingleInstanceLock()) {
     protocol.handle('app', serveAppFile);
     // Our own pages may list the fonts installed on this computer (for the
     // font picker); nothing else gets a browser permission.
-    const allowed = new Set(['local-fonts', 'clipboard-sanitized-write']);
+    // camera only, for Scan to PDF; it asks the system the first time
+    const allowed = new Set(['local-fonts', 'clipboard-sanitized-write', 'media']);
     const ours = (url: string) => url.startsWith('app://');
-    session.defaultSession.setPermissionRequestHandler((wc, permission, done) => done(allowed.has(permission) && ours(wc.getURL())));
+    session.defaultSession.setPermissionRequestHandler((wc, permission, done, details) => {
+      const audio = permission === 'media' && (details as { mediaTypes?: string[] }).mediaTypes?.includes('audio');
+      done(allowed.has(permission) && !audio && ours(wc.getURL()));
+    });
     session.defaultSession.setPermissionCheckHandler((wc, permission, origin) => allowed.has(permission) && ours(origin || wc?.getURL() || ''));
     applyTheme(readJson<{ theme?: ThemeSetting }>(settingsFile(), {}).theme ?? 'system');
     nativeTheme.on('updated', () => applyTheme(nativeTheme.themeSource as ThemeSetting));

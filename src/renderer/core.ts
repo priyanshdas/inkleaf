@@ -91,6 +91,12 @@ export const core = {
     return { pdf: await expectPdf(r), report: r.info as CompressReport };
   },
 
+  /** Rebuilds a damaged file from whatever objects can be found. */
+  async repair(pdf: Uint8Array): Promise<{ pdf: Uint8Array; pages: number }> {
+    const r = await call('repair', pdf);
+    return { pdf: await expectPdf(r), pages: r.info.pages };
+  },
+
   /** AES-256 encryption. The randomness comes from the browser's CSPRNG. */
   async protect(pdf: Uint8Array, options: ProtectOptions): Promise<Uint8Array> {
     const seed = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('');

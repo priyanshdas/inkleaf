@@ -43,9 +43,37 @@ anywhere, there are no accounts, and every tool is free. Built by EPD.
   Hindi, Bengali and Italian. Runs offline; the scan looks exactly the same.
 - **Compress**, **password-protect** (AES-256, with optional print, copy and
   edit restrictions), **watermarks, page numbers, headers and footers**,
-  **form builder** (text boxes, paragraphs, checkboxes, dropdowns),
-  **compare two PDFs** word by word, and **convert**: pictures to PDF, pages
-  to PNG or JPEG, and PDF to Word.
+  **form builder** (text boxes, paragraphs, checkboxes, dropdowns), and
+  **compare two PDFs** word by word.
+- **Convert to PDF:** Word, Excel, PowerPoint, OpenDocument, CSV, text,
+  Markdown, web pages and pictures. Just open or drop the file. If
+  [LibreOffice](https://www.libreoffice.org) is installed, office files go
+  through it and keep their exact layout; otherwise Inkleaf's built-in
+  converters keep the text, headings, lists, tables, pictures and slide
+  layout. (Old .doc/.xls/.ppt and OpenDocument files need LibreOffice.)
+- **Convert PDF to:** Word, Excel (tables become real rows, columns and
+  numbers), PowerPoint (a slide per page, text in the notes), PNG or JPEG
+  pictures, plain text, Markdown, HTML and **PDF/A** (the archiving
+  standard: fonts built in, colour profile, XMP metadata).
+- **Web page to PDF:** type an address and the page is printed onto A4,
+  loaded privately without your logins or cookies.
+- **Scan to PDF:** take pictures of paper with your webcam, or add photos
+  from your phone. Inkleaf finds the page, lets you drag its corners,
+  straightens it, and whitens the paper (or makes it black and white).
+  Text recognition can run straight after.
+- **Repair PDF:** rebuilds a broken index, reads back what it can from
+  cut-off files, and as a last resort redraws the pages. Offered
+  automatically when a file won't open.
+- **Unlock PDF:** saves a copy of a protected file (with the password you
+  know) without its password.
+- **AI Summarizer and Translate PDF** (optional). They use Claude, from
+  Anthropic, with your own API key (Tools › AI settings), and they're the
+  only tools that send anything off your computer: the document's text,
+  and only when you run them. Translation either lays the new words over
+  a copy of the pages, keeping the layout, or makes a Word document (for
+  scripts like Hindi and Bengali). The key is stored encrypted.
+- **All tools** (Ctrl+K or ⌘K): every tool on one searchable page, grouped
+  as Organize, Optimize, Convert, Edit, Security and Intelligence.
 - Several PDFs open at once in tabs, a recent-files home screen, and a
   View menu switch between light, dark and match-system themes.
 - **Auto-save.** Documents you've opened or saved before are saved a few
@@ -102,7 +130,7 @@ npm run dist:mac     # on macOS:   .dmg + .zip
 npm run dist:linux   # on Linux:   AppImage + .deb
 ```
 
-Output lands in `dist/`. `dist:win` makes an installer (`Inkleaf Setup 2.1.0.exe`)
+Output lands in `dist/`. `dist:win` makes an installer (`Inkleaf Setup 2.2.0.exe`)
 and a portable `.exe` that runs without installing. It can also be built on
 Linux if Wine is installed.
 
@@ -227,9 +255,21 @@ Things that keep it fast, worth preserving when changing the viewer:
   Redact on a scan covers the area rather than removing pixels.
 - **Compare** works on the words. Pictures, colours and layout changes aren't
   reported.
-- **PDF to Word** rebuilds paragraphs and headings from where the text sits.
-  Columns and tables come out as plain paragraphs; scanned pages are copied in
-  as pictures.
+- **PDF to Word, Markdown and HTML** rebuild paragraphs and headings from
+  where the text sits. Columns come out as plain paragraphs; scanned pages
+  are copied in as pictures. **PDF to Excel** finds tables by how the text
+  lines up, which works well for invoices and statements but not for tables
+  drawn as pictures (run OCR first).
+- **Translating over the page** works for languages written in Latin or
+  Cyrillic letters; other scripts come out as a Word document. Longer
+  translations are shrunk to fit the original line, so check the result.
+- **Scan to PDF** finds the page by looking for the bright sheet on a darker
+  background. On a white desk, drag the corners into place yourself.
+- **PDF/A** output is PDF/A-2b. Files with transparency groups or unusual
+  fonts may still need a dedicated tool to pass a strict validator; Inkleaf
+  lists anything it couldn't fix.
+- **Without LibreOffice**, converted Word files lose page headers, footers and
+  exact fonts, and slides drop charts, SmartArt and effects.
 - **Print** sends the pages as 200 dpi pictures, which keeps every mark and
   form value exactly as on screen but makes large print jobs slower than
   printing from a dedicated PDF reader.

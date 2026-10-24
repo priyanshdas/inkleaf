@@ -89,8 +89,8 @@ export class AutoSave {
     const t = this.info(doc);
     if (this.saving.has(doc)) return 'saving';
     if (t.error && doc.dirty) return 'error';
-    if (!doc.dirty) return 'saved';
     if (!doc.path) return 'new';
+    if (!doc.dirty) return 'saved';
     return this.eligible(doc) ? 'saving' : this.enabled ? 'unsaved' : 'off';
   }
 

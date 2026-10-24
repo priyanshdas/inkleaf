@@ -272,7 +272,7 @@ export async function decorDialog(doc: EditorDoc) {
 // --- converting --------------------------------------------------------------------------
 
 /** Turns a picture file into bytes pdf-lib can embed (PNG or JPEG). */
-async function embeddable(file: { name: string; data: Uint8Array }): Promise<{ bytes: Uint8Array; jpeg: boolean; width: number; height: number }> {
+export async function embeddable(file: { name: string; data: Uint8Array }): Promise<{ bytes: Uint8Array; jpeg: boolean; width: number; height: number }> {
   const isJpeg = file.data[0] === 0xff && file.data[1] === 0xd8;
   const isPng = file.data[0] === 0x89 && file.data[1] === 0x50;
   const bitmap = await createImageBitmap(new Blob([file.data as BlobPart]));

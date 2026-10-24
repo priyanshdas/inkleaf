@@ -153,6 +153,20 @@ pub fn redact(bytes: &[u8], jobs: &[RedactJob]) -> CoreResult<(Vec<u8>, RedactRe
     Ok((bytes, report))
 }
 
+/// Rebuilds a damaged file: reads whatever objects can be found (lopdf
+/// rebuilds a broken cross-reference table by scanning the file), drops
+/// anything unreachable, numbers the rest afresh and writes a clean copy.
+pub fn repair(bytes: &[u8]) -> CoreResult<(Vec<u8>, usize)> {
+    let mut doc = load(bytes, None)?;
+    let pages = doc.get_pages().len();
+    if pages == 0 {
+        return Err("No pages could be recovered from this file.".into());
+    }
+    doc.prune_objects();
+    doc.renumber_objects();
+    Ok((save(&mut doc)?, pages))
+}
+
 /// Last pass before writing to disk: throw away anything no longer reachable
 /// from the document (deleted pages, replaced streams, old revisions).
 pub fn finalize(bytes: &[u8]) -> CoreResult<Vec<u8>> {
@@ -543,4 +557,12 @@ pub unsafe extern "C" fn ik_protect(pdf: *const u8, pdf_len: usize, req: *const 
         })
         .map(|out| (out, "{}".into()));
     finish(result)
+}
+
+/// # Safety
+/// The pointer/length pair must describe a readable region of wasm memory.
+#[no_mangle]
+pub unsafe extern "C" fn ik_repair(pdf: *const u8, pdf_len: usize) -> i32 {
+    let bytes = slice(pdf, pdf_len);
+    finish(repair(bytes).map(|(out, pages)| (out, format!("{{\"pages\":{pages}}}"))))
 }

@@ -18,11 +18,12 @@ interface CoreExports {
   ik_font_file(ptr: number, len: number, reqPtr: number, reqLen: number): number;
   ik_compress(ptr: number, len: number, levelPtr: number, levelLen: number): number;
   ik_protect(ptr: number, len: number, reqPtr: number, reqLen: number): number;
+  ik_repair(ptr: number, len: number): number;
 }
 
 export interface CoreRequest {
   id: number;
-  op: 'inspect' | 'decrypt' | 'redact' | 'finalize' | 'font' | 'compress' | 'protect';
+  op: 'inspect' | 'decrypt' | 'redact' | 'finalize' | 'font' | 'compress' | 'protect' | 'repair';
   pdf: Uint8Array;
   /** Password for decrypt, JSON jobs for redact, JSON request for font. */
   arg?: string;
@@ -67,6 +68,7 @@ function run(c: CoreExports, request: CoreRequest): CoreResponse {
       case 'font': status = c.ik_font_file(pdfPtr, pdfLen, argPtr, argLen); break;
       case 'compress': status = c.ik_compress(pdfPtr, pdfLen, argPtr, argLen); break;
       case 'protect': status = c.ik_protect(pdfPtr, pdfLen, argPtr, argLen); break;
+      case 'repair': status = c.ik_repair(pdfPtr, pdfLen); break;
     }
   } finally {
     c.ik_free(pdfPtr, pdfLen);

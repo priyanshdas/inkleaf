@@ -23,7 +23,9 @@ export type MenuCommand =
   | 'find' | 'print' | 'compress' | 'protect' | 'ocr' | 'compare' | 'decor' | 'remove-decor'
   | 'images-to-pdf' | 'pdf-to-images' | 'pdf-to-word' | 'crop' | 'uncrop-page' | 'uncrop-all' | 'form-builder'
   | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'check-updates' | 'show-comments' | 'show-bookmarks'
-  | 'toggle-autosave' | 'open-backups' | 'open-github' | 'report-problem' | 'donate';
+  | 'toggle-autosave' | 'open-backups' | 'open-github' | 'report-problem' | 'donate'
+  | 'convert-to-pdf' | 'convert-from-pdf' | 'web-to-pdf' | 'scan-to-pdf' | 'repair' | 'pdf-to-pdfa'
+  | 'ai-summarize' | 'ai-translate' | 'ai-settings' | 'all-tools' | 'unlock';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
@@ -53,7 +55,17 @@ export type UpdateState =
   | { state: 'error'; message: string }
   | { state: 'unavailable'; reason: string };
 
-export type CopyKind = 'pdf' | 'docx';
+export type CopyKind = 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'txt' | 'md' | 'html';
+
+/** Files Inkleaf can turn into a PDF (besides PDFs themselves). */
+export const CONVERTIBLE = ['docx', 'doc', 'odt', 'rtf', 'xlsx', 'xls', 'ods', 'csv', 'pptx', 'ppt', 'odp', 'txt', 'md', 'markdown', 'html', 'htm', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'];
+
+export interface HtmlPage {
+  width?: number;
+  height?: number;
+  landscape?: boolean;
+  margin?: number;
+}
 
 /** Unsaved work kept safe in case the app closes unexpectedly. */
 export interface RecoveredFile {
@@ -75,7 +87,7 @@ export interface InkleafApi {
   pathForFile(file: File): string;
 
   /** Picks PDFs to merge in. Their paths stay private to the main process. */
-  pickPdfs(): Promise<PickedFile[]>;
+  pickPdfs(title?: string): Promise<PickedFile[]>;
 
   /** Overwrites a file this window opened or saved earlier. */
   save(path: string, data: Uint8Array): Promise<void>;
@@ -87,6 +99,22 @@ export interface InkleafApi {
   saveCopy(data: Uint8Array, suggestedName: string, kind: CopyKind): Promise<string | null>;
   /** Picks pictures to turn into a PDF. */
   pickImages(): Promise<PickedFile[]>;
+  /** Picks documents, spreadsheets, slides, text or pictures to turn into PDFs. */
+  pickConvertible(): Promise<PickedFile[]>;
+  /** Whether LibreOffice is installed (for exact Word, Excel and PowerPoint conversion). */
+  officeAvailable(): Promise<boolean>;
+  /** Converts an office file to PDF with LibreOffice. */
+  officeToPdf(name: string, data: Uint8Array): Promise<Uint8Array>;
+  /** Prints self-contained HTML to a PDF. */
+  htmlToPdf(html: string, page?: HtmlPage): Promise<Uint8Array>;
+  /** Prints a web page (by address) to a PDF. */
+  urlToPdf(address: string): Promise<{ pdf: Uint8Array; title: string }>;
+  /** Optional AI tools, with the person's own Anthropic API key. */
+  aiStatus(): Promise<{ ready: boolean; model: 'fast' | 'best'; canEncrypt: boolean }>;
+  aiSetKey(key: string, model: 'fast' | 'best'): Promise<void>;
+  aiSetModel(model: 'fast' | 'best'): Promise<void>;
+  aiRemoveKey(): Promise<void>;
+  aiAsk(request: { system: string; prompt: string; maxTokens: number }): Promise<string>;
   /** Shows the system print dialog for the current page contents. */
   print(): Promise<{ ok: boolean; reason?: string }>;
   /** Copies a file into the backups folder before it's first auto-saved over. */

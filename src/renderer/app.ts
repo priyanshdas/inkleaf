@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { TextToolbar } from './text-toolbar';
 import { onFontsChanged } from './custom-fonts';
-import type { MenuCommand, OpenedFile, RecentFile, UpdateState } from '../shared/api';
+import { CONVERTIBLE, type MenuCommand, type OpenedFile, type RecentFile, type UpdateState } from '../shared/api';
 import { FindBar } from './find';
 import { CommentsPanel, NotePopup } from './notes';
 import { OutlinePanel } from './outline';
@@ -426,6 +426,11 @@ async function openFile(file: OpenedFile) {
     activate(existing);
     return;
   }
+  if (!/\.pdf$/i.test(file.name)) {
+    // a Word file, spreadsheet, picture…: turn it into a PDF first
+    await convertFiles([file]);
+    return;
+  }
   try {
     const opened = await withBusy('Opening…', async () => {
       return withUnlocked(file.data, file.name, async (bytes, wasProtected) => {
@@ -446,7 +451,13 @@ async function openFile(file: OpenedFile) {
     }
     if (await forms.hasFields()) toast('This PDF has form fields. Click a field to fill it in.', 'info');
   } catch (err) {
-    showError('Couldn’t open this PDF', err);
+    console.error(err);
+    const choice = await modal({
+      title: 'Couldn’t open this PDF',
+      body: `“${file.name}” looks damaged. Inkleaf can try to repair it into a new copy; the original isn’t touched.`,
+      buttons: [{ label: 'Close', value: 'cancel' }, { label: 'Try to repair', value: 'repair', primary: true }],
+    });
+    if (choice === 'repair') await tool('Couldn’t repair the PDF', () => repairFile(file));
   }
 }
 
@@ -588,7 +599,8 @@ type Command = AppCommand | 'prev-page' | 'next-page';
 
 const NO_DOC_NEEDED = new Set<Command>([
   'new', 'open', 'about', 'shortcuts', 'close', 'close-tab', 'new-window', 'quit', 'fullscreen', 'devtools',
-  'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'check-updates', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
+  'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
+  'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools',
 ]);
 
 /** Runs one of the bigger tools, turning failures into a readable dialog. */
@@ -710,6 +722,21 @@ async function run(command: Command) {
     case 'decor': return tool('Couldn’t add that', () => decorDialog(doc!));
     case 'remove-decor': return doc!.setDecor(NO_DECOR);
     case 'images-to-pdf': return tool('Couldn’t make a PDF from those pictures', () => imagesToPdf(toolHost));
+    case 'convert-to-pdf': {
+      const files = await api.pickConvertible();
+      if (files.length) await convertFiles(files);
+      return;
+    }
+    case 'convert-from-pdf': return tool('Couldn’t convert this PDF', () => convertFromPdf(doc!));
+    case 'web-to-pdf': return tool('Couldn’t make a PDF of that page', webToPdf);
+    case 'scan-to-pdf': return tool('Couldn’t make the scan', scanToPdf);
+    case 'repair': return tool('Couldn’t repair the PDF', () => repairFile());
+    case 'unlock': return tool('Couldn’t unlock the PDF', unlockFile);
+    case 'pdf-to-pdfa': return tool('Couldn’t make a PDF/A', () => saveAsPdfA(doc!));
+    case 'ai-settings': return tool('Couldn’t change the AI settings', async () => void (await aiTools()).aiSettings());
+    case 'ai-summarize': return tool('Couldn’t summarize this PDF', async () => (await aiTools()).summarize(doc!, aiHost));
+    case 'ai-translate': return tool('Couldn’t translate this PDF', async () => (await aiTools()).translate(doc!, aiHost));
+    case 'all-tools': return tool('Something went wrong', openAllTools);
     case 'pdf-to-images': return tool('Couldn’t export the pages', () => pdfToImages(doc!, toolHost));
     case 'pdf-to-word': return tool('Couldn’t export to Word', () => exportWord(doc!));
     case 'ocr': return tool('Text recognition didn’t work', () => runOcr(doc!));
@@ -746,6 +773,214 @@ async function run(command: Command) {
 }
 
 // --- the bigger tools --------------------------------------------------------------------
+
+/** Converts files to PDF and opens each as a new tab. */
+async function convertFiles(files: { name: string; data: Uint8Array }[]) {
+  const { convertToPdf } = await import('./to-pdf');
+  const notes = new Set<string>();
+  for (const file of files) {
+    try {
+      const result = await withBusy(`Converting “${file.name}”…`, () => convertToPdf(file, progress));
+      result.notes.forEach((n) => notes.add(n));
+      const opened = await EditorDoc.open(result.bytes, file.name.replace(/\.[^.]+$/, '.pdf'), null);
+      // it only exists in Inkleaf so far: closing should offer to save it
+      opened.markUnsaved();
+      addTab(opened);
+    } catch (err) {
+      showError(`Couldn’t convert “${file.name}”`, err);
+    }
+  }
+  if (notes.size) toast([...notes].join(' '), 'info', 9000);
+}
+
+type ExportFormat = 'docx' | 'xlsx' | 'pptx' | 'images' | 'pdfa' | 'txt' | 'md' | 'html';
+
+/** "Convert PDF to…": pick a format, then convert the open document (with its edits). */
+async function convertFromPdf(target: EditorDoc, initial: ExportFormat = 'docx') {
+  const formats: { value: ExportFormat; title: string; detail: string; icon: string }[] = [
+    { value: 'docx', title: 'Word', detail: 'Editable text with headings, paragraphs and pictures.', icon: 'file-text' },
+    { value: 'xlsx', title: 'Excel', detail: 'Tables become rows and columns, one sheet per page. Numbers stay numbers.', icon: 'table' },
+    { value: 'pptx', title: 'PowerPoint', detail: 'One slide per page, exactly as it looks. Page text goes in the notes.', icon: 'presentation' },
+    { value: 'images', title: 'Pictures', detail: 'Each page as a PNG or JPEG.', icon: 'file-image' },
+    { value: 'pdfa', title: 'PDF/A', detail: 'The archiving standard: fonts built in, nothing that can stop it opening in years to come.', icon: 'archive' },
+    { value: 'txt', title: 'Plain text', detail: 'Just the words, for pasting anywhere.', icon: 'type' },
+    { value: 'md', title: 'Markdown', detail: 'Text with headings, bold and italic, for notes apps and websites.', icon: 'hash' },
+    { value: 'html', title: 'Web page', detail: 'A single HTML file that opens in any browser.', icon: 'globe' },
+  ];
+  let chosen = initial;
+  const list = h('div', { class: 'format-grid', role: 'radiogroup' }, ...formats.map((f) => {
+    const input = h('input', { type: 'radio', name: 'format', value: f.value, checked: f.value === chosen });
+    input.addEventListener('change', () => (chosen = f.value));
+    return h('label', { class: 'format-card' }, input, icon(f.icon), h('span', {}, h('strong', {}, f.title), h('span', {}, f.detail)));
+  }));
+  const go = await modal({
+    title: 'Convert PDF to…',
+    wide: true,
+    body: h('div', {}, h('p', { class: 'modal-text' }, 'Makes a new file from this document, including your edits. The PDF itself isn’t changed.'), list),
+    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Convert…', value: 'ok', primary: true }],
+  });
+  if (go !== 'ok') return;
+  if (chosen === 'images') return pdfToImages(target, toolHost);
+  if (chosen === 'docx') return exportWord(target);
+  if (chosen === 'pdfa') return saveAsPdfA(target);
+
+  const base = target.name.replace(/\.pdf$/i, '');
+  const labels: Record<string, string> = { xlsx: 'Excel workbook', pptx: 'PowerPoint presentation', txt: 'text file', md: 'Markdown file', html: 'web page' };
+  const bytes = await withBusy('Reading the document…', async () => {
+    const [formats, { exportPdf }, { loadPdf }] = await Promise.all([import('./export-formats'), import('./exporter'), import('./pdf')]);
+    const pdf = await loadPdf((await exportPdf(target)).bytes);
+    const step = (n: number, total: number) => progress(`Converting page ${n} of ${total}…`);
+    try {
+      const text = (s: string) => new TextEncoder().encode(s);
+      switch (chosen) {
+        // awaited here, so the PDF isn't closed (below) while still being read
+        case 'xlsx': return await formats.pdfToExcel(pdf, step);
+        case 'pptx': return await formats.pdfToPowerPoint(pdf, base, step);
+        case 'txt': return text(await formats.pdfToText(pdf, step));
+        case 'md': return text(await formats.pdfToMarkdown(pdf, step));
+        default: return text(await formats.pdfToHtml(pdf, base, step));
+      }
+    } finally {
+      pdf.loadingTask.destroy();
+    }
+  });
+  const path = await api.saveCopy(bytes, `${base}.${chosen}`, chosen as Exclude<ExportFormat, 'images' | 'pdfa'>);
+  if (path) toast(`Saved the ${labels[chosen]}.`, 'success');
+}
+
+/** The PDF/A-2b archiving format. */
+async function saveAsPdfA(target: EditorDoc) {
+  const result = await withBusy('Making a PDF/A…', async () => {
+    const [{ toPdfA }] = await Promise.all([import('./pdfa')]);
+    const { bytes } = await exportPdf(target);
+    return toPdfA(bytes, target.name.replace(/\.pdf$/i, ''));
+  });
+  const path = await api.saveCopy(result.bytes, `${target.name.replace(/\.pdf$/i, '')} (PDF-A).pdf`, 'pdf');
+  if (!path) return;
+  if (result.warnings.length) {
+    await modal({
+      title: 'Saved as PDF/A, with notes',
+      body: h('div', {}, h('p', { class: 'modal-text' }, 'The file was saved. A few things in it may not meet the standard strictly:'),
+        h('ul', { class: 'modal-list' }, ...result.warnings.map((w) => h('li', {}, w)))),
+    });
+  } else {
+    toast(`Saved as PDF/A${result.fontsEmbedded ? `, with ${result.fontsEmbedded} font${result.fontsEmbedded === 1 ? '' : 's'} built in` : ''}.`, 'success');
+  }
+}
+
+async function webToPdf() {
+  const address = h('input', { class: 'field-input', type: 'url', placeholder: 'https://example.com/page', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
+  const error = h('p', { class: 'field-error' });
+  const choice = await modal({
+    title: 'Web page to PDF',
+    body: h('div', {},
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Web address'), address,
+        h('span', { class: 'field-hint' }, 'The page loads privately, without your logins or cookies, and is printed onto A4 pages.')),
+      error,
+      h('p', { class: 'field-hint' }, 'Have an .html file instead? Use Convert to PDF.')),
+    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Make PDF', value: 'ok', primary: true }],
+    validate: (value) => {
+      if (value !== 'ok') return true;
+      if (!address.value.trim()) {
+        error.textContent = 'Type or paste a web address.';
+        return false;
+      }
+      return true;
+    },
+  });
+  if (choice !== 'ok') return;
+  const { pdf, title } = await withBusy('Loading the page…', () => api.urlToPdf(address.value.trim()));
+  const safe = title.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Web page';
+  const opened = await EditorDoc.open(pdf, `${safe}.pdf`, null);
+  opened.markUnsaved();
+  addTab(opened);
+}
+
+async function scanToPdf() {
+  const { scanDialog } = await import('./scan');
+  const scanned = await scanDialog();
+  if (!scanned) return;
+  const bytes = await withBusy('Making the PDF…', () => scanned.make(progress));
+  const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', '.');
+  const opened = await EditorDoc.open(bytes, `Scan ${stamp}.pdf`, null);
+  opened.markUnsaved();
+  addTab(opened);
+  if (scanned.ocr) await tool('Text recognition didn’t work', () => runOcr(opened));
+}
+
+const REPAIR_NOTES: Record<'rebuilt' | 'reread' | 'redrawn', string> = {
+  rebuilt: 'Repaired. The file’s index was rebuilt, and everything in it was kept.',
+  reread: 'Repaired. Inkleaf read back everything it could; give the pages a quick check.',
+  redrawn: 'Repaired by redrawing each page. The text can’t be selected any more: run Recognise Text (OCR) to bring that back.',
+};
+
+/** Repairs a damaged PDF (picked now, or one that just failed to open) into a new tab. */
+async function repairFile(file?: { name: string; data: Uint8Array }) {
+  if (!file) {
+    [file] = await api.pickPdfs('Choose a damaged PDF to repair');
+    if (!file) return;
+  }
+  const { repairPdf } = await import('./repair');
+  const result = await withBusy('Repairing…', () => repairPdf(file!.data, progress));
+  const opened = await EditorDoc.open(result.bytes, file.name.replace(/(\.pdf)?$/i, ' (repaired).pdf'), null);
+  opened.markUnsaved();
+  addTab(opened);
+  toast(`${REPAIR_NOTES[result.method]} ${result.pages} page${result.pages === 1 ? '' : 's'} recovered.`, 'success', 9000);
+}
+
+/** Saves a copy of a password-protected PDF without its password. */
+async function unlockFile() {
+  const [file] = await api.pickPdfs('Choose a protected PDF to unlock');
+  if (!file) return;
+  const done = await withUnlocked(file.data, file.name, async (bytes, wasProtected) => {
+    if (!wasProtected) {
+      await modal({ title: 'Nothing to unlock', body: `“${file.name}” doesn’t have a password or any restrictions.` });
+      return 'none' as const;
+    }
+    const opened = await EditorDoc.open(bytes, file.name, null);
+    const { bytes: plain } = await withBusy('Unlocking…', () => exportPdf(opened));
+    opened.destroy();
+    const path = await api.saveCopy(plain, file.name.replace(/(\.pdf)?$/i, ' (unlocked).pdf'), 'pdf');
+    return path ? ('saved' as const) : ('none' as const);
+  });
+  if (done === 'saved') toast('Saved an unlocked copy. The original still has its password.', 'success');
+}
+
+let aiModule: Promise<typeof import('./ai-tools')> | null = null;
+const aiTools = () => (aiModule ??= import('./ai-tools'));
+const aiHost = {
+  withBusy,
+  progress,
+  openDoc: (opened: EditorDoc) => addTab(opened),
+  currentPageId: () => viewer.currentPageId,
+};
+
+async function openAllTools() {
+  const { allTools } = await import('./all-tools');
+  const picked = await allTools(!!doc);
+  if (!picked) return;
+  if (!picked.standalone && !doc) {
+    await run('open');
+    if (!doc) return;
+  }
+  switch (picked.command) {
+    case 'organize':
+      showSide('pages');
+      thumbs.selectAll();
+      return toast('Drag the pages in the sidebar to put them in a new order.', 'info');
+    case 'pdf-to-pptx': return tool('Couldn’t convert this PDF', () => convertFromPdf(doc!, 'pptx'));
+    case 'pdf-to-xlsx': return tool('Couldn’t convert this PDF', () => convertFromPdf(doc!, 'xlsx'));
+    case 'pdf-to-md': return tool('Couldn’t convert this PDF', () => convertFromPdf(doc!, 'md'));
+    case 'edit-text':
+      editor.setTool('edit-text');
+      return toast('Click any text on the page to change it.', 'info');
+    case 'redact':
+      editor.setTool('redact');
+      return toast('Drag over anything private. It’s removed for good when you save.', 'info');
+    case 'sign': return startSign();
+    default: return run(picked.command as Command);
+  }
+}
 
 async function exportWord(target: EditorDoc) {
   const bytes = await withBusy('Reading the document…', async () => {
@@ -1035,9 +1270,19 @@ const menus: Record<string, () => (MenuItem | 'separator')[]> = {
     { label: 'Add form fields', icon: 'text-cursor', action: () => run('form-builder') },
     { label: 'Compare with another PDF…', icon: 'git-compare', action: () => run('compare') },
     'separator',
-    { label: 'Pictures to PDF…', icon: 'images', action: () => run('images-to-pdf') },
-    { label: 'Export pages as pictures…', icon: 'file-image', action: () => run('pdf-to-images') },
-    { label: 'Export to Word…', icon: 'file-type', action: () => run('pdf-to-word') },
+    { label: 'Convert to PDF…', icon: 'file-input', hint: 'Word, Excel, PowerPoint…', action: () => run('convert-to-pdf') },
+    { label: 'Convert PDF to…', icon: 'file-output', hint: 'Word, Excel, PowerPoint…', action: () => run('convert-from-pdf') },
+    { label: 'Web page to PDF…', icon: 'globe', action: () => run('web-to-pdf') },
+    { label: 'Scan to PDF…', icon: 'scan-line', action: () => run('scan-to-pdf') },
+    { label: 'Combine pictures into one PDF…', icon: 'images', action: () => run('images-to-pdf') },
+    { label: 'Save as PDF/A…', icon: 'archive', hint: 'For archiving', action: () => run('pdf-to-pdfa') },
+    { label: 'Repair a damaged PDF…', icon: 'wrench', action: () => run('repair') },
+    'separator',
+    { label: 'AI Summarizer…', icon: 'sparkles', action: () => run('ai-summarize') },
+    { label: 'Translate PDF…', icon: 'languages', action: () => run('ai-translate') },
+    { label: 'AI settings…', icon: 'wrench', action: () => run('ai-settings') },
+    'separator',
+    { label: 'All tools', icon: 'layout-grid', hint: displayShortcut('Mod+K', isMac), action: () => run('all-tools') },
   ],
   pages: () => {
     const count = thumbs.chosenPages().length;
@@ -1234,6 +1479,8 @@ async function renderWelcome() {
       h('div', { class: 'start-actions' },
         action('folder-open', 'Open file', displayShortcut('Mod+O', isMac), 'open', true),
         action('file-text', 'New blank PDF', displayShortcut('Mod+N', isMac), 'new'),
+        action('file-input', 'Convert to PDF', 'Word, Excel, PowerPoint, pictures…', 'convert-to-pdf'),
+        action('layout-grid', 'All tools', 'Merge, scan, compress, translate…', 'all-tools'),
       ),
       h('section', { class: 'recent' },
         h('h2', {}, 'Recent files'),
@@ -1241,7 +1488,7 @@ async function renderWelcome() {
           ? h('div', { class: 'recent-grid' }, ...recent.map(card))
           : h('div', { class: 'recent-empty' },
               icon('clock'),
-              h('p', {}, 'Files you open will show up here. You can also drop a PDF anywhere in this window.')),
+              h('p', {}, 'Files you open will show up here. You can also drop a PDF (or a Word file, spreadsheet, slides or picture to convert) anywhere in this window.')),
       ),
       h('footer', { class: 'home-foot' },
         h('span', {}, 'Built by ', h('strong', {}, 'EPD'), ' · Free and open source'),
@@ -1281,9 +1528,12 @@ window.addEventListener('drop', async (e) => {
   dragDepth = 0;
   overlay.hidden = true;
 
-  const files = [...(e.dataTransfer?.files ?? [])].filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+  const files = [...(e.dataTransfer?.files ?? [])].filter((f) => {
+    const ext = f.name.toLowerCase().split('.').pop() ?? '';
+    return ext === 'pdf' || CONVERTIBLE.includes(ext);
+  });
   if (!files.length) {
-    toast('That isn’t a PDF.', 'error');
+    toast('Inkleaf can’t open that kind of file.', 'error');
     return;
   }
 
@@ -1301,7 +1551,7 @@ window.addEventListener('drop', async (e) => {
 
   if (doc) {
     const choice = await modal({
-      title: files.length === 1 ? `What should happen with “${files[0].name}”?` : `What should happen with these ${files.length} PDFs?`,
+      title: files.length === 1 ? `What should happen with “${files[0].name}”?` : `What should happen with these ${files.length} files?`,
       buttons: [
         { label: 'Cancel', value: 'cancel' },
         { label: files.length === 1 ? 'Open in a new tab' : 'Open each in a tab', value: 'open' },
@@ -1309,8 +1559,19 @@ window.addEventListener('drop', async (e) => {
       ],
     });
     if (choice === 'insert') {
-      const picked = await Promise.all(files.map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })));
-      await withBusy('Inserting pages…', () => insertPdfFiles(doc!, picked, afterCurrentIndex()));
+      const target = doc!;
+      const { convertToPdf } = await import('./to-pdf');
+      const picked: { name: string; data: Uint8Array }[] = [];
+      for (const f of files) {
+        const data = new Uint8Array(await f.arrayBuffer());
+        try {
+          // other kinds of file are turned into PDF pages first
+          picked.push(/\.pdf$/i.test(f.name) ? { name: f.name, data } : { name: f.name, data: (await withBusy(`Converting “${f.name}”…`, () => convertToPdf({ name: f.name, data }, progress))).bytes });
+        } catch (err) {
+          showError(`Couldn’t convert “${f.name}”`, err);
+        }
+      }
+      if (picked.length) await withBusy('Inserting pages…', () => insertPdfFiles(target, picked, afterCurrentIndex()));
       return;
     }
     if (choice !== 'open') return;
@@ -1408,6 +1669,7 @@ async function start() {
   // for automated tests only: exposes internals without touching the UI
   (window as unknown as { __inkleaf: unknown }).__inkleaf = {
     getDoc, viewer, editor, exportPdf, autosave, tabCount: () => tabs.length, run: (c: Command) => run(c),
+    allDocs: () => tabs.map((t) => t.doc),
     exportBatch: async (d: EditorDoc, groups: string[][]) => (await import('./exporter')).exportBatch(d, groups),
   };
 }

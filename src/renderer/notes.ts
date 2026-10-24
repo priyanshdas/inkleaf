@@ -48,6 +48,8 @@ export class NotePopup {
       e.stopPropagation(); // typing letters shouldn't switch tools
       if (e.key === 'Escape') {
         this.getDoc()?.commit();
+        // hand the keyboard back to the page, so tool keys work straight away
+        this.area.blur();
         this.editor.select(null);
       }
     });

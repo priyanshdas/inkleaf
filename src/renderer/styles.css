@@ -1669,3 +1669,104 @@ kbd {
 }
 .coffee-link .icon { width: 15px; height: 15px; color: #e8590c; }
 .coffee-link:hover { border-color: #e8590c; color: var(--ink); }
+
+/* --- convert PDF to… ---------------------------------------------------------------------------- */
+
+.format-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.format-card {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.format-card:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.format-card input { margin-top: 3px; accent-color: var(--accent); }
+.format-card > .icon { width: 18px; height: 18px; margin-top: 1px; color: var(--accent); }
+.format-card > span { display: flex; flex-direction: column; gap: 2px; }
+.format-card strong { font-size: 13.5px; }
+.format-card span span { color: var(--ink-2); font-size: 12.5px; line-height: 1.4; }
+
+/* --- scan to PDF --------------------------------------------------------------------- */
+.modal:has(.scan), .modal:has(.hub) { width: min(920px, 100%); }
+.scan { display: flex; flex-direction: column; gap: 10px; }
+.scan-bar { display: flex; align-items: center; gap: 8px; }
+.scan-count { color: var(--ink-3); font-size: 12.5px; }
+.scan-stage {
+  position: relative;
+  height: min(52vh, 460px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #1b2420;
+  transition: filter 0.18s;
+}
+.scan-stage.flash { filter: brightness(1.8); }
+.scan-video { max-width: 100%; max-height: 100%; }
+.scan-canvas { touch-action: none; cursor: crosshair; }
+.scan-empty { display: grid; justify-items: center; gap: 8px; max-width: 300px; color: #b9c9c1; text-align: center; }
+.scan-empty .icon { width: 34px; height: 34px; opacity: 0.8; }
+.scan-page-tools { display: flex; align-items: center; gap: 6px; }
+.scan-page-tools .field-hint { flex: 1; }
+.scan-page-tools .scan-mode { width: auto; height: 30px; font-size: 12.5px; }
+.scan-strip { display: flex; gap: 8px; min-height: 92px; padding: 4px 2px; overflow-x: auto; }
+.scan-thumb {
+  position: relative;
+  flex: none;
+  width: 66px;
+  height: 86px;
+  padding: 0;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  overflow: hidden;
+  cursor: pointer;
+}
+.scan-thumb.active { border-color: var(--accent); }
+.scan-thumb img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.scan-thumb span {
+  position: absolute; right: 3px; bottom: 3px;
+  padding: 0 5px; border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 11px;
+}
+
+/* --- all tools --------------------------------------------------------------------------- */
+.hub { display: flex; flex-direction: column; gap: 14px; max-height: 66vh; overflow-y: auto; padding: 2px 4px 2px 2px; }
+.hub-search { flex: none; }
+.hub-search { position: sticky; top: 0; z-index: 1; }
+.hub-group h3 { margin: 0 0 8px; color: var(--ink-3); font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.hub-tool {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.hub-tool:hover, .hub-tool:focus-visible { border-color: var(--accent); background: var(--accent-soft); outline: none; }
+.hub-icon { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
+.hub-tool:hover .hub-icon { background: var(--panel); }
+.hub-icon .icon { width: 17px; height: 17px; }
+.hub-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hub-text strong { font-size: 13px; }
+.hub-text span { color: var(--ink-2); font-size: 12px; line-height: 1.35; }
+.hub-badge { position: absolute; top: 7px; right: 8px; color: var(--ink-3); }
+.hub-badge .icon { width: 12px; height: 12px; }
+.hub-empty { color: var(--ink-3); text-align: center; }
+
+/* --- AI ------------------------------------------------------------------------------------- */
+.ai-summary { max-height: 58vh; overflow-y: auto; line-height: 1.55; user-select: text; }
+.ai-summary :is(h1, h2, h3) { font-size: 15px; margin: 12px 0 6px; }
+.ai-summary ul { padding-left: 20px; }
+.ai-summary p:first-child { margin-top: 0; }
+.modal-list { margin: 6px 0 0; padding-left: 20px; color: var(--ink-2); line-height: 1.5; }
