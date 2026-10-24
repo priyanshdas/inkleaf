@@ -17,7 +17,6 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dist:win:store": "node scripts/build.mjs && electron-builder --win appx --x64 --publish never",
     "build:core": "node scripts/build.mjs --core",
     "start": "node scripts/build.mjs && electron .",
     "dev": "node scripts/build.mjs --watch",
@@ -99,42 +98,14 @@
         "role": "Editor"
       }
     ],
-    "win": {
+    
+        "win": {
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "appx",
-          "arch": [
-            "x64"
-          ]
-        }
+        "nsis",
+        "portable"
       ],
       "icon": "build/icon.png",
       "artifactName": "${productName}-${version}-${arch}-${target}.${ext}"
-    },
-    "appx": {
-      "applicationId": "inkleaf",
-      "identityName": "inkleaf",
-      "publisherDisplayName": "Priyansh Das",
-      "displayName": "Inkleaf",
-      "description": "A free, open-source, offline PDF editor.",
-      "languages": [
-        "en-US"
-      ],
-      "capabilities": [
-        "runFullTrust"
-      ]
     },
     "nsis": {
       "oneClick": false,
