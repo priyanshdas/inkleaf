@@ -22,7 +22,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb poppler-utils qpdf fonts-dejavu unzip python3-openpyxl
-          python -m pip install pypdf python-pptx pikepdf
+          python -m pip install pypdf python-pptx "pikepdf[pdf]" openpyxl
 
       - run: npm ci
       - run: npm run build
