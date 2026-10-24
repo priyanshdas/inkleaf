@@ -2340,44 +2340,16 @@ footer {
   display: none;
 }
 
-@media (max-width: 700px) {
-  .nav-container {
-    padding: 0 20px;
-  }
-
-  .nav-links,
-  .nav-download {
-    display: none;
-  }
-
-  .mobile-menu-toggle {
-    display: flex;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.03);
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 4px;
-    cursor: pointer;
-  }
-
-  .mobile-menu-toggle span {
-    width: 16px;
-    height: 1.5px;
-    background: #f1f1f1;
-    border-radius: 2px;
-  }
-}
-@media (max-width: 700px) {
+@media (max-width: 900px) {
   .feature-grid {
     grid-template-columns: 1fr !important;
   }
 
   .feature-card {
     min-width: 0;
+  }
+
+  .trust-strip {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
