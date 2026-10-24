@@ -108,6 +108,13 @@ a {
 
   letter-spacing: -0.03em;
 }
+.brand-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
 
 .brand-mark {
   width: 32px;
