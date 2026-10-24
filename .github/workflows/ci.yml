@@ -22,10 +22,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb poppler-utils qpdf fonts-dejavu unzip
-          pip install pypdf
+          pip install pypdf openpyxl
 
       - run: npm ci
-      - run: npm run generate:icons
+      - run: npm run build
       - run: npm run typecheck
 
       - name: Rust core
