@@ -2,6 +2,7 @@
 // The Tools menu: compress, password-protect, watermark and page numbers,
 // and converting between PDFs, pictures and Word.
 
+import { msg, t } from '../shared/i18n';
 import { core, CompressLevel } from './core';
 import { NO_DECOR, type EditorDoc } from './document';
 import { baseName } from './page-tools';
@@ -45,43 +46,43 @@ function choices<T extends string>(name: string, options: { value: T; title: str
 
 export async function compressDialog(doc: EditorDoc, host: ToolHost) {
   const level = choices<CompressLevel>('level', [
-    { value: 'light', title: 'Light', detail: 'Removes waste, keeps pictures as they are. Best quality.' },
-    { value: 'balanced', title: 'Balanced', detail: 'Resizes large photos. Good for email; looks the same on screen.' },
-    { value: 'strong', title: 'Smallest file', detail: 'Lower-quality photos. Text stays perfectly sharp.' },
+    { value: 'light', title: t('Light'), detail: t('Removes waste, keeps pictures as they are. Best quality.') },
+    { value: 'balanced', title: t('Balanced'), detail: t('Resizes large photos. Good for email; looks the same on screen.') },
+    { value: 'strong', title: t('Smallest file'), detail: t('Lower-quality photos. Text stays perfectly sharp.') },
   ], 'balanced');
   const go = await modal({
-    title: 'Compress PDF',
-    body: h('div', {}, h('p', { class: 'modal-text' }, 'Makes a smaller copy. Your document stays as it is.'), level.el),
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Compress', value: 'ok', primary: true }],
+    title: t('Compress PDF'),
+    body: h('div', {}, h('p', { class: 'modal-text' }, t('Makes a smaller copy. Your document stays as it is.')), level.el),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Compress'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;
 
-  const { pdf, report } = await host.withBusy('Compressing…', async () => core.compress(await exported(doc), level.value));
+  const { pdf, report } = await host.withBusy(t('Compressing…'), async () => core.compress(await exported(doc), level.value));
   const saved = report.before - report.after;
   if (saved < 1024) {
-    await modal({ title: 'Already compact', body: 'This PDF is already about as small as it can get without losing quality.' });
+    await modal({ title: t('Already compact'), body: t('This PDF is already about as small as it can get without losing quality.') });
     return;
   }
   const details = [
-    report.imagesShrunk ? `${report.imagesShrunk} picture${report.imagesShrunk === 1 ? '' : 's'} resized` : '',
-    report.duplicatesMerged ? `${report.duplicatesMerged} duplicate${report.duplicatesMerged === 1 ? '' : 's'} removed` : '',
+    report.imagesShrunk ? t('{count, plural, one {# picture resized} other {# pictures resized}}', { count: report.imagesShrunk }) : '',
+    report.duplicatesMerged ? t('{count, plural, one {# duplicate removed} other {# duplicates removed}}', { count: report.duplicatesMerged }) : '',
   ].filter(Boolean).join(', ');
   const choice = await modal({
-    title: 'Compressed',
+    title: t('Compressed'),
     body: h('div', { class: 'result-card' },
       h('div', { class: 'result-sizes' },
         h('span', {}, formatBytes(report.before)), icon('chevron-right'), h('strong', {}, formatBytes(report.after))),
-      h('p', { class: 'modal-text' }, `${Math.round((saved / report.before) * 100)}% smaller${details ? ` · ${details}` : ''}.`)),
+      h('p', { class: 'modal-text' }, details ? t('{percent}% smaller · {details}.', { percent: Math.round((saved / report.before) * 100), details }) : t('{percent}% smaller.', { percent: Math.round((saved / report.before) * 100) }))),
     buttons: [
-      { label: 'Close', value: 'cancel' },
-      { label: 'Open in a new tab', value: 'open' },
-      { label: 'Save copy…', value: 'save', primary: true },
+      { label: t('Close'), value: 'cancel' },
+      { label: t('Open in a new tab'), value: 'open' },
+      { label: t('Save copy…'), value: 'save', primary: true },
     ],
   });
   if (choice === 'open') await host.openBytes(pdf, `${baseName(doc.name)} (compressed).pdf`);
   if (choice === 'save') {
     const path = await window.inkleaf.saveCopy(pdf, `${baseName(doc.name)} (compressed).pdf`, 'pdf');
-    if (path) toast('Saved the compressed copy.', 'success');
+    if (path) toast(t('Saved the compressed copy.'), 'success');
   }
 }
 
@@ -89,23 +90,23 @@ export async function compressDialog(doc: EditorDoc, host: ToolHost) {
 
 export async function protectDialog(doc: EditorDoc, host: ToolHost) {
   const needPassword = h('input', { type: 'checkbox', checked: true });
-  const password = h('input', { class: 'field-input', type: 'password', autocomplete: 'new-password', placeholder: 'At least 6 characters' });
+  const password = h('input', { class: 'field-input', type: 'password', autocomplete: 'new-password', placeholder: t('At least 6 characters') });
   const confirm = h('input', { class: 'field-input', type: 'password', autocomplete: 'new-password' });
   const restrict = h('input', { type: 'checkbox' });
   const allowPrint = h('input', { type: 'checkbox', checked: true });
   const allowCopy = h('input', { type: 'checkbox', checked: true });
   const allowEdit = h('input', { type: 'checkbox' });
-  const ownerPassword = h('input', { class: 'field-input', type: 'password', autocomplete: 'new-password', placeholder: 'Needed to lift the restrictions later' });
+  const ownerPassword = h('input', { class: 'field-input', type: 'password', autocomplete: 'new-password', placeholder: t('Needed to lift the restrictions later') });
   const error = h('p', { class: 'field-error' });
 
   const openSection = h('div', { class: 'indent' },
-    h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Password'), password),
-    h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Type it again'), confirm));
+    h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Password')), password),
+    h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Type it again')), confirm));
   const restrictSection = h('div', { class: 'indent' },
-    h('label', { class: 'check' }, allowPrint, ' Allow printing'),
-    h('label', { class: 'check' }, allowCopy, ' Allow copying text'),
-    h('label', { class: 'check' }, allowEdit, ' Allow changes, comments and form filling'),
-    h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Permissions password'), ownerPassword));
+    h('label', { class: 'check' }, allowPrint, t(' Allow printing')),
+    h('label', { class: 'check' }, allowCopy, t(' Allow copying text')),
+    h('label', { class: 'check' }, allowEdit, t(' Allow changes, comments and form filling')),
+    h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Permissions password')), ownerPassword));
   const sync = () => {
     openSection.hidden = !needPassword.checked;
     restrictSection.hidden = !restrict.checked;
@@ -115,23 +116,23 @@ export async function protectDialog(doc: EditorDoc, host: ToolHost) {
   sync();
 
   const go = await modal({
-    title: 'Password protect',
+    title: t('Password protect'),
     wide: true,
     body: h('div', { class: 'protect' },
-      h('label', { class: 'check strong' }, needPassword, ' Require a password to open'),
+      h('label', { class: 'check strong' }, needPassword, t(' Require a password to open')),
       openSection,
-      h('label', { class: 'check strong' }, restrict, ' Restrict what people can do'),
+      h('label', { class: 'check strong' }, restrict, t(' Restrict what people can do')),
       restrictSection,
-      h('p', { class: 'field-hint warn' }, icon('info'), 'Inkleaf can’t recover a forgotten password. Keep it somewhere safe.'),
+      h('p', { class: 'field-hint warn' }, icon('info'), t('Inkleaf can’t recover a forgotten password. Keep it somewhere safe.')),
       error),
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Save protected copy…', value: 'ok', primary: true }],
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Save protected copy…'), value: 'ok', primary: true }],
     validate: () => {
       let message = '';
-      if (!needPassword.checked && !restrict.checked) message = 'Choose a password, restrictions, or both.';
-      else if (needPassword.checked && password.value.length < 6) message = 'Use a password of at least 6 characters.';
-      else if (needPassword.checked && password.value !== confirm.value) message = 'The two passwords don’t match.';
-      else if (restrict.checked && ownerPassword.value.length < 6) message = 'Choose a permissions password of at least 6 characters.';
-      else if (restrict.checked && needPassword.checked && ownerPassword.value === password.value) message = 'Use a different permissions password, or the restrictions won’t hold.';
+      if (!needPassword.checked && !restrict.checked) message = t('Choose a password, restrictions, or both.');
+      else if (needPassword.checked && password.value.length < 6) message = t('Use a password of at least 6 characters.');
+      else if (needPassword.checked && password.value !== confirm.value) message = t('The two passwords don’t match.');
+      else if (restrict.checked && ownerPassword.value.length < 6) message = t('Choose a permissions password of at least 6 characters.');
+      else if (restrict.checked && needPassword.checked && ownerPassword.value === password.value) message = t('Use a different permissions password, or the restrictions won’t hold.');
       error.textContent = message;
       return !message;
     },
@@ -147,9 +148,9 @@ export async function protectDialog(doc: EditorDoc, host: ToolHost) {
     allowCopy: !restrict.checked || allowCopy.checked,
     allowEdit: !restrict.checked || allowEdit.checked,
   };
-  const bytes = await host.withBusy('Encrypting…', async () => core.protect(await exported(doc), options));
+  const bytes = await host.withBusy(t('Encrypting…'), async () => core.protect(await exported(doc), options));
   const path = await window.inkleaf.saveCopy(bytes, `${baseName(doc.name)} (protected).pdf`, 'pdf');
-  if (path) toast('Saved the protected copy. Your open document isn’t locked.', 'success', 5000);
+  if (path) toast(t('Saved the protected copy. Your open document isn’t locked.'), 'success', 5000);
 }
 
 // --- watermark, page numbers, header and footer ---------------------------------------
@@ -159,9 +160,9 @@ const WATERMARK_COLOURS = ['#c4314b', '#888888', '#1d3f91', '#1f8a5b'];
 export async function decorDialog(doc: EditorDoc) {
   const d = doc.decor;
   const field = (label: string, input: HTMLElement, hint?: string) =>
-    h('label', { class: 'field' }, h('span', { class: 'field-label' }, label), input, hint ? h('span', { class: 'field-hint' }, hint) : null);
+    h('label', { class: 'field' }, h('span', { class: 'field-label' }, t(label)), input, hint ? h('span', { class: 'field-hint' }, t(hint)) : null);
   const select = <T extends string>(options: [T, string][], value: T) => {
-    const el = h('select', { class: 'field-input' }, ...options.map(([v, label]) => new Option(label, v)));
+    const el = h('select', { class: 'field-input' }, ...options.map(([v, label]) => new Option(t(label), v)));
     el.value = value;
     return el;
   };
@@ -171,7 +172,7 @@ export async function decorDialog(doc: EditorDoc) {
     const sync = () => (section.hidden = !box.checked);
     box.addEventListener('change', sync);
     sync();
-    return { box, row: h('label', { class: 'check strong' }, box, ` ${label}`) };
+    return { box, row: h('label', { class: 'check strong' }, box, ` ${t(label)}`) };
   };
 
   // watermark
@@ -190,58 +191,58 @@ export async function decorDialog(doc: EditorDoc) {
   const wmOpacity = h('input', { type: 'range', min: '5', max: '60', step: '1', value: String(Math.round(wm.opacity * 100)) });
   const wmDiagonal = h('input', { type: 'checkbox', checked: wm.diagonal });
   const wmSection = h('div', { class: 'indent grid-2' },
-    field('Text', wmText), field('Size (pt)', wmSize),
-    field('Colour', wmSwatches), field('Strength', wmOpacity),
-    h('label', { class: 'check' }, wmDiagonal, ' Diagonal'));
-  const wmToggle = toggle(!!d.watermark, 'Watermark', wmSection);
+    field(msg('Text'), wmText), field(msg('Size (pt)'), wmSize),
+    field(msg('Colour'), wmSwatches), field(msg('Strength'), wmOpacity),
+    h('label', { class: 'check' }, wmDiagonal, t(' Diagonal')));
+  const wmToggle = toggle(!!d.watermark, msg('Watermark'), wmSection);
 
   // page numbers
   const pn: PageNumbers = d.numbers ?? { style: 'page-n-of-total', vertical: 'bottom', align: 'center', size: 10, start: 1, skipFirst: false };
   const pnStyle = select<NumberStyle>([['n', '3'], ['n-of-total', '3 of 10'], ['page-n', 'Page 3'], ['page-n-of-total', 'Page 3 of 10']], pn.style);
   const pnWhere = select<string>([
-    ['bottom-center', 'Bottom centre'], ['bottom-right', 'Bottom right'], ['bottom-left', 'Bottom left'],
-    ['top-center', 'Top centre'], ['top-right', 'Top right'], ['top-left', 'Top left'],
+    ['bottom-center', msg('Bottom centre')], ['bottom-right', msg('Bottom right')], ['bottom-left', msg('Bottom left')],
+    ['top-center', msg('Top centre')], ['top-right', msg('Top right')], ['top-left', msg('Top left')],
   ], `${pn.vertical}-${pn.align}`);
   const pnStart = number(pn.start, 0, 9999);
   const pnSize = number(pn.size, 6, 36);
   const pnSkip = h('input', { type: 'checkbox', checked: pn.skipFirst });
   const pnSection = h('div', { class: 'indent grid-2' },
-    field('Style', pnStyle), field('Position', pnWhere), field('Start at', pnStart), field('Size (pt)', pnSize),
-    h('label', { class: 'check' }, pnSkip, ' Don’t number the first page (a cover)'));
-  const pnToggle = toggle(!!d.numbers, 'Page numbers', pnSection);
+    field(msg('Style'), pnStyle), field(msg('Position'), pnWhere), field(msg('Start at'), pnStart), field(msg('Size (pt)'), pnSize),
+    h('label', { class: 'check' }, pnSkip, t(' Don’t number the first page (a cover)')));
+  const pnToggle = toggle(!!d.numbers, msg('Page numbers'), pnSection);
 
   // header and footer
   const bandInputs = (b: Band | null, fallback: Band) => {
     const v = b ?? fallback;
     return {
-      left: h('input', { class: 'field-input', value: v.left, placeholder: 'Left' }),
-      center: h('input', { class: 'field-input', value: v.center, placeholder: 'Centre' }),
-      right: h('input', { class: 'field-input', value: v.right, placeholder: 'Right' }),
+      left: h('input', { class: 'field-input', value: v.left, placeholder: t('Left') }),
+      center: h('input', { class: 'field-input', value: v.center, placeholder: t('Centre') }),
+      right: h('input', { class: 'field-input', value: v.right, placeholder: t('Right') }),
       size: number(v.size, 6, 24),
     };
   };
   const head = bandInputs(d.header, { left: '{file}', center: '', right: '{date}', size: 9 });
   const foot = bandInputs(d.footer, { left: '', center: '', right: '', size: 9 });
   const bandSection = (b: ReturnType<typeof bandInputs>) =>
-    h('div', { class: 'indent' }, h('div', { class: 'band-row' }, b.left, b.center, b.right), field('Size (pt)', b.size));
+    h('div', { class: 'indent' }, h('div', { class: 'band-row' }, b.left, b.center, b.right), field(msg('Size (pt)'), b.size));
   const headSection = bandSection(head);
   const footSection = bandSection(foot);
-  const headToggle = toggle(!!d.header, 'Header', headSection);
-  const footToggle = toggle(!!d.footer, 'Footer', footSection);
+  const headToggle = toggle(!!d.header, msg('Header'), headSection);
+  const footToggle = toggle(!!d.footer, msg('Footer'), footSection);
 
   const choice = await modal({
-    title: 'Watermark, page numbers & headers',
+    title: t('Watermark, page numbers & headers'),
     wide: true,
     body: h('div', { class: 'decor-dialog' },
       wmToggle.row, wmSection,
       pnToggle.row, pnSection,
       headToggle.row, headSection,
       footToggle.row, footSection,
-      h('p', { class: 'field-hint' }, 'In headers and footers, {page}, {total}, {date} and {file} are filled in for each page. Everything here is applied to every page and saved into the file.')),
+      h('p', { class: 'field-hint' }, t('In headers and footers, {page}, {total}, {date} and {file} are filled in for each page. Everything here is applied to every page and saved into the file.'))),
     buttons: [
-      { label: 'Remove all', value: 'clear', danger: true },
-      { label: 'Cancel', value: 'cancel' },
-      { label: 'Apply', value: 'ok', primary: true },
+      { label: t('Remove all'), value: 'clear', danger: true },
+      { label: t('Cancel'), value: 'cancel' },
+      { label: t('Apply'), value: 'ok', primary: true },
     ],
   });
   if (choice === 'clear') {
@@ -293,21 +294,21 @@ export async function imagesToPdf(host: ToolHost) {
   const files = await window.inkleaf.pickImages();
   if (!files.length) return;
   const fit = choices<'a4' | 'natural'>('fit', [
-    { value: 'a4', title: 'A4 pages', detail: 'Each picture centred on an A4 page, turned to suit its shape.' },
-    { value: 'natural', title: 'Same size as the picture', detail: 'Each page is exactly the picture, with no margins.' },
+    { value: 'a4', title: t('A4 pages'), detail: t('Each picture centred on an A4 page, turned to suit its shape.') },
+    { value: 'natural', title: t('Same size as the picture'), detail: t('Each page is exactly the picture, with no margins.') },
   ], 'a4');
   const go = await modal({
-    title: files.length === 1 ? 'Make a PDF from 1 picture' : `Make a PDF from ${files.length} pictures`,
-    body: h('div', {}, h('p', { class: 'modal-text' }, 'Pages follow the order the pictures were chosen in. You can reorder them afterwards.'), fit.el),
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Make PDF', value: 'ok', primary: true }],
+    title: t('{count, plural, one {Make a PDF from # picture} other {Make a PDF from # pictures}}', { count: files.length }),
+    body: h('div', {}, h('p', { class: 'modal-text' }, t('Pages follow the order the pictures were chosen in. You can reorder them afterwards.')), fit.el),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Make PDF'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;
 
-  const bytes = await host.withBusy('Making PDF…', async () => {
+  const bytes = await host.withBusy(t('Making PDF…'), async () => {
     const { PDFDocument } = await import('pdf-lib');
     const out = await PDFDocument.create();
     for (let i = 0; i < files.length; i++) {
-      host.progress(`Adding picture ${i + 1} of ${files.length}…`);
+      host.progress(t('Adding picture {n} of {total}…', { n: i + 1, total: files.length }));
       const img = await embeddable(files[i]);
       const embedded = img.jpeg ? await out.embedJpg(img.bytes) : await out.embedPng(img.bytes);
       // pictures are taken as 96 dpi when they set the page size
@@ -331,22 +332,22 @@ export async function imagesToPdf(host: ToolHost) {
 
 export async function pdfToImages(doc: EditorDoc, host: ToolHost) {
   const format = choices<'png' | 'jpeg'>('format', [
-    { value: 'png', title: 'PNG', detail: 'Sharpest. Best for text, diagrams and screenshots.' },
-    { value: 'jpeg', title: 'JPEG', detail: 'Smaller files. Best for photos.' },
+    { value: 'png', title: t('PNG'), detail: t('Sharpest. Best for text, diagrams and screenshots.') },
+    { value: 'jpeg', title: t('JPEG'), detail: t('Smaller files. Best for photos.') },
   ], 'png');
-  const dpi = h('select', { class: 'field-input' }, new Option('Screen (96 dpi)', '96'), new Option('Standard (150 dpi)', '150'), new Option('Print quality (300 dpi)', '300'));
+  const dpi = h('select', { class: 'field-input' }, new Option(t('Screen (96 dpi)'), '96'), new Option(t('Standard (150 dpi)'), '150'), new Option(t('Print quality (300 dpi)'), '300'));
   dpi.value = '150';
-  const which = h('select', { class: 'field-input' }, new Option('Every page', 'all'), new Option('Only the current page', 'current'));
+  const which = h('select', { class: 'field-input' }, new Option(t('Every page'), 'all'), new Option(t('Only the current page'), 'current'));
   const go = await modal({
-    title: 'Export pages as pictures',
+    title: t('Export pages as pictures'),
     body: h('div', {}, format.el,
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Resolution'), dpi),
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Pages'), which)),
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Export…', value: 'ok', primary: true }],
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Resolution')), dpi),
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Pages')), which)),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Export…'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;
 
-  const files = await host.withBusy('Drawing pages…', async () => {
+  const files = await host.withBusy(t('Drawing pages…'), async () => {
     const { exportPdf } = await import('./exporter');
     const current = host.currentPageId();
     const { bytes } = await exportPdf(doc, which.value === 'current' && current ? [current] : undefined);
@@ -357,7 +358,7 @@ export async function pdfToImages(doc: EditorDoc, host: ToolHost) {
     const firstNumber = which.value === 'current' && current ? doc.pageIndex(current) + 1 : 1;
     try {
       for (let i = 1; i <= pdf.numPages; i++) {
-        host.progress(`Drawing page ${i} of ${pdf.numPages}…`);
+        host.progress(t('Drawing page {n} of {total}…', { n: i, total: pdf.numPages }));
         const page = await pdf.getPage(i);
         const viewport = page.getViewport({ scale });
         const canvas = new OffscreenCanvas(Math.floor(viewport.width), Math.floor(viewport.height));
@@ -374,5 +375,5 @@ export async function pdfToImages(doc: EditorDoc, host: ToolHost) {
     return out;
   });
   const folder = await window.inkleaf.saveMany(files);
-  if (folder) toast(`Saved ${files.length} picture${files.length === 1 ? '' : 's'}.`, 'success');
+  if (folder) toast(t('{count, plural, one {Saved # picture.} other {Saved # pictures.}}', { count: files.length }), 'success');
 }

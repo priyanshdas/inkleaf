@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t } from '../shared/i18n';
 import type { EditorDoc } from './document';
 import type { FormValue } from './types';
 import type { PageView, Viewer } from './viewer';
@@ -180,7 +181,7 @@ export class FormLayer extends EventTarget {
     } else if (w.fieldType === 'Sig') {
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = 'Click to sign';
+      button.textContent = t('Click to sign');
       button.addEventListener('click', () => {
         const [x1, y1, x2, y2] = w.rect;
         const detail: SignFieldRequest = {

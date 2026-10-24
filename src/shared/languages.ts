@@ -8,6 +8,8 @@
 // the first time they're needed, as do text-recognition models (except
 // the four that always shipped: English, Hindi, Bengali and Italian).
 
+import { currentLocale } from './i18n';
+
 export type Script =
   | 'latin' | 'arabic' | 'hebrew' | 'devanagari' | 'bengali' | 'gujarati' | 'gurmukhi'
   | 'tamil' | 'telugu' | 'kannada' | 'malayalam' | 'oriya' | 'sinhala' | 'thai' | 'lao'
@@ -89,6 +91,23 @@ export const LANGUAGES: Language[] = [
 ];
 
 export const languageByCode = (code: string) => LANGUAGES.find((l) => l.code === code);
+
+/** A language's name in the interface language ("Hindi" in English, "Hindi" → "हिन्दी" in Hindi…). */
+export function languageName(nameOrCode: string): string {
+  const lang = LANGUAGES.find((l) => l.name === nameOrCode || l.code === nameOrCode);
+  if (!lang) return nameOrCode;
+  try {
+    return new Intl.DisplayNames([currentLocale()], { type: 'language' }).of(lang.code) ?? lang.name;
+  } catch {
+    return lang.name;
+  }
+}
+
+/** "Hindi · हिन्दी" (or just the name when the two are the same), for lists. */
+export function languageLabel(lang: Language): string {
+  const shown = languageName(lang.code);
+  return shown === lang.native ? shown : `${shown} · ${lang.native}`;
+}
 export const languageByOcr = (ocr: string) => LANGUAGES.find((l) => l.ocr === ocr);
 
 /** Scripts whose fonts download on first use rather than shipping with the app. */

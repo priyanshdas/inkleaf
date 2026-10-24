@@ -17,6 +17,7 @@
 // Anything that can't be fixed here (a non-standard font that was never
 // embedded, say) is reported rather than hidden.
 
+import { t } from '../shared/i18n';
 import type { PDFContext, PDFDict as PDFDictType, PDFDocument as PDFDocumentType, PDFName as PDFNameType, PDFNumber as PDFNumberType, PDFRef as PDFRefType } from 'pdf-lib';
 
 type Lib = typeof import('pdf-lib');
@@ -232,7 +233,7 @@ export async function toPdfA(input: Uint8Array, title: string): Promise<PdfAResu
         const kid = obj.lookupMaybe(N('DescendantFonts'), PDFArray)?.lookupMaybe(0, PDFDict);
         const fd = kid?.lookupMaybe(N('FontDescriptor'), PDFDict);
         if (fd && !fd.get(N('FontFile2')) && !fd.get(N('FontFile3')) && !fd.get(N('FontFile'))) {
-          warnings.add(`The font “${nameOf(lib, obj)}” isn’t embedded and can’t be replaced, so the file may not pass a strict PDF/A check.`);
+          warnings.add(t('The font “{font}” isn’t embedded and can’t be replaced, so the file may not pass a strict PDF/A check.', { font: nameOf(lib, obj) }));
         }
       }
       continue;
@@ -243,7 +244,7 @@ export async function toPdfA(input: Uint8Array, title: string): Promise<PdfAResu
     const base = nameOf(lib, obj);
     const pick = liberationFor(base);
     if (!pick) {
-      warnings.add(`The font “${base}” isn’t embedded in the original and has no free equivalent, so the file may not pass a strict PDF/A check.`);
+      warnings.add(t('The font “{font}” isn’t embedded in the original and has no free equivalent, so the file may not pass a strict PDF/A check.', { font: base }));
       continue;
     }
     if (descriptor && subtype === 'TrueType') await embedder.attach(descriptor, pick);
@@ -261,7 +262,7 @@ export async function toPdfA(input: Uint8Array, title: string): Promise<PdfAResu
   if (names?.get(N('JavaScript'))) names.delete(N('JavaScript'));
   if (names?.get(N('EmbeddedFiles'))) {
     names.delete(N('EmbeddedFiles'));
-    warnings.add('Files attached inside the PDF were removed: PDF/A-2 can’t carry them.');
+    warnings.add(t('Files attached inside the PDF were removed: PDF/A-2 can’t carry them.'));
   }
   const form = catalog.lookupMaybe(N('AcroForm'), PDFDict);
   if (form) {
@@ -340,7 +341,7 @@ export async function toPdfA(input: Uint8Array, title: string): Promise<PdfAResu
     if (obj instanceof PDFStream) {
       const filter = obj.dict.lookup(N('Filter'));
       const names2 = filter instanceof PDFArray ? Array.from({ length: filter.size() }, (_, i) => (filter.lookup(i) as PDFNameType).decodeText()) : filter instanceof PDFName ? [filter.decodeText()] : [];
-      if (names2.includes('LZWDecode')) warnings.add('Some content uses old LZW compression, which PDF/A doesn’t allow.');
+      if (names2.includes('LZWDecode')) warnings.add(t('Some content uses old LZW compression, which PDF/A doesn’t allow.'));
     }
   }
 

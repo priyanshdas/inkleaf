@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { currentLocale, isRtl, msg, t } from '../shared/i18n';
 import { TextToolbar } from './text-toolbar';
 import { onFontsChanged } from './custom-fonts';
 import { CONVERTIBLE, type MenuCommand, type OpenedFile, type RecentFile, type UpdateState } from '../shared/api';
@@ -26,7 +27,7 @@ import {
 import { chooseSignature, signMenu } from './signature';
 import { Thumbnails } from './thumbnails';
 import type { ImageAnnot, Tool } from './types';
-import { confirmDialog, h, hydrateIcons, icon, isModalOpen, liveStatus, modal, pickImage, toast } from './ui';
+import { confirmDialog, h, hydrateIcons, icon, localizeStatic, isModalOpen, liveStatus, modal, pickImage, richText, toast } from './ui';
 import { Viewer } from './viewer';
 
 const api = window.inkleaf;
@@ -132,12 +133,12 @@ const autosave = new AutoSave({
 });
 
 const SAVE_LABELS: Record<SaveState, [string, string]> = {
-  saved: ['check', 'Saved'],
-  saving: ['refresh-cw', 'Saving…'],
-  unsaved: ['circle', 'Not saved'],
-  off: ['circle', 'Not saved'],
-  new: ['circle', 'Not saved yet'],
-  error: ['info', 'Couldn’t auto-save'],
+  saved: ['check', msg('Saved')],
+  saving: ['refresh-cw', msg('Saving…')],
+  unsaved: ['circle', msg('Not saved')],
+  off: ['circle', msg('Not saved')],
+  new: ['circle', msg('Not saved yet')],
+  error: ['info', msg('Couldn’t auto-save')],
 };
 
 function updateSaveState() {
@@ -149,11 +150,11 @@ function updateSaveState() {
   const state = autosave.state(doc);
   const [iconName, label] = SAVE_LABELS[state];
   el.dataset.state = state;
-  el.title = state === 'error' ? `Auto-save failed: ${autosave.error(doc)}`
-    : state === 'new' ? 'Save this document once (Ctrl+S) and Inkleaf will keep saving it for you'
-      : doc.wasProtected && autosave.enabled ? 'Auto-save is paused for protected PDFs: saving would remove the protection'
-        : autosave.enabled ? 'Changes are saved automatically' : 'Auto-save is off';
-  el.replaceChildren(icon(iconName), h('span', {}, label));
+  el.title = state === 'error' ? t('Auto-save failed: {message}', { message: autosave.error(doc) ?? '' })
+    : state === 'new' ? t('Save this document once (Ctrl+S) and Inkleaf will keep saving it for you')
+      : doc.wasProtected && autosave.enabled ? t('Auto-save is paused for protected PDFs: saving would remove the protection')
+        : autosave.enabled ? t('Changes are saved automatically') : t('Auto-save is off');
+  el.replaceChildren(icon(iconName), h('span', {}, t(label)));
 }
 
 /** Offers back unsaved work from a session that didn't close normally. */
@@ -162,12 +163,12 @@ async function offerRecovery() {
   if (!found.length) return;
   const when = (ms: number) => new Date(ms).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
   const choice = await modal({
-    title: 'Restore unsaved work?',
+    title: t('Restore unsaved work?'),
     body: h('div', {},
-      h('p', { class: 'modal-text' }, 'Inkleaf didn’t close properly last time. These documents had changes that weren’t saved:'),
+      h('p', { class: 'modal-text' }, t('Inkleaf didn’t close properly last time. These documents had changes that weren’t saved:')),
       h('ul', { class: 'recover-list' }, ...found.map((r) => h('li', {}, h('strong', {}, r.name), h('span', {}, ` · ${when(r.savedAt)}`)))),
     ),
-    buttons: [{ label: 'Discard', value: 'discard', danger: true }, { label: 'Restore', value: 'restore', primary: true }],
+    buttons: [{ label: t('Discard'), value: 'discard', danger: true }, { label: t('Restore'), value: 'restore', primary: true }],
     dismissValue: 'later',
   });
   if (choice === 'later') return;
@@ -180,7 +181,7 @@ async function offerRecovery() {
         const restored = await EditorDoc.open(bytes, r.name.replace(/(\.pdf)?$/i, ' (recovered).pdf'), null);
         addTab(restored);
       } catch (err) {
-        toast(`Couldn’t restore “${r.name}”: ${(err as Error).message}`, 'error', 7000);
+        toast(t('Couldn’t restore “{name}”: {message}', { name: r.name, message: (err as Error).message }), 'error', 7000);
         continue;
       }
     }
@@ -263,7 +264,7 @@ function updatePager() {
   const total = doc?.pages.length ?? 0;
   const index = doc && viewer.currentPageId ? doc.pageIndex(viewer.currentPageId) : -1;
   if (document.activeElement !== input) input.value = index >= 0 ? String(index + 1) : '';
-  $('#page-count').textContent = `of ${total}`;
+  $('#page-count').textContent = t('of {total}', { total });
 }
 
 // --- tab management -------------------------------------------------------------
@@ -271,7 +272,7 @@ function updatePager() {
 function renderTabs() {
   const strip = $('#tabs');
   strip.replaceChildren(...tabs.map((tab) => {
-    const close = h('button', { class: 'tab-close', title: 'Close tab', 'aria-label': `Close ${tab.doc.name}` }, icon('x'));
+    const close = h('button', { class: 'tab-close', title: t('Close tab'), 'aria-label': t('Close {name}', { name: tab.doc.name }) }, icon('x'));
     close.addEventListener('click', (e) => {
       e.stopPropagation();
       closeTab(tab);
@@ -370,12 +371,12 @@ async function closeTab(tab: Tab): Promise<boolean> {
   if (tab.doc.dirty) {
     if (tab !== activeTab) activate(tab);
     const choice = await modal({
-      title: `Save changes to “${tab.doc.name}”?`,
-      body: 'Your changes will be lost if you don’t save them.',
+      title: t('Save changes to “{name}”?', { name: tab.doc.name }),
+      body: t('Your changes will be lost if you don’t save them.'),
       buttons: [
-        { label: 'Cancel', value: 'cancel' },
-        { label: 'Don’t save', value: 'discard' },
-        { label: 'Save', value: 'save', primary: true },
+        { label: t('Cancel'), value: 'cancel' },
+        { label: t('Don’t save'), value: 'discard' },
+        { label: t('Save'), value: 'save', primary: true },
       ],
     });
     if (choice === 'cancel') return false;
@@ -432,7 +433,7 @@ async function openFile(file: OpenedFile) {
     return;
   }
   try {
-    const opened = await withBusy('Opening…', async () => {
+    const opened = await withBusy(t('Opening…'), async () => {
       return withUnlocked(file.data, file.name, async (bytes, wasProtected) => {
         const next = await EditorDoc.open(bytes, file.name, file.path);
         next.wasProtected = wasProtected;
@@ -447,17 +448,17 @@ async function openFile(file: OpenedFile) {
       if (opened === doc) renderSide();
     }).catch(() => {});
     if (opened.wasProtected) {
-      toast('This PDF was protected. Inkleaf will save it without the protection.', 'info', 8000);
+      toast(t('This PDF was protected. Inkleaf will save it without the protection.'), 'info', 8000);
     }
-    if (await forms.hasFields()) toast('This PDF has form fields. Click a field to fill it in.', 'info');
+    if (await forms.hasFields()) toast(t('This PDF has form fields. Click a field to fill it in.'), 'info');
   } catch (err) {
     console.error(err);
     const choice = await modal({
-      title: 'Couldn’t open this PDF',
-      body: `“${file.name}” looks damaged. Inkleaf can try to repair it into a new copy; the original isn’t touched.`,
-      buttons: [{ label: 'Close', value: 'cancel' }, { label: 'Try to repair', value: 'repair', primary: true }],
+      title: t('Couldn’t open this PDF'),
+      body: t('“{name}” looks damaged. Inkleaf can try to repair it into a new copy; the original isn’t touched.', { name: file.name }),
+      buttons: [{ label: t('Close'), value: 'cancel' }, { label: t('Try to repair'), value: 'repair', primary: true }],
     });
-    if (choice === 'repair') await tool('Couldn’t repair the PDF', () => repairFile(file));
+    if (choice === 'repair') await tool(t('Couldn’t repair the PDF'), () => repairFile(file));
   }
 }
 
@@ -476,10 +477,10 @@ async function save(saveAs = false): Promise<boolean> {
   const current = doc;
   const at = current.version();
   try {
-    const { bytes, warnings } = await withBusy('Saving…', () => exportPdf(current));
+    const { bytes, warnings } = await withBusy(t('Saving…'), () => exportPdf(current));
     let path = current.path;
     if (!saveAs && path) {
-      await withBusy('Saving…', () => api.save(path!, bytes));
+      await withBusy(t('Saving…'), () => api.save(path!, bytes));
     } else {
       path = await api.saveAs(bytes, current.name);
       if (!path) return false;
@@ -487,11 +488,11 @@ async function save(saveAs = false): Promise<boolean> {
     current.markSaved(fileName(path), path, at);
     autosave.forget(current);
     rememberThumbnail(current);
-    toast(`Saved “${current.name}”`, 'success', 2600);
+    toast(t('Saved “{name}”', { name: current.name }), 'success', 2600);
     await showWarnings(warnings);
     return true;
   } catch (err) {
-    showError('Couldn’t save', err);
+    showError(t('Couldn’t save'), err);
     return false;
   }
 }
@@ -560,14 +561,14 @@ forms.addEventListener('sign-field', async (event) => {
 async function deletePages(ids: string[]) {
   if (!doc || !ids.length) return;
   if (ids.length >= doc.pages.length) {
-    toast('A PDF needs at least one page.', 'error');
+    toast(t('A PDF needs at least one page.'), 'error');
     return;
   }
-  if (ids.length > 1 && !(await confirmDialog(`Delete ${ids.length} pages?`, 'You can undo this with Ctrl+Z.', 'Delete', true))) return;
+  if (ids.length > 1 && !(await confirmDialog(t('{count, plural, one {Delete # page?} other {Delete # pages?}}', { count: ids.length }), t('You can undo this with Ctrl+Z.'), t('Delete'), true))) return;
   const first = doc.pageIndex(ids[0]) + 1;
   doc.deletePages(ids);
   thumbs.selected.clear();
-  toast(ids.length === 1 ? `Deleted page ${first}. Press Ctrl+Z to undo.` : `Deleted ${ids.length} pages.`);
+  toast(ids.length === 1 ? t('Deleted page {page}. Press Ctrl+Z to undo.', { page: first }) : t('{count, plural, one {Deleted # page.} other {Deleted # pages.}}', { count: ids.length }));
 }
 
 thumbs.addEventListener('delete', (e) => deletePages((e as CustomEvent<string[]>).detail));
@@ -575,7 +576,7 @@ thumbs.addEventListener('insert-files', async (e) => {
   const { files, index } = (e as CustomEvent<{ files: File[]; index: number }>).detail;
   if (!doc) return;
   const picked = await Promise.all(files.map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })));
-  await withBusy('Inserting pages…', () => insertPdfFiles(doc!, picked, index));
+  await withBusy(t('Inserting pages…'), () => insertPdfFiles(doc!, picked, index));
 });
 thumbs.addEventListener('move', async (e) => {
   const { ids, index } = (e as CustomEvent<{ ids: string[]; index: number }>).detail;
@@ -600,7 +601,7 @@ type Command = AppCommand | 'prev-page' | 'next-page';
 const NO_DOC_NEEDED = new Set<Command>([
   'new', 'open', 'about', 'shortcuts', 'close', 'close-tab', 'new-window', 'quit', 'fullscreen', 'devtools',
   'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
-  'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'terms', 'privacy',
+  'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'language', 'terms', 'privacy',
 ]);
 
 /** Runs one of the bigger tools, turning failures into a readable dialog. */
@@ -621,7 +622,7 @@ async function run(command: Command) {
   switch (command) {
     case 'new': return newBlank();
     case 'open': {
-      const file = await api.openDialog().catch((err) => (showError('Couldn’t open this file', err), null));
+      const file = await api.openDialog().catch((err) => (showError(t('Couldn’t open this file'), err), null));
       if (file) await openFile(file);
       return;
     }
@@ -683,7 +684,7 @@ async function run(command: Command) {
 
     case 'insert-pdf': {
       const files = await api.pickPdfs();
-      if (files.length) await withBusy('Inserting pages…', () => insertPdfFiles(doc!, files, afterCurrentIndex()));
+      if (files.length) await withBusy(t('Inserting pages…'), () => insertPdfFiles(doc!, files, afterCurrentIndex()));
       return;
     }
     case 'insert-blank': {
@@ -692,9 +693,9 @@ async function run(command: Command) {
       return;
     }
     case 'extract':
-      return extractPages(doc!, thumbs.chosenPages()).catch((err) => showError('Couldn’t extract pages', err));
+      return extractPages(doc!, thumbs.chosenPages()).catch((err) => showError(t('Couldn’t extract pages'), err));
     case 'split':
-      return splitDocument(doc!).catch((err) => showError('Couldn’t split the document', err));
+      return splitDocument(doc!).catch((err) => showError(t('Couldn’t split the document'), err));
     case 'rotate-left': return doc!.rotatePages(thumbs.chosenPages(), -90);
     case 'rotate-right': return doc!.rotatePages(thumbs.chosenPages(), 90);
     case 'delete-pages': return deletePages(thumbs.chosenPages());
@@ -711,38 +712,39 @@ async function run(command: Command) {
     case 'print': {
       if (editor.text.active) editor.text.finish();
       try {
-        await withBusy('Preparing to print…', () => printDocument(doc!, (done, total) => progress(`Preparing page ${Math.min(done + 1, total)} of ${total} for printing…`)));
+        await withBusy(t('Preparing to print…'), () => printDocument(doc!, (done, total) => progress(t('Preparing page {page} of {total} for printing…', { page: Math.min(done + 1, total), total }))));
       } catch (err) {
-        showError('Couldn’t print', err);
+        showError(t('Couldn’t print'), err);
       }
       return;
     }
-    case 'compress': return tool('Couldn’t compress this PDF', () => compressDialog(doc!, toolHost));
-    case 'protect': return tool('Couldn’t protect this PDF', () => protectDialog(doc!, toolHost));
-    case 'decor': return tool('Couldn’t add that', () => decorDialog(doc!));
+    case 'compress': return tool(t('Couldn’t compress this PDF'), () => compressDialog(doc!, toolHost));
+    case 'protect': return tool(t('Couldn’t protect this PDF'), () => protectDialog(doc!, toolHost));
+    case 'decor': return tool(t('Couldn’t add that'), () => decorDialog(doc!));
     case 'remove-decor': return doc!.setDecor(NO_DECOR);
-    case 'images-to-pdf': return tool('Couldn’t make a PDF from those pictures', () => imagesToPdf(toolHost));
+    case 'images-to-pdf': return tool(t('Couldn’t make a PDF from those pictures'), () => imagesToPdf(toolHost));
     case 'convert-to-pdf': {
       const files = await api.pickConvertible();
       if (files.length) await convertFiles(files);
       return;
     }
-    case 'convert-from-pdf': return tool('Couldn’t convert this PDF', () => convertFromPdf(doc!));
-    case 'web-to-pdf': return tool('Couldn’t make a PDF of that page', webToPdf);
-    case 'scan-to-pdf': return tool('Couldn’t make the scan', scanToPdf);
-    case 'repair': return tool('Couldn’t repair the PDF', () => repairFile());
-    case 'unlock': return tool('Couldn’t unlock the PDF', unlockFile);
-    case 'pdf-to-pdfa': return tool('Couldn’t make a PDF/A', () => saveAsPdfA(doc!));
-    case 'ai-settings': return tool('Couldn’t change the AI settings', async () => void (await aiTools()).aiSettings());
-    case 'ai-summarize': return tool('Couldn’t summarize this PDF', async () => (await aiTools()).summarize(doc!, aiHost));
-    case 'ai-translate': return tool('Couldn’t translate this PDF', async () => (await aiTools()).translate(doc!, aiHost));
-    case 'all-tools': return tool('Something went wrong', openAllTools);
-    case 'terms': return tool('Couldn’t show the terms', () => showLegal('terms'));
-    case 'privacy': return tool('Couldn’t show the privacy policy', () => showLegal('privacy'));
-    case 'pdf-to-images': return tool('Couldn’t export the pages', () => pdfToImages(doc!, toolHost));
-    case 'pdf-to-word': return tool('Couldn’t export to Word', () => exportWord(doc!));
-    case 'ocr': return tool('Text recognition didn’t work', () => runOcr(doc!));
-    case 'compare': return tool('Couldn’t compare', () => compareWith(doc!));
+    case 'convert-from-pdf': return tool(t('Couldn’t convert this PDF'), () => convertFromPdf(doc!));
+    case 'web-to-pdf': return tool(t('Couldn’t make a PDF of that page'), webToPdf);
+    case 'scan-to-pdf': return tool(t('Couldn’t make the scan'), scanToPdf);
+    case 'repair': return tool(t('Couldn’t repair the PDF'), () => repairFile());
+    case 'unlock': return tool(t('Couldn’t unlock the PDF'), unlockFile);
+    case 'pdf-to-pdfa': return tool(t('Couldn’t make a PDF/A'), () => saveAsPdfA(doc!));
+    case 'ai-settings': return tool(t('Couldn’t change the AI settings'), async () => void (await aiTools()).aiSettings());
+    case 'ai-summarize': return tool(t('Couldn’t summarize this PDF'), async () => (await aiTools()).summarize(doc!, aiHost));
+    case 'ai-translate': return tool(t('Couldn’t translate this PDF'), async () => (await aiTools()).translate(doc!, aiHost));
+    case 'all-tools': return tool(t('Something went wrong'), openAllTools);
+    case 'language': return tool(t('Couldn’t change the language'), chooseLanguage);
+    case 'terms': return tool(t('Couldn’t show the terms'), () => showLegal('terms'));
+    case 'privacy': return tool(t('Couldn’t show the privacy policy'), () => showLegal('privacy'));
+    case 'pdf-to-images': return tool(t('Couldn’t export the pages'), () => pdfToImages(doc!, toolHost));
+    case 'pdf-to-word': return tool(t('Couldn’t export to Word'), () => exportWord(doc!));
+    case 'ocr': return tool(t('Text recognition didn’t work'), () => runOcr(doc!));
+    case 'compare': return tool(t('Couldn’t compare'), () => compareWith(doc!));
     case 'form-builder': return editor.setTool('field');
     case 'crop': return editor.setTool('crop');
     case 'uncrop-page':
@@ -759,7 +761,7 @@ async function run(command: Command) {
     }
     case 'toggle-autosave':
       autosave.setEnabled(!autosave.enabled);
-      toast(autosave.enabled ? 'Auto-save is on. Documents you’ve saved before are kept saved as you work.' : 'Auto-save is off. Save with Ctrl+S.', 'info', 4500);
+      toast(autosave.enabled ? t('Auto-save is on. Documents you’ve saved before are kept saved as you work.') : t('Auto-save is off. Save with Ctrl+S.'), 'info', 4500);
       return;
     case 'open-backups': return api.openBackups();
     case 'open-github': return api.openExternal(REPO_URL);
@@ -782,14 +784,14 @@ async function convertFiles(files: { name: string; data: Uint8Array }[]) {
   const notes = new Set<string>();
   for (const file of files) {
     try {
-      const result = await withBusy(`Converting “${file.name}”…`, () => convertToPdf(file, progress));
+      const result = await withBusy(t('Converting “{name}”…', { name: file.name }), () => convertToPdf(file, progress));
       result.notes.forEach((n) => notes.add(n));
       const opened = await EditorDoc.open(result.bytes, file.name.replace(/\.[^.]+$/, '.pdf'), null);
       // it only exists in Inkleaf so far: closing should offer to save it
       opened.markUnsaved();
       addTab(opened);
     } catch (err) {
-      showError(`Couldn’t convert “${file.name}”`, err);
+      showError(t('Couldn’t convert “{name}”', { name: file.name }), err);
     }
   }
   if (notes.size) toast([...notes].join(' '), 'info', 9000);
@@ -800,14 +802,14 @@ type ExportFormat = 'docx' | 'xlsx' | 'pptx' | 'images' | 'pdfa' | 'txt' | 'md' 
 /** "Convert PDF to…": pick a format, then convert the open document (with its edits). */
 async function convertFromPdf(target: EditorDoc, initial: ExportFormat = 'docx') {
   const formats: { value: ExportFormat; title: string; detail: string; icon: string }[] = [
-    { value: 'docx', title: 'Word', detail: 'Editable text with headings, paragraphs and pictures.', icon: 'file-text' },
-    { value: 'xlsx', title: 'Excel', detail: 'Tables become rows and columns, one sheet per page. Numbers stay numbers.', icon: 'table' },
-    { value: 'pptx', title: 'PowerPoint', detail: 'One slide per page, exactly as it looks. Page text goes in the notes.', icon: 'presentation' },
-    { value: 'images', title: 'Pictures', detail: 'Each page as a PNG or JPEG.', icon: 'file-image' },
-    { value: 'pdfa', title: 'PDF/A', detail: 'The archiving standard: fonts built in, nothing that can stop it opening in years to come.', icon: 'archive' },
-    { value: 'txt', title: 'Plain text', detail: 'Just the words, for pasting anywhere.', icon: 'type' },
-    { value: 'md', title: 'Markdown', detail: 'Text with headings, bold and italic, for notes apps and websites.', icon: 'hash' },
-    { value: 'html', title: 'Web page', detail: 'A single HTML file that opens in any browser.', icon: 'globe' },
+    { value: 'docx', title: t('Word'), detail: t('Editable text with headings, paragraphs and pictures.'), icon: 'file-text' },
+    { value: 'xlsx', title: t('Excel'), detail: t('Tables become rows and columns, one sheet per page. Numbers stay numbers.'), icon: 'table' },
+    { value: 'pptx', title: t('PowerPoint'), detail: t('One slide per page, exactly as it looks. Page text goes in the notes.'), icon: 'presentation' },
+    { value: 'images', title: t('Pictures'), detail: t('Each page as a PNG or JPEG.'), icon: 'file-image' },
+    { value: 'pdfa', title: t('PDF/A'), detail: t('The archiving standard: fonts built in, nothing that can stop it opening in years to come.'), icon: 'archive' },
+    { value: 'txt', title: t('Plain text'), detail: t('Just the words, for pasting anywhere.'), icon: 'type' },
+    { value: 'md', title: t('Markdown'), detail: t('Text with headings, bold and italic, for notes apps and websites.'), icon: 'hash' },
+    { value: 'html', title: t('Web page'), detail: t('A single HTML file that opens in any browser.'), icon: 'globe' },
   ];
   let chosen = initial;
   const list = h('div', { class: 'format-grid', role: 'radiogroup' }, ...formats.map((f) => {
@@ -816,10 +818,10 @@ async function convertFromPdf(target: EditorDoc, initial: ExportFormat = 'docx')
     return h('label', { class: 'format-card' }, input, icon(f.icon), h('span', {}, h('strong', {}, f.title), h('span', {}, f.detail)));
   }));
   const go = await modal({
-    title: 'Convert PDF to…',
+    title: t('Convert PDF to…'),
     wide: true,
-    body: h('div', {}, h('p', { class: 'modal-text' }, 'Makes a new file from this document, including your edits. The PDF itself isn’t changed.'), list),
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Convert…', value: 'ok', primary: true }],
+    body: h('div', {}, h('p', { class: 'modal-text' }, t('Makes a new file from this document, including your edits. The PDF itself isn’t changed.')), list),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Convert…'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;
   if (chosen === 'images') return pdfToImages(target, toolHost);
@@ -827,11 +829,14 @@ async function convertFromPdf(target: EditorDoc, initial: ExportFormat = 'docx')
   if (chosen === 'pdfa') return saveAsPdfA(target);
 
   const base = target.name.replace(/\.pdf$/i, '');
-  const labels: Record<string, string> = { xlsx: 'Excel workbook', pptx: 'PowerPoint presentation', txt: 'text file', md: 'Markdown file', html: 'web page' };
-  const bytes = await withBusy('Reading the document…', async () => {
+  const saved: Record<string, string> = {
+    xlsx: t('Saved the Excel workbook.'), pptx: t('Saved the PowerPoint presentation.'), txt: t('Saved the text file.'),
+    md: t('Saved the Markdown file.'), html: t('Saved the web page.'),
+  };
+  const bytes = await withBusy(t('Reading the document…'), async () => {
     const [formats, { exportPdf }, { loadPdf }] = await Promise.all([import('./export-formats'), import('./exporter'), import('./pdf')]);
     const pdf = await loadPdf((await exportPdf(target)).bytes);
-    const step = (n: number, total: number) => progress(`Converting page ${n} of ${total}…`);
+    const step = (n: number, total: number) => progress(t('Converting page {n} of {total}…', { n, total }));
     try {
       const text = (s: string) => new TextEncoder().encode(s);
       switch (chosen) {
@@ -847,12 +852,12 @@ async function convertFromPdf(target: EditorDoc, initial: ExportFormat = 'docx')
     }
   });
   const path = await api.saveCopy(bytes, `${base}.${chosen}`, chosen as Exclude<ExportFormat, 'images' | 'pdfa'>);
-  if (path) toast(`Saved the ${labels[chosen]}.`, 'success');
+  if (path) toast(saved[chosen], 'success');
 }
 
 /** The PDF/A-2b archiving format. */
 async function saveAsPdfA(target: EditorDoc) {
-  const result = await withBusy('Making a PDF/A…', async () => {
+  const result = await withBusy(t('Making a PDF/A…'), async () => {
     const [{ toPdfA }] = await Promise.all([import('./pdfa')]);
     const { bytes } = await exportPdf(target);
     return toPdfA(bytes, target.name.replace(/\.pdf$/i, ''));
@@ -861,12 +866,14 @@ async function saveAsPdfA(target: EditorDoc) {
   if (!path) return;
   if (result.warnings.length) {
     await modal({
-      title: 'Saved as PDF/A, with notes',
-      body: h('div', {}, h('p', { class: 'modal-text' }, 'The file was saved. A few things in it may not meet the standard strictly:'),
+      title: t('Saved as PDF/A, with notes'),
+      body: h('div', {}, h('p', { class: 'modal-text' }, t('The file was saved. A few things in it may not meet the standard strictly:')),
         h('ul', { class: 'modal-list' }, ...result.warnings.map((w) => h('li', {}, w)))),
     });
   } else {
-    toast(`Saved as PDF/A${result.fontsEmbedded ? `, with ${result.fontsEmbedded} font${result.fontsEmbedded === 1 ? '' : 's'} built in` : ''}.`, 'success');
+    toast(result.fontsEmbedded
+      ? t('{count, plural, one {Saved as PDF/A, with # font built in.} other {Saved as PDF/A, with # fonts built in.}}', { count: result.fontsEmbedded })
+      : t('Saved as PDF/A.'), 'success');
   }
 }
 
@@ -874,25 +881,25 @@ async function webToPdf() {
   const address = h('input', { class: 'field-input', type: 'url', placeholder: 'https://example.com/page', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
   const error = h('p', { class: 'field-error' });
   const choice = await modal({
-    title: 'Web page to PDF',
+    title: t('Web page to PDF'),
     body: h('div', {},
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Web address'), address,
-        h('span', { class: 'field-hint' }, 'The page loads privately, without your logins or cookies, and is printed onto A4 pages.')),
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Web address')), address,
+        h('span', { class: 'field-hint' }, t('The page loads privately, without your logins or cookies, and is printed onto A4 pages.'))),
       error,
-      h('p', { class: 'field-hint' }, 'Have an .html file instead? Use Convert to PDF.')),
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Make PDF', value: 'ok', primary: true }],
+      h('p', { class: 'field-hint' }, t('Have an .html file instead? Use Convert to PDF.'))),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Make PDF'), value: 'ok', primary: true }],
     validate: (value) => {
       if (value !== 'ok') return true;
       if (!address.value.trim()) {
-        error.textContent = 'Type or paste a web address.';
+        error.textContent = t('Type or paste a web address.');
         return false;
       }
       return true;
     },
   });
   if (choice !== 'ok') return;
-  const { pdf, title } = await withBusy('Loading the page…', () => api.urlToPdf(address.value.trim()));
-  const safe = title.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Web page';
+  const { pdf, title } = await withBusy(t('Loading the page…'), () => api.urlToPdf(address.value.trim()));
+  const safe = title.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || t('Web page');
   const opened = await EditorDoc.open(pdf, `${safe}.pdf`, null);
   opened.markUnsaved();
   addTab(opened);
@@ -902,50 +909,50 @@ async function scanToPdf() {
   const { scanDialog } = await import('./scan');
   const scanned = await scanDialog();
   if (!scanned) return;
-  const bytes = await withBusy('Making the PDF…', () => scanned.make(progress));
+  const bytes = await withBusy(t('Making the PDF…'), () => scanned.make(progress));
   const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', '.');
   const opened = await EditorDoc.open(bytes, `Scan ${stamp}.pdf`, null);
   opened.markUnsaved();
   addTab(opened);
-  if (scanned.ocr) await tool('Text recognition didn’t work', () => runOcr(opened));
+  if (scanned.ocr) await tool(t('Text recognition didn’t work'), () => runOcr(opened));
 }
 
 const REPAIR_NOTES: Record<'rebuilt' | 'reread' | 'redrawn', string> = {
-  rebuilt: 'Repaired. The file’s index was rebuilt, and everything in it was kept.',
-  reread: 'Repaired. Inkleaf read back everything it could; give the pages a quick check.',
-  redrawn: 'Repaired by redrawing each page. The text can’t be selected any more: run Recognise Text (OCR) to bring that back.',
+  rebuilt: msg('Repaired. The file’s index was rebuilt, and everything in it was kept.'),
+  reread: msg('Repaired. Inkleaf read back everything it could; give the pages a quick check.'),
+  redrawn: msg('Repaired by redrawing each page. The text can’t be selected any more: run Recognise Text (OCR) to bring that back.'),
 };
 
 /** Repairs a damaged PDF (picked now, or one that just failed to open) into a new tab. */
 async function repairFile(file?: { name: string; data: Uint8Array }) {
   if (!file) {
-    [file] = await api.pickPdfs('Choose a damaged PDF to repair');
+    [file] = await api.pickPdfs(t('Choose a damaged PDF to repair'));
     if (!file) return;
   }
   const { repairPdf } = await import('./repair');
-  const result = await withBusy('Repairing…', () => repairPdf(file!.data, progress));
+  const result = await withBusy(t('Repairing…'), () => repairPdf(file!.data, progress));
   const opened = await EditorDoc.open(result.bytes, file.name.replace(/(\.pdf)?$/i, ' (repaired).pdf'), null);
   opened.markUnsaved();
   addTab(opened);
-  toast(`${REPAIR_NOTES[result.method]} ${result.pages} page${result.pages === 1 ? '' : 's'} recovered.`, 'success', 9000);
+  toast(`${t(REPAIR_NOTES[result.method])} ${t('{count, plural, one {# page recovered.} other {# pages recovered.}}', { count: result.pages })}`, 'success', 9000);
 }
 
 /** Saves a copy of a password-protected PDF without its password. */
 async function unlockFile() {
-  const [file] = await api.pickPdfs('Choose a protected PDF to unlock');
+  const [file] = await api.pickPdfs(t('Choose a protected PDF to unlock'));
   if (!file) return;
   const done = await withUnlocked(file.data, file.name, async (bytes, wasProtected) => {
     if (!wasProtected) {
-      await modal({ title: 'Nothing to unlock', body: `“${file.name}” doesn’t have a password or any restrictions.` });
+      await modal({ title: t('Nothing to unlock'), body: t('“{name}” doesn’t have a password or any restrictions.', { name: file.name }) });
       return 'none' as const;
     }
     const opened = await EditorDoc.open(bytes, file.name, null);
-    const { bytes: plain } = await withBusy('Unlocking…', () => exportPdf(opened));
+    const { bytes: plain } = await withBusy(t('Unlocking…'), () => exportPdf(opened));
     opened.destroy();
     const path = await api.saveCopy(plain, file.name.replace(/(\.pdf)?$/i, ' (unlocked).pdf'), 'pdf');
     return path ? ('saved' as const) : ('none' as const);
   });
-  if (done === 'saved') toast('Saved an unlocked copy. The original still has its password.', 'success');
+  if (done === 'saved') toast(t('Saved an unlocked copy. The original still has its password.'), 'success');
 }
 
 let aiModule: Promise<typeof import('./ai-tools')> | null = null;
@@ -958,6 +965,42 @@ const aiHost = {
 };
 
 // --- terms and privacy ---------------------------------------------------------------------
+
+/** The interface language: the computer's, or one picked from the list. */
+async function chooseLanguage() {
+  const [{ UI_LANGUAGES }, { LANGUAGES }] = await Promise.all([import('../shared/i18n'), import('../shared/languages')]);
+  const current = await api.languageChoice();
+  let chosen = current;
+  const option = (value: string, title: string, sub?: string, lang?: string) => {
+    const input = h('input', { type: 'radio', name: 'ui-language', value, checked: value === current });
+    input.addEventListener('change', () => (chosen = value));
+    return h('label', { class: 'lang-option' }, input,
+      h('span', {}, h('strong', { lang: lang ?? '' }, title), sub ? h('span', {}, sub) : ''));
+  };
+  const english = (code: string) => {
+    try {
+      return new Intl.DisplayNames([currentLocale()], { type: 'language' }).of(code) ?? code;
+    } catch {
+      return code;
+    }
+  };
+  const list = h('div', { class: 'lang-grid', role: 'radiogroup' },
+    option('system', t('Match my computer'), t('Uses your system’s language when Inkleaf has it')),
+    ...UI_LANGUAGES.map((code) => {
+      const lang = LANGUAGES.find((l) => l.code === code);
+      const native = lang?.native ?? code;
+      const local = english(code);
+      return option(code, native, local !== native ? local : undefined, code);
+    }));
+  const go = await modal({
+    title: t('Language'),
+    wide: true,
+    body: h('div', {}, h('p', { class: 'modal-text' }, t('The language for Inkleaf’s menus and messages. Inkleaf restarts to switch; you’ll be asked to save any changes first.')), list),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Restart in this language'), value: 'ok', primary: true }],
+  });
+  if (go !== 'ok' || chosen === current) return;
+  await api.setLanguage(chosen);
+}
 
 async function legalHtml(kind: 'terms' | 'privacy') {
   const [{ marked }, text] = await Promise.all([import('marked'), fetch(`./legal/${kind}.md`).then((r) => r.text())]);
@@ -978,7 +1021,7 @@ async function legalHtml(kind: 'terms' | 'privacy') {
 
 async function showLegal(kind: 'terms' | 'privacy') {
   const { body, title } = await legalHtml(kind);
-  await modal({ title, wide: true, body, buttons: [{ label: 'Close', value: 'ok', primary: true }] });
+  await modal({ title, wide: true, body, buttons: [{ label: t('Close'), value: 'ok', primary: true }] });
 }
 
 /** First start of a build without an installer page: agree to the terms or quit. */
@@ -989,11 +1032,13 @@ async function askForAgreement() {
     return link;
   };
   const choice = await modal({
-    title: 'Welcome to Inkleaf',
+    title: t('Welcome to Inkleaf'),
     body: h('div', {},
-      h('p', { class: 'modal-text' }, 'Inkleaf is free and open source, and it never collects your files or anything about you.'),
-      h('p', { class: 'modal-text' }, 'Before you start, please read and agree to the ', read('terms', 'Terms of Use'), ' and ', read('privacy', 'Privacy Policy'), '. Inkleaf is provided as is, without any warranty, and you use it at your own risk.')),
-    buttons: [{ label: 'Quit', value: 'quit' }, { label: 'I agree', value: 'agree', primary: true }],
+      h('p', { class: 'modal-text' }, t('Inkleaf is free and open source, and it never collects your files or anything about you.')),
+      h('p', { class: 'modal-text' }, ...richText(t('Before you start, please read and agree to the {terms} and {privacy}. Inkleaf is provided as is, without any warranty, and you use it at your own risk.'), {
+        terms: read('terms', t('Terms of Use')), privacy: read('privacy', t('Privacy Policy')),
+      }))),
+    buttons: [{ label: t('Quit'), value: 'quit' }, { label: t('I agree'), value: 'agree', primary: true }],
     dismissValue: 'quit',
   });
   if (choice === 'agree') return api.agreeToTerms();
@@ -1012,33 +1057,33 @@ async function openAllTools() {
     case 'organize':
       showSide('pages');
       thumbs.selectAll();
-      return toast('Drag the pages in the sidebar to put them in a new order.', 'info');
-    case 'pdf-to-pptx': return tool('Couldn’t convert this PDF', () => convertFromPdf(doc!, 'pptx'));
-    case 'pdf-to-xlsx': return tool('Couldn’t convert this PDF', () => convertFromPdf(doc!, 'xlsx'));
-    case 'pdf-to-md': return tool('Couldn’t convert this PDF', () => convertFromPdf(doc!, 'md'));
+      return toast(t('Drag the pages in the sidebar to put them in a new order.'), 'info');
+    case 'pdf-to-pptx': return tool(t('Couldn’t convert this PDF'), () => convertFromPdf(doc!, 'pptx'));
+    case 'pdf-to-xlsx': return tool(t('Couldn’t convert this PDF'), () => convertFromPdf(doc!, 'xlsx'));
+    case 'pdf-to-md': return tool(t('Couldn’t convert this PDF'), () => convertFromPdf(doc!, 'md'));
     case 'edit-text':
       editor.setTool('edit-text');
-      return toast('Click any text on the page to change it.', 'info');
+      return toast(t('Click any text on the page to change it.'), 'info');
     case 'redact':
       editor.setTool('redact');
-      return toast('Drag over anything private. It’s removed for good when you save.', 'info');
+      return toast(t('Drag over anything private. It’s removed for good when you save.'), 'info');
     case 'sign': return startSign();
     default: return run(picked.command as Command);
   }
 }
 
 async function exportWord(target: EditorDoc) {
-  const bytes = await withBusy('Reading the document…', async () => {
+  const bytes = await withBusy(t('Reading the document…'), async () => {
     const [{ pdfToWord }, { exportPdf }, { loadPdf }] = await Promise.all([import('./word'), import('./exporter'), import('./pdf')]);
     const pdf = await loadPdf((await exportPdf(target)).bytes);
     try {
-      return await pdfToWord(pdf, (n, total) => progress(`Converting page ${n} of ${total}…`));
+      return await pdfToWord(pdf, (n, total) => progress(t('Converting page {n} of {total}…', { n, total })));
     } finally {
       pdf.loadingTask.destroy();
     }
   });
   const path = await api.saveCopy(bytes, `${target.name.replace(/\.pdf$/i, '')}.docx`, 'docx');
-  if (path) toast('Saved the Word document.', 'success');
+  if (path) toast(t('Saved the Word document.'), 'success');
 }
 
 async function runOcr(target: EditorDoc) {
@@ -1049,10 +1094,10 @@ async function runOcr(target: EditorDoc) {
   thumbs.sync();
   findBar.reset();
   if (!result.pages) {
-    await modal({ title: 'No text found', body: 'Inkleaf couldn’t find any words on those pages. Check the language, or try a clearer scan.' });
+    await modal({ title: t('No text found'), body: t('Inkleaf couldn’t find any words on those pages. Check the language, or try a clearer scan.') });
     return;
   }
-  toast(`Found ${result.words} word${result.words === 1 ? '' : 's'} on ${result.pages} page${result.pages === 1 ? '' : 's'}. You can now search, copy and edit them.`, 'success', 7000);
+  toast(t('Found {words, plural, one {# word} other {# words}} on {pages, plural, one {# page} other {# pages}}. You can now search, copy and edit them.', { words: result.words, pages: result.pages }), 'success', 7000);
 }
 
 async function compareWith(target: EditorDoc) {
@@ -1063,7 +1108,7 @@ async function compareWith(target: EditorDoc) {
   const { exportPdf } = await import('./exporter');
   let comparison: Promise<void> | null = null;
   let settled = false;
-  await withBusy('Comparing…', async () => {
+  await withBusy(t('Comparing…'), async () => {
     const mine = (await exportPdf(target)).bytes;
     const unlocked = await withUnlocked(other.data, other.name, async (bytes) => bytes);
     if (!unlocked) return;
@@ -1088,12 +1133,12 @@ function waitFor(test: () => boolean, ms: number): Promise<void> {
 editor.addEventListener('crop', async (event) => {
   const { pageId, box, el } = (event as CustomEvent<{ pageId: string; box: Box; el: HTMLElement }>).detail;
   const choice = await modal({
-    title: 'Crop pages',
-    body: 'Keep just the area you marked. Nothing is deleted: you can remove the crop again from the Organize menu.',
+    title: t('Crop pages'),
+    body: t('Keep just the area you marked. Nothing is deleted: you can remove the crop again from the Organize menu.'),
     buttons: [
-      { label: 'Cancel', value: 'cancel' },
-      { label: 'All pages', value: 'all' },
-      { label: 'This page', value: 'one', primary: true },
+      { label: t('Cancel'), value: 'cancel' },
+      { label: t('All pages'), value: 'all' },
+      { label: t('This page'), value: 'one', primary: true },
     ],
   });
   el.remove();
@@ -1147,32 +1192,32 @@ let updateVersion = '';
 function onUpdate(state: UpdateState) {
   switch (state.state) {
     case 'checking':
-      toast('Checking for updates…', 'info', 2500);
+      toast(t('Checking for updates…'), 'info', 2500);
       break;
     case 'none':
-      toast('Inkleaf is up to date.', 'success');
+      toast(t('Inkleaf is up to date.'), 'success');
       break;
     case 'downloading':
       if (state.version) {
         updateVersion = state.version;
-        toast(`Downloading Inkleaf ${state.version}…`, 'info', 4000);
+        toast(t('Downloading Inkleaf {version}…', { version: state.version }), 'info', 4000);
       }
       break;
     case 'ready':
       modal({
-        title: 'Update ready',
-        body: `Inkleaf ${state.version || updateVersion} has been downloaded. Restart now to use it, or it’ll be installed next time you quit.`,
-        buttons: [{ label: 'Later', value: 'later' }, { label: 'Restart now', value: 'restart', primary: true }],
+        title: t('Update ready'),
+        body: t('Inkleaf {version} has been downloaded. Restart now to use it, or it’ll be installed next time you quit.', { version: state.version || updateVersion }),
+        buttons: [{ label: t('Later'), value: 'later' }, { label: t('Restart now'), value: 'restart', primary: true }],
       }).then(async (choice) => {
         if (choice !== 'restart') return;
         if (await saveAllBeforeClose()) api.installUpdate();
       });
       break;
     case 'error':
-      modal({ title: 'Couldn’t check for updates', body: `${state.message} Check your internet connection and try again.` });
+      modal({ title: t('Couldn’t check for updates'), body: t('{message} Check your internet connection and try again.', { message: state.message }) });
       break;
     case 'unavailable':
-      modal({ title: 'Updates', body: state.reason });
+      modal({ title: t('Updates'), body: state.reason });
       break;
   }
 }
@@ -1238,7 +1283,9 @@ function buildMenu(items: (MenuItem | 'separator')[], level: number): HTMLElemen
       $('#menus').append(sub);
       openMenus.push(sub);
       const r = b.getBoundingClientRect();
-      const left = r.right + 4 + sub.offsetWidth > window.innerWidth ? r.left - sub.offsetWidth - 4 : r.right + 4;
+      // submenus open towards the end of the line: right, or left in Arabic and Hebrew
+      const towardsLeft = isRtl() ? r.left - sub.offsetWidth - 4 >= 8 : r.right + 4 + sub.offsetWidth > window.innerWidth;
+      const left = towardsLeft ? r.left - sub.offsetWidth - 4 : r.right + 4;
       sub.style.left = `${Math.max(8, left)}px`;
       sub.style.top = `${Math.max(8, Math.min(r.top - 5, window.innerHeight - sub.offsetHeight - 8))}px`;
     };
@@ -1261,7 +1308,8 @@ function showMenu(anchor: HTMLElement, items: (MenuItem | 'separator')[]) {
   $('#menus').append(menu);
   openMenus.push(menu);
   const r = anchor.getBoundingClientRect();
-  const left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8);
+  // lines up with the button's starting edge
+  const left = isRtl() ? r.right - menu.offsetWidth : Math.min(r.left, window.innerWidth - menu.offsetWidth - 8);
   menu.style.left = `${Math.max(8, left)}px`;
   menu.style.top = `${r.bottom + 6}px`;
   anchor.setAttribute('aria-expanded', 'true');
@@ -1288,7 +1336,7 @@ function menuFromTable(entries: MenuEntry[]): (MenuItem | 'separator')[] {
       if (entry === 'separator') return 'separator' as const;
       const key = shortcutFor(entry, isMac);
       return {
-        label: entry.label,
+        label: t(entry.label),
         icon: THEME_ICONS[entry.command],
         hint: key ? displayShortcut(key, isMac) : undefined,
         checked: entry.command.startsWith('theme-') ? entry.command === `theme-${currentTheme}`
@@ -1301,50 +1349,50 @@ function menuFromTable(entries: MenuEntry[]): (MenuItem | 'separator')[] {
 
 const menus: Record<string, () => (MenuItem | 'separator')[]> = {
   autosave: () => [
-    { label: 'Auto-save', icon: 'refresh-cw', checked: autosave.enabled, action: () => run('toggle-autosave') },
-    { label: 'Save now', icon: 'save', hint: displayShortcut('Mod+S', isMac), action: () => run('save') },
+    { label: t('Auto-save'), icon: 'refresh-cw', checked: autosave.enabled, action: () => run('toggle-autosave') },
+    { label: t('Save now'), icon: 'save', hint: displayShortcut('Mod+S', isMac), action: () => run('save') },
     'separator',
-    { label: 'Open backups folder', icon: 'folder-open', action: () => run('open-backups') },
+    { label: t('Open backups folder'), icon: 'folder-open', action: () => run('open-backups') },
   ],
   app: () => MENU.map((section) => ({ label: section.label, submenu: () => menuFromTable(section.items) })),
   tools: () => [
-    { label: 'Recognise text (OCR)…', icon: 'scan-text', action: () => run('ocr') },
-    { label: 'Compress…', icon: 'file-archive', action: () => run('compress') },
-    { label: 'Password protect…', icon: 'shield-check', action: () => run('protect') },
-    { label: 'Watermark, page numbers & headers…', icon: 'droplets', action: () => run('decor') },
-    { label: 'Add form fields', icon: 'text-cursor', action: () => run('form-builder') },
-    { label: 'Compare with another PDF…', icon: 'git-compare', action: () => run('compare') },
+    { label: t('Recognise text (OCR)…'), icon: 'scan-text', action: () => run('ocr') },
+    { label: t('Compress…'), icon: 'file-archive', action: () => run('compress') },
+    { label: t('Password protect…'), icon: 'shield-check', action: () => run('protect') },
+    { label: t('Watermark, page numbers & headers…'), icon: 'droplets', action: () => run('decor') },
+    { label: t('Add form fields'), icon: 'text-cursor', action: () => run('form-builder') },
+    { label: t('Compare with another PDF…'), icon: 'git-compare', action: () => run('compare') },
     'separator',
-    { label: 'Convert to PDF…', icon: 'file-input', hint: 'Word, Excel, PowerPoint…', action: () => run('convert-to-pdf') },
-    { label: 'Convert PDF to…', icon: 'file-output', hint: 'Word, Excel, PowerPoint…', action: () => run('convert-from-pdf') },
-    { label: 'Web page to PDF…', icon: 'globe', action: () => run('web-to-pdf') },
-    { label: 'Scan to PDF…', icon: 'scan-line', action: () => run('scan-to-pdf') },
-    { label: 'Combine pictures into one PDF…', icon: 'images', action: () => run('images-to-pdf') },
-    { label: 'Save as PDF/A…', icon: 'archive', hint: 'For archiving', action: () => run('pdf-to-pdfa') },
-    { label: 'Repair a damaged PDF…', icon: 'wrench', action: () => run('repair') },
+    { label: t('Convert to PDF…'), icon: 'file-input', hint: t('Word, Excel, PowerPoint…'), action: () => run('convert-to-pdf') },
+    { label: t('Convert PDF to…'), icon: 'file-output', hint: t('Word, Excel, PowerPoint…'), action: () => run('convert-from-pdf') },
+    { label: t('Web page to PDF…'), icon: 'globe', action: () => run('web-to-pdf') },
+    { label: t('Scan to PDF…'), icon: 'scan-line', action: () => run('scan-to-pdf') },
+    { label: t('Combine pictures into one PDF…'), icon: 'images', action: () => run('images-to-pdf') },
+    { label: t('Save as PDF/A…'), icon: 'archive', hint: t('For archiving'), action: () => run('pdf-to-pdfa') },
+    { label: t('Repair a damaged PDF…'), icon: 'wrench', action: () => run('repair') },
     'separator',
-    { label: 'AI Summarizer…', icon: 'sparkles', action: () => run('ai-summarize') },
-    { label: 'Translate PDF…', icon: 'languages', action: () => run('ai-translate') },
-    { label: 'AI settings…', icon: 'wrench', action: () => run('ai-settings') },
+    { label: t('AI Summarizer…'), icon: 'sparkles', action: () => run('ai-summarize') },
+    { label: t('Translate PDF…'), icon: 'languages', action: () => run('ai-translate') },
+    { label: t('AI settings…'), icon: 'wrench', action: () => run('ai-settings') },
     'separator',
-    { label: 'All tools', icon: 'layout-grid', hint: displayShortcut('Mod+K', isMac), action: () => run('all-tools') },
+    { label: t('All tools'), icon: 'layout-grid', hint: displayShortcut('Mod+K', isMac), action: () => run('all-tools') },
   ],
   pages: () => {
     const count = thumbs.chosenPages().length;
-    const which = thumbs.selected.size > 1 ? `${count} selected pages` : 'current page';
+    const several = thumbs.selected.size > 1;
     return [
-      { label: 'Merge another PDF…', icon: 'file-plus', action: () => run('insert-pdf') },
-      { label: 'Insert blank page', icon: 'file-plus-2', action: () => run('insert-blank') },
+      { label: t('Merge another PDF…'), icon: 'file-plus', action: () => run('insert-pdf') },
+      { label: t('Insert blank page'), icon: 'file-plus-2', action: () => run('insert-blank') },
       'separator',
-      { label: `Rotate ${which} left`, icon: 'rotate-ccw', action: () => run('rotate-left') },
-      { label: `Rotate ${which} right`, icon: 'rotate-cw', action: () => run('rotate-right') },
-      { label: `Delete ${which}`, icon: 'trash-2', action: () => run('delete-pages') },
+      { label: several ? t('Rotate {count} selected pages left', { count }) : t('Rotate current page left'), icon: 'rotate-ccw', action: () => run('rotate-left') },
+      { label: several ? t('Rotate {count} selected pages right', { count }) : t('Rotate current page right'), icon: 'rotate-cw', action: () => run('rotate-right') },
+      { label: several ? t('Delete {count} selected pages', { count }) : t('Delete current page'), icon: 'trash-2', action: () => run('delete-pages') },
       'separator',
-      { label: 'Extract pages…', icon: 'file-output', action: () => run('extract') },
-      { label: 'Split document…', icon: 'scissors', action: () => run('split') },
+      { label: t('Extract pages…'), icon: 'file-output', action: () => run('extract') },
+      { label: t('Split document…'), icon: 'scissors', action: () => run('split') },
       'separator',
-      { label: 'Crop pages', icon: 'crop', action: () => run('crop') },
-      { label: 'Remove crop from all pages', icon: 'maximize-2', disabled: !doc?.pages.some((p) => p.crop), action: () => run('uncrop-all') },
+      { label: t('Crop pages'), icon: 'crop', action: () => run('crop') },
+      { label: t('Remove crop from all pages'), icon: 'maximize-2', disabled: !doc?.pages.some((p) => p.crop), action: () => run('uncrop-all') },
     ];
   },
   zoom: () => [
@@ -1352,12 +1400,12 @@ const menus: Record<string, () => (MenuItem | 'separator')[]> = {
       label: `${z * 100}%`, checked: Math.abs(viewer.scale - z) < 0.005, action: () => viewer.setScale(z),
     })),
     'separator' as const,
-    { label: 'Fit width', icon: 'maximize-2', hint: displayShortcut('Mod+1', isMac), action: () => viewer.fitWidth() },
-    { label: 'Fit page', icon: 'file-text', hint: displayShortcut('Mod+2', isMac), action: () => viewer.fitPage() },
+    { label: t('Fit width'), icon: 'maximize-2', hint: displayShortcut('Mod+1', isMac), action: () => viewer.fitWidth() },
+    { label: t('Fit page'), icon: 'file-text', hint: displayShortcut('Mod+2', isMac), action: () => viewer.fitPage() },
     'separator' as const,
-    { label: 'Continuous scroll', icon: 'rectangle-vertical', checked: viewer.mode === 'continuous', action: () => run('mode-continuous') },
-    { label: 'Two pages side by side', icon: 'columns-2', checked: viewer.mode === 'spread', action: () => run('mode-spread') },
-    { label: 'One page at a time', icon: 'book-open', checked: viewer.mode === 'single', action: () => run('mode-single') },
+    { label: t('Continuous scroll'), icon: 'rectangle-vertical', checked: viewer.mode === 'continuous', action: () => run('mode-continuous') },
+    { label: t('Two pages side by side'), icon: 'columns-2', checked: viewer.mode === 'spread', action: () => run('mode-spread') },
+    { label: t('One page at a time'), icon: 'book-open', checked: viewer.mode === 'single', action: () => run('mode-single') },
   ],
 };
 
@@ -1460,14 +1508,15 @@ window.addEventListener('keydown', (e) => {
 
 function timeAgo(ms: number) {
   const minutes = Math.round((Date.now() - ms) / 60000);
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 1) return t('Just now');
+  // the browser knows how to say "5 minutes ago" in every language
+  const rtf = new Intl.RelativeTimeFormat(currentLocale(), { numeric: 'auto', style: 'short' });
+  if (minutes < 60) return rtf.format(-minutes, 'minute');
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
+  if (hours < 24) return rtf.format(-hours, 'hour');
   const days = Math.round(hours / 24);
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days} days ago`;
-  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  if (days < 7) return rtf.format(-days, 'day');
+  return new Date(ms).toLocaleDateString(currentLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function folderOf(path: string) {
@@ -1483,7 +1532,7 @@ async function renderWelcome() {
   const root = $('#welcome');
 
   const card = (r: RecentFile) => {
-    const remove = h('span', { class: 'recent-remove', role: 'button', title: 'Remove from this list' }, icon('x'));
+    const remove = h('span', { class: 'recent-remove', role: 'button', title: t('Remove from this list') }, icon('x'));
     remove.addEventListener('click', async (e) => {
       e.stopPropagation();
       await api.forgetRecent(r.path);
@@ -1502,7 +1551,7 @@ async function renderWelcome() {
       try {
         await openFile(await api.openRecent(r.path));
       } catch (err) {
-        showError('Couldn’t open this file', err);
+        showError(t('Couldn’t open this file'), err);
         renderWelcome();
       }
     });
@@ -1518,26 +1567,26 @@ async function renderWelcome() {
   root.replaceChildren(
     h('div', { class: 'home' },
       h('div', { class: 'home-intro' },
-        h('h1', {}, 'Open a PDF to get started'),
-        h('p', {}, 'Edit, sign, fill and organise PDFs. Everything stays on this computer.'),
+        h('h1', {}, t('Open a PDF to get started')),
+        h('p', {}, t('Edit, sign, fill and organise PDFs. Everything stays on this computer.')),
       ),
       h('div', { class: 'start-actions' },
-        action('folder-open', 'Open file', displayShortcut('Mod+O', isMac), 'open', true),
-        action('file-text', 'New blank PDF', displayShortcut('Mod+N', isMac), 'new'),
-        action('file-input', 'Convert to PDF', 'Word, Excel, PowerPoint, pictures…', 'convert-to-pdf'),
-        action('layout-grid', 'All tools', 'Merge, scan, compress, translate…', 'all-tools'),
+        action('folder-open', t('Open file'), displayShortcut('Mod+O', isMac), 'open', true),
+        action('file-text', t('New blank PDF'), displayShortcut('Mod+N', isMac), 'new'),
+        action('file-input', t('Convert to PDF'), t('Word, Excel, PowerPoint, pictures…'), 'convert-to-pdf'),
+        action('layout-grid', t('All tools'), t('Merge, scan, compress, translate…'), 'all-tools'),
       ),
       h('section', { class: 'recent' },
-        h('h2', {}, 'Recent files'),
+        h('h2', {}, t('Recent files')),
         recent.length
           ? h('div', { class: 'recent-grid' }, ...recent.map(card))
           : h('div', { class: 'recent-empty' },
               icon('clock'),
-              h('p', {}, 'Files you open will show up here. You can also drop a PDF (or a Word file, spreadsheet, slides or picture to convert) anywhere in this window.')),
+              h('p', {}, t('Files you open will show up here. You can also drop a PDF (or a Word file, spreadsheet, slides or picture to convert) anywhere in this window.'))),
       ),
       h('footer', { class: 'home-foot' },
-        h('span', {}, 'Built by ', h('strong', {}, 'EPD'), ' · Free and open source'),
-        h('button', { class: 'coffee-link', 'data-command': 'donate' }, icon('coffee'), 'Buy me a coffee'),
+        h('span', {}, ...richText(t('Built by {name} · Free and open source'), { name: h('strong', {}, 'EPD') })),
+        h('button', { class: 'coffee-link', 'data-command': 'donate' }, icon('coffee'), t('Buy me a coffee')),
       ),
     ),
   );
@@ -1555,7 +1604,7 @@ function hasFiles(e: DragEvent) {
 window.addEventListener('dragenter', (e) => {
   if (!hasFiles(e)) return;
   dragDepth++;
-  $('#drop-overlay-text').textContent = doc ? 'Drop to open or insert' : 'Drop to open';
+  $('#drop-overlay-text').textContent = doc ? t('Drop to open or insert') : t('Drop to open');
   if (!(e.target as HTMLElement).closest('#sidebar')) overlay.hidden = false;
 });
 window.addEventListener('dragleave', () => {
@@ -1578,7 +1627,7 @@ window.addEventListener('drop', async (e) => {
     return ext === 'pdf' || CONVERTIBLE.includes(ext);
   });
   if (!files.length) {
-    toast('Inkleaf can’t open that kind of file.', 'error');
+    toast(t('Inkleaf can’t open that kind of file.'), 'error');
     return;
   }
 
@@ -1596,11 +1645,11 @@ window.addEventListener('drop', async (e) => {
 
   if (doc) {
     const choice = await modal({
-      title: files.length === 1 ? `What should happen with “${files[0].name}”?` : `What should happen with these ${files.length} files?`,
+      title: files.length === 1 ? t('What should happen with “{name}”?', { name: files[0].name }) : t('What should happen with these {count} files?', { count: files.length }),
       buttons: [
-        { label: 'Cancel', value: 'cancel' },
-        { label: files.length === 1 ? 'Open in a new tab' : 'Open each in a tab', value: 'open' },
-        { label: 'Insert pages here', value: 'insert', primary: true },
+        { label: t('Cancel'), value: 'cancel' },
+        { label: files.length === 1 ? t('Open in a new tab') : t('Open each in a tab'), value: 'open' },
+        { label: t('Insert pages here'), value: 'insert', primary: true },
       ],
     });
     if (choice === 'insert') {
@@ -1611,12 +1660,12 @@ window.addEventListener('drop', async (e) => {
         const data = new Uint8Array(await f.arrayBuffer());
         try {
           // other kinds of file are turned into PDF pages first
-          picked.push(/\.pdf$/i.test(f.name) ? { name: f.name, data } : { name: f.name, data: (await withBusy(`Converting “${f.name}”…`, () => convertToPdf({ name: f.name, data }, progress))).bytes });
+          picked.push(/\.pdf$/i.test(f.name) ? { name: f.name, data } : { name: f.name, data: (await withBusy(t('Converting “{name}”…', { name: f.name }), () => convertToPdf({ name: f.name, data }, progress))).bytes });
         } catch (err) {
-          showError(`Couldn’t convert “${f.name}”`, err);
+          showError(t('Couldn’t convert “{name}”', { name: f.name }), err);
         }
       }
-      if (picked.length) await withBusy('Inserting pages…', () => insertPdfFiles(target, picked, afterCurrentIndex()));
+      if (picked.length) await withBusy(t('Inserting pages…'), () => insertPdfFiles(target, picked, afterCurrentIndex()));
       return;
     }
     if (choice !== 'open') return;
@@ -1632,17 +1681,17 @@ async function showAbout() {
   modal({
     title: 'Inkleaf',
     body: h('div', { class: 'about' },
-      h('p', {}, `Version ${info.version}`),
-      h('p', {}, 'A free, open-source PDF editor. Everything happens on this computer; no files are uploaded anywhere.'),
-      h('p', { class: 'muted' }, 'Built by EPD (Priyansh Das). Licensed under the GNU GPL, version 3 or later: you’re free to use, study, share and change it.'),
+      h('p', {}, t('Version {version}', { version: info.version })),
+      h('p', {}, t('A free, open-source PDF editor. Everything happens on this computer; no files are uploaded anywhere.')),
+      h('p', { class: 'muted' }, t('Built by EPD (Priyansh Das). Licensed under the GNU GPL, version 3 or later: you’re free to use, study, share and change it.')),
       h('p', { class: 'muted small' },
-        'Built with pdf.js (Apache 2.0), pdf-lib (MIT), lopdf (MIT), Tesseract OCR (Apache 2.0), docx (MIT), Instrument Sans and DejaVu fonts (OFL / Bitstream Vera), Lucide icons (ISC). ',
-        `Electron ${info.electron}.`),
+        t('Built with pdf.js (Apache 2.0), pdf-lib (MIT), lopdf (MIT), Tesseract OCR (Apache 2.0), docx (MIT), Instrument Sans and DejaVu fonts (OFL / Bitstream Vera), Lucide icons (ISC). '),
+        t('Electron {electron}.', { electron: info.electron })),
     ),
     buttons: [
-      { label: 'Source code', value: 'code' },
-      { label: DONATE_URL ? 'Buy me a coffee' : 'Star on GitHub', value: 'support' },
-      { label: 'Close', value: 'close', primary: true },
+      { label: t('Source code'), value: 'code' },
+      { label: DONATE_URL ? t('Buy me a coffee') : t('Star on GitHub'), value: 'support' },
+      { label: t('Close'), value: 'close', primary: true },
     ],
   }).then((choice) => {
     if (choice === 'code') api.openExternal(REPO_URL);
@@ -1653,17 +1702,17 @@ async function showAbout() {
 function showShortcuts() {
   const mod = isMac ? '⌘' : 'Ctrl';
   const rows: [string, string][] = [
-    ['V', 'Select'], ['H or hold Space', 'Pan'], ['E', 'Edit existing text'], ['T', 'Add text'],
-    ['P', 'Draw'], ['M', 'Highlight'], ['R / O / L / A', 'Rectangle, ellipse, line, arrow'],
-    ['W', 'White-out'], ['B', 'Redact'], ['X', 'Eraser'], ['N', 'Comment'], ['K', 'Stamp'],
-    [`${mod}+F`, 'Find'], [`${mod}+P`, 'Print'],
-    [`${mod}+Z / ${mod}+Y`, 'Undo / redo'], [`${mod}+C / ${mod}+V`, 'Copy / paste a mark'], [`${mod}+D`, 'Duplicate'],
-    ['Delete', 'Delete the selected mark'], ['Arrow keys', 'Nudge (Shift for 10×)'], ['Shift while drawing', 'Square, circle, 45° lines'],
-    [`${mod}+wheel`, 'Zoom'], [`${mod}+1 / ${mod}+2`, 'Fit width / fit page'], ['Page Up / Down', 'Previous / next page'],
-    [`${mod}+S`, 'Save'], [`${mod}+W`, 'Close tab'], ['Ctrl+Tab', 'Next tab'], [`${mod}+B`, 'Show or hide pages'],
+    ['V', t('Select')], [t('H or hold Space'), t('Pan')], ['E', t('Edit existing text')], ['T', t('Add text')],
+    ['P', t('Draw')], ['M', t('Highlight')], ['R / O / L / A', t('Rectangle, ellipse, line, arrow')],
+    ['W', t('White-out')], ['B', t('Redact')], ['X', t('Eraser')], ['N', t('Comment')], ['K', t('Stamp')],
+    [`${mod}+F`, t('Find')], [`${mod}+P`, t('Print')],
+    [`${mod}+Z / ${mod}+Y`, t('Undo / redo')], [`${mod}+C / ${mod}+V`, t('Copy / paste a mark')], [`${mod}+D`, t('Duplicate')],
+    [t('Delete'), t('Delete the selected mark')], [t('Arrow keys'), t('Nudge (Shift for 10×)')], [t('Shift while drawing'), t('Square, circle, 45° lines')],
+    [`${mod}+${t('wheel')}`, t('Zoom')], [`${mod}+1 / ${mod}+2`, t('Fit width / fit page')], [t('Page Up / Down'), t('Previous / next page')],
+    [`${mod}+S`, t('Save')], [`${mod}+W`, t('Close tab')], ['Ctrl+Tab', t('Next tab')], [`${mod}+B`, t('Show or hide pages')],
   ];
   modal({
-    title: 'Keyboard shortcuts',
+    title: t('Keyboard shortcuts'),
     wide: true,
     body: h('dl', { class: 'shortcuts' }, ...rows.flatMap(([k, v]) => [h('dt', {}, ...k.split(' / ').flatMap((part, i) => [i ? ' / ' : '', h('kbd', {}, part)])), h('dd', {}, v)])),
   });
@@ -1672,6 +1721,7 @@ function showShortcuts() {
 // --- start up ------------------------------------------------------------------------------------
 
 async function start() {
+  localizeStatic();
   hydrateIcons();
   try {
     if (localStorage.getItem('inkleaf.sidebar-hidden')) $('#app').classList.add('sidebar-hidden');
@@ -1696,8 +1746,8 @@ async function start() {
   api.onPackProgress(({ received, total }) => {
     if (!total) return;
     const mb = (n: number) => (n / 1048576).toFixed(n < 10485760 ? 1 : 0);
-    liveStatus(received >= total ? null : `Downloading a language pack… ${mb(received)} of ${mb(total)} MB`);
-    if (received >= total) toast('Language pack downloaded. It works offline from now on.', 'success');
+    liveStatus(received >= total ? null : t('Downloading a language pack… {done} of {total} MB', { done: mb(received), total: mb(total) }));
+    if (received >= total) toast(t('Language pack downloaded. It works offline from now on.'), 'success');
   });
   updateToolButtons();
   updatePanelButtons();
@@ -1721,7 +1771,7 @@ async function start() {
 
   // for automated tests only: exposes internals without touching the UI
   (window as unknown as { __inkleaf: unknown }).__inkleaf = {
-    getDoc, viewer, editor, exportPdf, autosave, tabCount: () => tabs.length, run: (c: Command) => run(c),
+    getDoc, viewer, editor, exportPdf, autosave, t, tabCount: () => tabs.length, run: (c: Command) => run(c),
     allDocs: () => tabs.map((t) => t.doc),
     exportBatch: async (d: EditorDoc, groups: string[][]) => (await import('./exporter')).exportBatch(d, groups),
   };

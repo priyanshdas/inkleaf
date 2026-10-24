@@ -5,10 +5,11 @@
 // off until the person adds their own Anthropic API key, and each one says
 // plainly, before it runs, that the document's text will be sent.
 
+import { msg, t } from '../shared/i18n';
 import type { EditorDoc } from './document';
 import { BASELINE, lineWidth, prepareFonts } from './fonts';
 import { setHanScript } from './script-fonts';
-import { LANGUAGES as ALL_LANGUAGES } from '../shared/languages';
+import { LANGUAGES as ALL_LANGUAGES, languageLabel, languageName } from '../shared/languages';
 import { newId, rotateVec } from './geometry';
 import type { PDFDocumentProxy } from './pdf';
 import type { PageStructure } from './pdf-structure';
@@ -26,29 +27,29 @@ export interface AiHost {
 }
 
 
-const PRIVACY = 'This sends the document’s text to Anthropic (the company behind Claude) using your API key. Nothing else leaves your computer.';
+const PRIVACY = msg('This sends the document’s text to Anthropic (the company behind Claude) using your API key. Nothing else leaves your computer.');
 
 // --- settings -----------------------------------------------------------------------
 
 /** Asks for (or changes) the API key. Resolves true if AI is ready afterwards. */
 export async function aiSettings(): Promise<boolean> {
   const status = await api().aiStatus();
-  const key = h('input', { class: 'field-input', type: 'password', placeholder: status.ready ? 'A key is saved. Paste a new one to replace it.' : 'sk-ant-…', autocomplete: 'off', spellcheck: 'false' });
-  const model = h('select', { class: 'field-input' }, new Option('Fast and cheap (Claude Haiku)', 'fast'), new Option('Best quality (Claude Sonnet)', 'best'));
+  const key = h('input', { class: 'field-input', type: 'password', placeholder: status.ready ? t('A key is saved. Paste a new one to replace it.') : 'sk-ant-…', autocomplete: 'off', spellcheck: 'false' });
+  const model = h('select', { class: 'field-input' }, new Option(t('Fast and cheap (Claude Haiku)'), 'fast'), new Option(t('Best quality (Claude Sonnet)'), 'best'));
   model.value = status.model;
   const error = h('p', { class: 'field-error' });
   const buttons = [
-    ...(status.ready ? [{ label: 'Remove key', value: 'remove', danger: true }] : []),
-    { label: 'Cancel', value: 'cancel' },
-    { label: 'Save', value: 'ok', primary: true },
+    ...(status.ready ? [{ label: t('Remove key'), value: 'remove', danger: true }] : []),
+    { label: t('Cancel'), value: 'cancel' },
+    { label: t('Save'), value: 'ok', primary: true },
   ];
   const choice = await modal({
-    title: 'AI tools',
+    title: t('AI tools'),
     body: h('div', {},
-      h('p', { class: 'modal-text' }, 'The AI Summarizer and Translate PDF use Claude, from Anthropic, with your own API key. You pay Anthropic directly for what you use, usually a fraction of a rupee per page.'),
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Anthropic API key'), key,
-        h('span', { class: 'field-hint' }, 'Get one at console.anthropic.com. It’s stored encrypted on this computer and only ever sent to Anthropic.')),
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Model'), model),
+      h('p', { class: 'modal-text' }, t('The AI Summarizer and Translate PDF use Claude, from Anthropic, with your own API key. You pay Anthropic directly for what you use, usually a fraction of a rupee per page.')),
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Anthropic API key')), key,
+        h('span', { class: 'field-hint' }, t('Get one at console.anthropic.com. It’s stored encrypted on this computer and only ever sent to Anthropic.'))),
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Model')), model),
       error),
     buttons,
     validate: async (value) => {
@@ -56,7 +57,7 @@ export async function aiSettings(): Promise<boolean> {
       try {
         if (key.value.trim()) await api().aiSetKey(key.value, model.value as 'fast' | 'best');
         else if (status.ready) await api().aiSetModel(model.value as 'fast' | 'best');
-        else throw new Error('Paste your API key first.');
+        else throw new Error(t('Paste your API key first.'));
         return true;
       } catch (err) {
         error.textContent = (err as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
@@ -66,7 +67,7 @@ export async function aiSettings(): Promise<boolean> {
   });
   if (choice === 'remove') {
     await api().aiRemoveKey();
-    toast('The API key was removed from this computer.');
+    toast(t('The API key was removed from this computer.'));
     return false;
   }
   return choice === 'ok' || status.ready;
@@ -93,7 +94,7 @@ async function pageTexts(pdf: PDFDocumentProxy): Promise<string[]> {
   return out;
 }
 
-const NO_TEXT = 'This document has no text to work with. If it’s a scan, run Tools › Recognise text (OCR) first.';
+const NO_TEXT = msg('This document has no text to work with. If it’s a scan, run Tools › Recognise text (OCR) first.');
 
 // --- summarizer --------------------------------------------------------------------------
 
@@ -102,20 +103,20 @@ const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '
 export async function summarize(doc: EditorDoc, host: AiHost) {
   if (!(await ensureReady())) return;
   const length = h('select', { class: 'field-input' },
-    new Option('Short: a few sentences', 'short'),
-    new Option('Detailed: key points, numbers and dates', 'detailed'));
-  const language = h('select', { class: 'field-input' }, new Option('Same as the document', ''), ...ALL_LANGUAGES.map((l) => new Option(l.native === l.name ? l.name : `${l.name} · ${l.native}`, l.name)));
+    new Option(t('Short: a few sentences'), 'short'),
+    new Option(t('Detailed: key points, numbers and dates'), 'detailed'));
+  const language = h('select', { class: 'field-input' }, new Option(t('Same as the document'), ''), ...ALL_LANGUAGES.map((l) => new Option(languageLabel(l), l.name)));
   const go = await modal({
-    title: 'AI Summarizer',
+    title: t('AI Summarizer'),
     body: h('div', {},
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Length'), length),
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Write it in'), language),
-      h('p', { class: 'field-hint warn' }, icon('info'), PRIVACY)),
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Summarize', value: 'ok', primary: true }],
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Length')), length),
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Write it in')), language),
+      h('p', { class: 'field-hint warn' }, icon('info'), t(PRIVACY))),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Summarize'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;
 
-  const summary = await host.withBusy('Reading the document…', async () => {
+  const summary = await host.withBusy(t('Reading the document…'), async () => {
     const pdf = await exported(doc);
     let texts: string[];
     try {
@@ -124,7 +125,7 @@ export async function summarize(doc: EditorDoc, host: AiHost) {
       pdf.loadingTask.destroy();
     }
     const full = texts.map((t, i) => `[Page ${i + 1}]\n${t}`).join('\n\n');
-    if (!texts.join('').trim()) throw new Error(NO_TEXT);
+    if (!texts.join('').trim()) throw new Error(t(NO_TEXT));
     const style = length.value === 'short'
       ? 'Write a short summary: three to five sentences of plain prose.'
       : 'Write a detailed summary: a one-sentence overview, then the key points as a bulleted list, including important names, numbers, amounts and dates, citing page numbers in brackets like (p. 3).';
@@ -134,17 +135,17 @@ export async function summarize(doc: EditorDoc, host: AiHost) {
     // very long documents are summarised in parts, then the parts together
     const LIMIT = 120_000;
     if (full.length <= LIMIT) {
-      host.progress('Summarizing…');
+      host.progress(t('Summarizing…'));
       return api().aiAsk({ system, prompt: `${style} ${lang}\n\n<document>\n${full}\n</document>`, maxTokens: 2000 });
     }
     const parts: string[] = [];
     for (let i = 0; i < full.length; i += LIMIT) parts.push(full.slice(i, i + LIMIT));
     const notes: string[] = [];
     for (let i = 0; i < parts.length; i++) {
-      host.progress(`Summarizing part ${i + 1} of ${parts.length}…`);
+      host.progress(t('Summarizing part {n} of {total}…', { n: i + 1, total: parts.length }));
       notes.push(await api().aiAsk({ system, prompt: `This is part ${i + 1} of ${parts.length} of a long document. List its key points, keeping page numbers.\n\n<document>\n${parts[i]}\n</document>`, maxTokens: 2000 }));
     }
-    host.progress('Putting it together…');
+    host.progress(t('Putting it together…'));
     return api().aiAsk({ system, prompt: `${style} ${lang}\n\nThese are notes on each part of one long document:\n\n${notes.join('\n\n---\n\n')}`, maxTokens: 2500 });
   });
 
@@ -153,18 +154,18 @@ export async function summarize(doc: EditorDoc, host: AiHost) {
   const body = h('div', { class: 'ai-summary' });
   body.innerHTML = html; // escaped above: only Markdown's own tags are left
   const choice = await modal({
-    title: 'Summary',
+    title: t('Summary'),
     wide: true,
     body,
     buttons: [
-      { label: 'Add as a comment', value: 'note' },
-      { label: 'Copy', value: 'copy' },
-      { label: 'Close', value: 'close', primary: true },
+      { label: t('Add as a comment'), value: 'note' },
+      { label: t('Copy'), value: 'copy' },
+      { label: t('Close'), value: 'close', primary: true },
     ],
   });
   if (choice === 'copy') {
     await navigator.clipboard.writeText(summary).catch(() => {});
-    toast('Summary copied.', 'success');
+    toast(t('Summary copied.'), 'success');
   }
   if (choice === 'note') {
     const first = doc.pages[0];
@@ -178,7 +179,7 @@ export async function summarize(doc: EditorDoc, host: AiHost) {
     const box = doc.viewBox(first);
     doc.addAnnot(first.id, { id: newId('note'), type: 'note', x: box.x + box.w - 44, y: box.y + box.h - 44, w: 20, h: 20, text: `AI summary\n\n${summary}`, color: '#c9b6ff', author: author || 'AI summary', created: Date.now() });
     doc.commit();
-    toast('Added the summary as a comment on page 1.', 'success');
+    toast(t('Added the summary as a comment on page 1.'), 'success');
   }
 }
 
@@ -196,7 +197,7 @@ async function translateLines(lines: string[], language: string, host: AiHost, l
     while (end < lines.length && end - start < 120 && size < 6000) size += lines[end++].length + 4;
     const chunk = lines.slice(start, end);
     batch++;
-    host.progress(`${label} (${Math.min(batch, batches)} of ${batches})…`);
+    host.progress(t('{label} ({n} of {total})…', { label, n: Math.min(batch, batches), total: batches }));
     let result: string[] | null = null;
     for (let attempt = 0; attempt < 2 && !result; attempt++) {
       const reply = await api().aiAsk({ system, prompt: `<lines>${JSON.stringify(chunk)}</lines>`, maxTokens: Math.min(16000, size * 3 + 500) });
@@ -231,32 +232,32 @@ function overlay(run: TextRun, text: string): ReplaceAnnot {
 
 export async function translate(doc: EditorDoc, host: AiHost) {
   if (!(await ensureReady())) return;
-  const language = h('select', { class: 'field-input' }, ...ALL_LANGUAGES.map((l) => new Option(l.native === l.name ? l.name : `${l.name} · ${l.native}`, l.name)));
+  const language = h('select', { class: 'field-input' }, ...ALL_LANGUAGES.map((l) => new Option(languageLabel(l), l.name)));
   language.value = 'English';
   const how = h('select', { class: 'field-input' },
-    new Option('Over the original pages (keeps the layout)', 'pages'),
-    new Option('As a Word document', 'word'));
-  const which = h('select', { class: 'field-input' }, new Option('Every page', 'all'), new Option('Only the current page', 'current'));
+    new Option(t('Over the original pages (keeps the layout)'), 'pages'),
+    new Option(t('As a Word document'), 'word'));
+  const which = h('select', { class: 'field-input' }, new Option(t('Every page'), 'all'), new Option(t('Only the current page'), 'current'));
   const note = h('p', { class: 'field-hint' });
   const sync = () => {
     const laidOver = how.value === 'pages';
     const cjk = /Chinese|Japanese|Korean/.test(language.value);
     note.textContent = laidOver
-      ? `Opens a translated copy in a new tab. Each line is replaced where it was; your original isn’t changed.${cjk ? ' The first time, Inkleaf downloads a font for this language (about 15 MB).' : ''}`
-      : 'Saves the translated text as a Word file, with its headings and paragraphs.';
+      ? `${t('Opens a translated copy in a new tab. Each line is replaced where it was; your original isn’t changed.')}${cjk ? ` ${t('The first time, Inkleaf downloads a font for this language (about 15 MB).')}` : ''}`
+      : t('Saves the translated text as a Word file, with its headings and paragraphs.');
   };
   language.addEventListener('change', sync);
   how.addEventListener('change', sync);
   sync();
   const go = await modal({
-    title: 'Translate PDF',
+    title: t('Translate PDF'),
     body: h('div', {},
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Translate into'), language),
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Result'), how),
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Pages'), which),
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Translate into')), language),
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Result')), how),
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Pages')), which),
       note,
-      h('p', { class: 'field-hint warn' }, icon('info'), PRIVACY)),
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Translate', value: 'ok', primary: true }],
+      h('p', { class: 'field-hint warn' }, icon('info'), t(PRIVACY))),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Translate'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;
 
@@ -270,15 +271,15 @@ export async function translate(doc: EditorDoc, host: AiHost) {
   const [{ exportPdf }, { loadPdf }] = await Promise.all([import('./exporter'), import('./pdf')]);
 
   if (asWord) {
-    const bytes = await host.withBusy('Reading the document…', async () => {
+    const bytes = await host.withBusy(t('Reading the document…'), async () => {
       const pdf = await loadPdf((await exportPdf(doc, pageIds)).bytes);
       try {
         const { documentStructure } = await import('./pdf-structure');
-        const pages: PageStructure[] = await documentStructure(pdf, (n, total) => host.progress(`Reading page ${n} of ${total}…`));
+        const pages: PageStructure[] = await documentStructure(pdf, (n, total) => host.progress(t('Reading page {n} of {total}…', { n, total })));
         const blocks = pages.flatMap((p) => p.blocks).filter((b) => b.kind !== 'picture') as Extract<PageStructure['blocks'][number], { spans: unknown }>[];
         const texts = blocks.map((b) => b.spans.map((s) => s.text).join('').replace(/\s+/g, ' ').trim());
-        if (!texts.join('').trim()) throw new Error(NO_TEXT);
-        const translated = await translateLines(texts, target, host, `Translating into ${target}`);
+        if (!texts.join('').trim()) throw new Error(t(NO_TEXT));
+        const translated = await translateLines(texts, target, host, t('Translating into {language}', { language: languageName(target) }));
         // each block keeps its look, with the translated words in one run
         blocks.forEach((b, i) => {
           const first = b.spans[0];
@@ -291,11 +292,11 @@ export async function translate(doc: EditorDoc, host: AiHost) {
       }
     });
     const path = await api().saveCopy(bytes, `${doc.name.replace(/\.pdf$/i, '')} (${target}).docx`, 'docx');
-    if (path) toast(`Saved the ${target} translation.`, 'success');
+    if (path) toast(t('Saved the {language} translation.', { language: languageName(target) }), 'success');
     return;
   }
 
-  const translatedDoc = await host.withBusy('Reading the document…', async () => {
+  const translatedDoc = await host.withBusy(t('Reading the document…'), async () => {
     const bytes = (await exportPdf(doc, pageIds)).bytes;
     const { EditorDoc } = await import('./document');
     const copy = await EditorDoc.open(bytes, `${doc.name.replace(/\.pdf$/i, '')} (${target}).pdf`, null);
@@ -303,11 +304,11 @@ export async function translate(doc: EditorDoc, host: AiHost) {
     const perPage: TextRun[][] = [];
     for (let i = 0; i < copy.pages.length; i++) perPage.push(await pageRuns(await source.pdf.getPage(i + 1)));
     const all = perPage.flat();
-    if (!all.some((r) => r.str.trim())) throw new Error(NO_TEXT);
-    const translated = await translateLines(all.map((r) => r.str), target, host, `Translating into ${target}`);
+    if (!all.some((r) => r.str.trim())) throw new Error(t(NO_TEXT));
+    const translated = await translateLines(all.map((r) => r.str), target, host, t('Translating into {language}', { language: languageName(target) }));
     // fonts for the new language (downloaded for Chinese, Japanese and Korean)
     // must be ready before the lines can be fitted
-    host.progress('Preparing fonts…');
+    host.progress(t('Preparing fonts…'));
     await prepareFonts({ font: 'sans', bold: false, italic: false }, translated.join('\n'));
     await prepareFonts({ font: 'sans', bold: true, italic: false }, translated.join('\n'));
     let k = 0;
@@ -322,5 +323,5 @@ export async function translate(doc: EditorDoc, host: AiHost) {
     return copy;
   });
   host.openDoc(translatedDoc);
-  toast(`Translated into ${target}. Check it over, then save it where you like.`, 'success', 6000);
+  toast(t('Translated into {language}. Check it over, then save it where you like.', { language: languageName(target) }), 'success', 6000);
 }

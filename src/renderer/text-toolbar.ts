@@ -4,6 +4,7 @@
 // opacity and delete. Everything goes through editor.applyStyle, so it stays
 // in step with the properties panel.
 
+import { msg, t } from '../shared/i18n';
 import { allFamilies, Family, getFamily, loadFace, onFontsChanged, pickFace, systemFamilies } from './custom-fonts';
 import type { EditorDoc } from './document';
 import type { Editor } from './editor';
@@ -18,9 +19,9 @@ type TextLike = TextAnnot | ReplaceAnnot;
 type Patch = Partial<Pick<TextLike, 'font' | 'family' | 'size' | 'bold' | 'italic' | 'underline' | 'color' | 'background' | 'align' | 'opacity'>>;
 
 const STANDARD: { font: FontFamily; name: string }[] = [
-  { font: 'sans', name: 'Sans serif' },
-  { font: 'serif', name: 'Serif' },
-  { font: 'mono', name: 'Monospace' },
+  { font: 'sans', name: msg('Sans serif') },
+  { font: 'serif', name: msg('Serif') },
+  { font: 'mono', name: msg('Monospace') },
 ];
 
 const BACKGROUNDS = ['#ffffff', '#fff3a3', '#d9f2e4', '#dbeafe', '#fde2e7', '#1a1a1a'];
@@ -41,7 +42,7 @@ export class TextToolbar {
   private frame = 0;
 
   constructor(private editor: Editor, private viewer: Viewer, private getDoc: () => EditorDoc | null) {
-    this.el = h('div', { class: 'text-toolbar', role: 'toolbar', 'aria-label': 'Text formatting', hidden: true });
+    this.el = h('div', { class: 'text-toolbar', role: 'toolbar', 'aria-label': t('Text formatting'), hidden: true });
     document.body.append(this.el);
 
     // Buttons shouldn't steal the caret from the text box; fields need it.
@@ -163,14 +164,14 @@ export class TextToolbar {
   private render(a: TextLike) {
     this.closePop();
     const family = getFamily(a.family);
-    const fontLabel = family?.name ?? STANDARD.find((s) => s.font === a.font)!.name;
+    const fontLabel = family?.name ?? t(STANDARD.find((s) => s.font === a.font)!.name);
 
-    const font = h('button', { class: 'tt-font', title: 'Font', 'aria-haspopup': 'listbox' },
+    const font = h('button', { class: 'tt-font', title: t('Font'), 'aria-haspopup': 'listbox' },
       h('span', { class: 'tt-font-name', style: `font-family: ${family ? `"${family.css}", ` : ''}${cssFamily(a.font)}` }, fontLabel),
       icon('chevron-down'));
     font.addEventListener('click', () => this.togglePop(font, () => this.fontMenu(a)));
 
-    const size = h('input', { class: 'tt-size', type: 'number', min: '4', max: '200', step: '0.5', value: String(a.size), title: 'Font size', list: 'tt-sizes' });
+    const size = h('input', { class: 'tt-size', type: 'number', min: '4', max: '200', step: '0.5', value: String(a.size), title: t('Font size'), list: 'tt-sizes' });
     const sizes = h('datalist', { id: 'tt-sizes' }, ...SIZES.map((s) => new Option(String(s))));
     const setSize = () => {
       const n = Math.max(4, Math.min(200, Math.round((Number(size.value) || a.size) * 2) / 2));
@@ -193,26 +194,26 @@ export class TextToolbar {
       return b;
     };
 
-    const colour = h('button', { class: 'tt-btn tt-colour', title: 'Text colour' }, icon('baseline'),
+    const colour = h('button', { class: 'tt-btn tt-colour', title: t('Text colour') }, icon('baseline'),
       h('span', { class: 'tt-bar', style: `background: ${a.color}` }));
     colour.addEventListener('click', () => this.togglePop(colour, () => this.swatchPop(INK_COLORS, a.color, false, (color) => this.apply({ color: color! }))));
 
-    const background = h('button', { class: 'tt-btn tt-colour', title: 'Background colour' }, icon('paint-bucket'),
+    const background = h('button', { class: 'tt-btn tt-colour', title: t('Background colour') }, icon('paint-bucket'),
       h('span', { class: `tt-bar${a.background ? '' : ' none'}`, style: a.background ? `background: ${a.background}` : '' }));
     background.addEventListener('click', () => this.togglePop(background, () =>
       this.swatchPop(BACKGROUNDS, a.background ?? null, true, (bg) => this.apply({ background: bg }))));
 
-    const align = h('div', { class: 'tt-seg', role: 'group', 'aria-label': 'Alignment' },
+    const align = h('div', { class: 'tt-seg', role: 'group', 'aria-label': t('Alignment') },
       ...(['left', 'center', 'right'] as TextAlign[]).map((value) => {
-        const b = h('button', { class: 'tt-btn', title: `Align ${value}`, 'aria-pressed': String((a.align ?? 'left') === value) }, icon(`align-${value}`));
+        const b = h('button', { class: 'tt-btn', title: { left: t('Align left'), center: t('Centre'), right: t('Align right') }[value], 'aria-pressed': String((a.align ?? 'left') === value) }, icon(`align-${value}`));
         b.addEventListener('click', () => this.apply({ align: value }));
         return b;
       }));
 
-    const opacity = h('button', { class: 'tt-btn tt-opacity', title: 'Opacity' }, `${Math.round((a.opacity ?? 1) * 100)}%`);
+    const opacity = h('button', { class: 'tt-btn tt-opacity', title: t('Opacity') }, `${Math.round((a.opacity ?? 1) * 100)}%`);
     opacity.addEventListener('click', () => this.togglePop(opacity, () => this.opacityPop(a.opacity ?? 1)));
 
-    const remove = h('button', { class: 'tt-btn danger', title: a.type === 'replace' ? 'Undo this edit (puts the original text back)' : 'Delete text box' }, icon('trash-2'));
+    const remove = h('button', { class: 'tt-btn danger', title: a.type === 'replace' ? t('Undo this edit (puts the original text back)') : t('Delete text box') }, icon('trash-2'));
     remove.addEventListener('click', () => this.remove(a));
 
     const sep = () => h('span', { class: 'tt-sep' });
@@ -269,7 +270,7 @@ export class TextToolbar {
     };
     const grid = h('div', { class: 'tt-swatches' });
     if (allowNone) {
-      const none = h('button', { class: 'tt-swatch none', title: 'No background', 'aria-pressed': String(!current) });
+      const none = h('button', { class: 'tt-swatch none', title: t('No background'), 'aria-pressed': String(!current) });
       none.addEventListener('click', () => done(null));
       grid.append(none);
     }
@@ -278,7 +279,7 @@ export class TextToolbar {
       b.addEventListener('click', () => done(c));
       grid.append(b);
     }
-    const custom = h('input', { type: 'color', class: 'tt-swatch custom', title: 'Custom colour', value: current?.startsWith('#') ? current : '#000000' });
+    const custom = h('input', { type: 'color', class: 'tt-swatch custom', title: t('Custom colour'), value: current?.startsWith('#') ? current : '#000000' });
     custom.addEventListener('input', () => pick(custom.value));
     custom.addEventListener('change', () => this.editor.text.focus());
     grid.append(custom);
@@ -287,7 +288,7 @@ export class TextToolbar {
 
   private opacityPop(current: number) {
     const value = h('span', { class: 'tt-range-value' }, `${Math.round(current * 100)}%`);
-    const range = h('input', { type: 'range', min: '10', max: '100', step: '5', value: String(Math.round(current * 100)), 'aria-label': 'Opacity' });
+    const range = h('input', { type: 'range', min: '10', max: '100', step: '5', value: String(Math.round(current * 100)), 'aria-label': t('Opacity') });
     range.addEventListener('input', () => {
       value.textContent = `${range.value}%`;
       this.apply({ opacity: Number(range.value) / 100 }, { focus: false });
@@ -297,7 +298,7 @@ export class TextToolbar {
   }
 
   private fontMenu(a: TextLike) {
-    const search = h('input', { type: 'search', class: 'tt-search', placeholder: 'Search fonts', 'aria-label': 'Search fonts' });
+    const search = h('input', { type: 'search', class: 'tt-search', placeholder: t('Search fonts'), 'aria-label': t('Search fonts') });
     const list = h('div', { class: 'tt-font-list', role: 'listbox' });
     const menu = h('div', { class: 'font-menu' }, h('div', { class: 'tt-search-wrap' }, icon('search'), search), list);
 
@@ -313,8 +314,8 @@ export class TextToolbar {
       if (!family) return;
       const face = await loadFace(family, pickFace(family, a.bold, a.italic));
       if (!face) {
-        const why = pickFace(family, a.bold, a.italic).unusable ?? 'That font couldn’t be used.';
-        toast(`${why} Using ${STANDARD.find((s) => s.font === patch.font)?.name.toLowerCase() ?? 'a standard font'} instead.`, 'error');
+        const why = t(pickFace(family, a.bold, a.italic).unusable ?? msg('That font couldn’t be used.'));
+        toast(`${why} ${t('Using {font} instead.', { font: t(STANDARD.find((s) => s.font === patch.font)?.name ?? 'Sans serif') })}`, 'error');
         this.apply({ family: undefined });
       }
     };
@@ -334,21 +335,21 @@ export class TextToolbar {
         if (items.length) groups.push(h('div', { class: 'tt-font-group' }, title), ...items);
       };
 
-      group('In this document', inDocument.filter((f) => match(f.name)).map((f) =>
-        item(f.name, `"${f.css}", ${cssFamily(a.font)}`, a.family === f.key, () => choose({ family: f.key }, f), 'original')));
-      group('Standard', STANDARD.filter((s) => match(s.name)).map((s) =>
-        item(s.name, cssFamily(s.font), !a.family && a.font === s.font, () => choose({ font: s.font, family: undefined }))));
+      group(t('In this document'), inDocument.filter((f) => match(f.name)).map((f) =>
+        item(f.name, `"${f.css}", ${cssFamily(a.font)}`, a.family === f.key, () => choose({ family: f.key }, f), t('original'))));
+      group(t('Standard'), STANDARD.filter((s) => match(t(s.name)) || match(s.name)).map((s) =>
+        item(t(s.name), cssFamily(s.font), !a.family && a.font === s.font, () => choose({ font: s.font, family: undefined }))));
 
       if (installed) {
         const found = installed.filter((f) => match(f.name));
         // a few hundred buttons is plenty; searching narrows the rest
-        group('On this computer', found.slice(0, 300).map((f) =>
+        group(t('On this computer'), found.slice(0, 300).map((f) =>
           item(f.name, `"${f.name.replace(/"/g, '')}", ${cssFamily(guessStandard(f.name))}`, a.family === f.key,
             () => choose({ family: f.key, font: guessStandard(f.name) }, f))));
-        if (!found.length && q) groups.push(h('div', { class: 'tt-font-note' }, 'No installed fonts match.'));
+        if (!found.length && q) groups.push(h('div', { class: 'tt-font-note' }, t('No installed fonts match.')));
       } else {
-        groups.push(h('div', { class: 'tt-font-group' }, 'On this computer'),
-          h('div', { class: 'tt-font-note' }, failed ? 'Installed fonts couldn’t be listed.' : 'Loading installed fonts…'));
+        groups.push(h('div', { class: 'tt-font-group' }, t('On this computer')),
+          h('div', { class: 'tt-font-note' }, failed ? t('Installed fonts couldn’t be listed.') : t('Loading installed fonts…')));
       }
       list.replaceChildren(...groups);
     };

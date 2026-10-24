@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t, msg } from '../shared/i18n';
 import { getFamily } from './custom-fonts';
 import type { EditorDoc } from './document';
 import { Editor, styleGroupFor } from './editor';
@@ -17,43 +18,43 @@ interface ToolInfo {
 }
 
 const TOOLS: Record<Tool, ToolInfo> = {
-  select: { title: 'Select', icon: 'mouse-pointer-2', hint: 'Click a mark to select it. Double-click text to edit it.' },
-  hand: { title: 'Pan', icon: 'hand', hint: 'Drag to move around. You can also hold Space with any tool.' },
-  'edit-text': { title: 'Edit text', icon: 'text-cursor-input', hint: 'Click a line of text in the PDF to change it. The old words are removed from the file when you save.' },
-  text: { title: 'Add text', icon: 'type', hint: 'Click anywhere on a page to start typing.' },
-  pen: { title: 'Draw', icon: 'pen-line', hint: 'Draw freehand on the page.' },
-  highlight: { title: 'Highlight', icon: 'highlighter', hint: 'Drag across text to highlight it.' },
-  rect: { title: 'Shapes', icon: 'shapes', hint: 'Drag to draw. Hold Shift for a perfect square or circle.' },
-  ellipse: { title: 'Shapes', icon: 'shapes', hint: 'Drag to draw. Hold Shift for a perfect square or circle.' },
-  line: { title: 'Shapes', icon: 'shapes', hint: 'Drag to draw. Hold Shift to snap to 45°.' },
-  arrow: { title: 'Shapes', icon: 'shapes', hint: 'Drag to draw. Hold Shift to snap to 45°.' },
-  whiteout: { title: 'White-out', icon: 'rectangle-horizontal', hint: 'Covers what’s underneath. To remove text from the file for good, use Redact.' },
-  redact: { title: 'Redact', icon: 'eye-off', hint: 'Drag over sensitive text. It’s permanently removed from the file when you save.' },
-  eraser: { title: 'Erase', icon: 'eraser', hint: 'Click or drag across marks to remove them.' },
-  sign: { title: 'Sign', icon: 'signature', hint: 'Click on the page to place your signature. Press Esc to cancel.' },
-  image: { title: 'Image', icon: 'image', hint: 'Click on the page to place the image. Press Esc to cancel.' },
-  note: { title: 'Comment', icon: 'message-square', hint: 'Click on the page to add a sticky note. Saved as a standard PDF comment that any reader can open.' },
-  stamp: { title: 'Stamp', icon: 'stamp', hint: 'Pick a stamp, then click on the page to place it.' },
-  field: { title: 'Form field', icon: 'text-cursor', hint: 'Drag a box on the page (or just click) to add a fillable field.' },
-  crop: { title: 'Crop', icon: 'crop', hint: 'Drag around the part of the page to keep. You’ll be asked whether to crop just this page or all of them.' },
+  select: { title: msg('Select'), icon: 'mouse-pointer-2', hint: msg('Click a mark to select it. Double-click text to edit it.') },
+  hand: { title: msg('Pan'), icon: 'hand', hint: msg('Drag to move around. You can also hold Space with any tool.') },
+  'edit-text': { title: msg('Edit text'), icon: 'text-cursor-input', hint: msg('Click a line of text in the PDF to change it. The old words are removed from the file when you save.') },
+  text: { title: msg('Add text'), icon: 'type', hint: msg('Click anywhere on a page to start typing.') },
+  pen: { title: msg('Draw'), icon: 'pen-line', hint: msg('Draw freehand on the page.') },
+  highlight: { title: msg('Highlight'), icon: 'highlighter', hint: msg('Drag across text to highlight it.') },
+  rect: { title: msg('Shapes'), icon: 'shapes', hint: msg('Drag to draw. Hold Shift for a perfect square or circle.') },
+  ellipse: { title: msg('Shapes'), icon: 'shapes', hint: msg('Drag to draw. Hold Shift for a perfect square or circle.') },
+  line: { title: msg('Shapes'), icon: 'shapes', hint: msg('Drag to draw. Hold Shift to snap to 45°.') },
+  arrow: { title: msg('Shapes'), icon: 'shapes', hint: msg('Drag to draw. Hold Shift to snap to 45°.') },
+  whiteout: { title: msg('White-out'), icon: 'rectangle-horizontal', hint: msg('Covers what’s underneath. To remove text from the file for good, use Redact.') },
+  redact: { title: msg('Redact'), icon: 'eye-off', hint: msg('Drag over sensitive text. It’s permanently removed from the file when you save.') },
+  eraser: { title: msg('Erase'), icon: 'eraser', hint: msg('Click or drag across marks to remove them.') },
+  sign: { title: msg('Sign'), icon: 'signature', hint: msg('Click on the page to place your signature. Press Esc to cancel.') },
+  image: { title: msg('Image'), icon: 'image', hint: msg('Click on the page to place the image. Press Esc to cancel.') },
+  note: { title: msg('Comment'), icon: 'message-square', hint: msg('Click on the page to add a sticky note. Saved as a standard PDF comment that any reader can open.') },
+  stamp: { title: msg('Stamp'), icon: 'stamp', hint: msg('Pick a stamp, then click on the page to place it.') },
+  field: { title: msg('Form field'), icon: 'text-cursor', hint: msg('Drag a box on the page (or just click) to add a fillable field.') },
+  crop: { title: msg('Crop'), icon: 'crop', hint: msg('Drag around the part of the page to keep. You’ll be asked whether to crop just this page or all of them.') },
 };
 
 const ANNOT_NAMES: Record<Annot['type'], string> = {
-  ink: 'Drawing', line: 'Line', arrow: 'Arrow', rect: 'Rectangle', ellipse: 'Ellipse',
-  highlight: 'Highlight', whiteout: 'White-out', redact: 'Redaction', text: 'Text',
-  replace: 'Edited text', image: 'Image', note: 'Comment', stamp: 'Stamp', field: 'Form field',
+  ink: msg('Drawing'), line: msg('Line'), arrow: msg('Arrow'), rect: msg('Rectangle'), ellipse: msg('Ellipse'),
+  highlight: msg('Highlight'), whiteout: msg('White-out'), redact: msg('Redaction'), text: msg('Text'),
+  replace: msg('Edited text'), image: msg('Image'), note: msg('Comment'), stamp: msg('Stamp'), field: msg('Form field'),
 };
 
 const FIELD_KINDS: { label: string; value: FieldKind }[] = [
-  { label: 'Text', value: 'text' }, { label: 'Paragraph', value: 'multiline' },
-  { label: 'Checkbox', value: 'checkbox' }, { label: 'Dropdown', value: 'dropdown' },
+  { label: msg('Text'), value: 'text' }, { label: msg('Paragraph'), value: 'multiline' },
+  { label: msg('Checkbox'), value: 'checkbox' }, { label: msg('Dropdown'), value: 'dropdown' },
 ];
 
 const SHAPES: { tool: Tool; label: string; icon: string }[] = [
-  { tool: 'rect', label: 'Rectangle', icon: 'square' },
-  { tool: 'ellipse', label: 'Ellipse', icon: 'circle' },
-  { tool: 'line', label: 'Line', icon: 'minus' },
-  { tool: 'arrow', label: 'Arrow', icon: 'move-up-right' },
+  { tool: 'rect', label: msg('Rectangle'), icon: 'square' },
+  { tool: 'ellipse', label: msg('Ellipse'), icon: 'circle' },
+  { tool: 'line', label: msg('Line'), icon: 'minus' },
+  { tool: 'arrow', label: msg('Arrow'), icon: 'move-up-right' },
 ];
 
 const WIDTHS = [0.5, 1, 2, 4, 8];
@@ -114,15 +115,15 @@ export class Inspector {
 
     if (active) {
       parts.push(this.header(active.annot.type === 'image' ? 'image' : TOOLS[toolFor(active.annot.type)].icon,
-        editor.text.active ? `Editing ${ANNOT_NAMES[active.annot.type].toLowerCase()}` : ANNOT_NAMES[active.annot.type],
-        editor.text.active ? 'Press Esc or click outside when you’re done.' : null));
+        editor.text.active ? t('Editing: {what}', { what: t(ANNOT_NAMES[active.annot.type]) }) : ANNOT_NAMES[active.annot.type],
+        editor.text.active ? msg('Press Esc or click outside when you’re done.') : null));
     } else {
       const info = TOOLS[tool];
       parts.push(this.header(info.icon, info.title, info.hint));
     }
 
     if (!active && (tool === 'rect' || tool === 'ellipse' || tool === 'line' || tool === 'arrow')) {
-      parts.push(this.section('Shape', this.shapePicker(tool)));
+      parts.push(this.section(msg('Shape'), this.shapePicker(tool)));
     }
 
     const group = active ? styleGroupFor(active.annot.type) : groupForTool(tool);
@@ -132,11 +133,11 @@ export class Inspector {
     }
 
     if (active?.annot.type === 'field') parts.push(...this.fieldProperties(active.pageId, active.annot));
-    if (!active && tool === 'crop') parts.push(this.section('Crop', h('div', { class: 'insp-actions' },
-      this.actionButton('maximize-2', 'Remove crop from this page', () => this.run('uncrop-page')),
-      this.actionButton('files', 'Remove crop from all pages', () => this.run('uncrop-all')),
+    if (!active && tool === 'crop') parts.push(this.section(msg('Crop'), h('div', { class: 'insp-actions' },
+      this.actionButton('maximize-2', msg('Remove crop from this page'), () => this.run('uncrop-page')),
+      this.actionButton('files', msg('Remove crop from all pages'), () => this.run('uncrop-all')),
     )));
-    if (active && !editor.text.active) parts.push(this.section('Actions', this.actions(active.annot)));
+    if (active && !editor.text.active) parts.push(this.section(msg('Actions'), this.actions(active.annot)));
     if (!active && (tool === 'select' || tool === 'hand')) parts.push(...this.documentPanel(doc));
 
     this.root.replaceChildren(...parts.filter((p): p is HTMLElement => !!p));
@@ -146,14 +147,14 @@ export class Inspector {
 
   private header(iconName: string, title: string, hint: string | null) {
     return h('header', { class: 'insp-head' },
-      h('div', { class: 'insp-title' }, h('span', { class: 'insp-icon' }, icon(iconName)), h('h2', {}, title)),
-      hint ? h('p', { class: 'insp-hint' }, hint) : null,
+      h('div', { class: 'insp-title' }, h('span', { class: 'insp-icon' }, icon(iconName)), h('h2', {}, t(title))),
+      hint ? h('p', { class: 'insp-hint' }, t(hint)) : null,
     );
   }
 
   private section(label: string, ...content: (HTMLElement | null)[]) {
     return h('section', { class: 'insp-section' },
-      h('h3', {}, label),
+      h('h3', {}, t(label)),
       ...content,
     );
   }
@@ -169,14 +170,14 @@ export class Inspector {
         class: 'swatch',
         style: `--swatch:${color}`,
         title: color,
-        'aria-label': `Colour ${color}`,
+        'aria-label': t('Colour {color}', { color }),
         'aria-pressed': String(color.toLowerCase() === current?.toLowerCase()),
       });
       b.addEventListener('click', () => onPick(color));
       row.append(b);
     }
     if (allowCustom) {
-      const custom = h('input', { type: 'color', class: 'swatch swatch-custom', value: current?.startsWith('#') ? current : '#000000', title: 'Custom colour' });
+      const custom = h('input', { type: 'color', class: 'swatch swatch-custom', value: current?.startsWith('#') ? current : '#000000', title: t('Custom colour') });
       custom.addEventListener('change', () => onPick(custom.value));
       row.append(custom);
     }
@@ -187,7 +188,7 @@ export class Inspector {
   private widths(current: number, onPick: (w: number) => void) {
     const row = h('div', { class: 'segmented' });
     for (const w of WIDTHS) {
-      const b = h('button', { class: 'seg', title: `${w} pt`, 'aria-pressed': String(Math.abs(w - current) < 0.01) },
+      const b = h('button', { class: 'seg', title: t('{w} pt', { w }), 'aria-pressed': String(Math.abs(w - current) < 0.01) },
         h('span', { class: 'width-line', style: `height:${Math.max(1, Math.min(w, 8))}px;opacity:${w < 1 ? 0.5 : 1}` }));
       b.addEventListener('click', () => onPick(w));
       row.append(b);
@@ -198,8 +199,8 @@ export class Inspector {
   private segmented<T extends string | number>(options: { label: string; value: T; icon?: string }[], current: T, onPick: (v: T) => void) {
     const row = h('div', { class: 'segmented' });
     for (const o of options) {
-      const b = h('button', { class: 'seg', title: o.label, 'aria-pressed': String(o.value === current) },
-        o.icon ? icon(o.icon) : o.label);
+      const b = h('button', { class: 'seg', title: t(o.label), 'aria-pressed': String(o.value === current) },
+        o.icon ? icon(o.icon) : t(o.label));
       b.addEventListener('click', () => onPick(o.value));
       row.append(b);
     }
@@ -214,45 +215,45 @@ export class Inspector {
     switch (group) {
       case 'pen':
         return [
-          this.section('Colour', this.swatches(INK_COLORS, v.color as string, (color) => this.apply('pen', { color }))),
-          this.section('Thickness', this.widths(v.width as number, (width) => this.apply('pen', { width }))),
-          this.section('Opacity', this.segmented(
+          this.section(msg('Colour'), this.swatches(INK_COLORS, v.color as string, (color) => this.apply('pen', { color }))),
+          this.section(msg('Thickness'), this.widths(v.width as number, (width) => this.apply('pen', { width }))),
+          this.section(msg('Opacity'), this.segmented(
             [{ label: '25%', value: 0.25 }, { label: '50%', value: 0.5 }, { label: '75%', value: 0.75 }, { label: '100%', value: 1 }],
             v.opacity as number, (opacity) => this.apply('pen', { opacity }))),
         ];
       case 'highlight':
-        return [this.section('Colour', this.swatches(HIGHLIGHT_COLORS, v.color as string, (color) => this.apply('highlight', { color })))];
+        return [this.section(msg('Colour'), this.swatches(HIGHLIGHT_COLORS, v.color as string, (color) => this.apply('highlight', { color })))];
       case 'shape': {
         const fill = v.fill === null || v.fill === undefined ? 'none' : v.fill === '#ffffff' ? 'white' : 'tint';
         return [
-          this.section('Outline', this.swatches(INK_COLORS.slice(0, 7), v.color as string, (color) =>
+          this.section(msg('Outline'), this.swatches(INK_COLORS.slice(0, 7), v.color as string, (color) =>
             this.apply('shape', { color, ...(fill === 'tint' ? { fill: tint(color) } : {}) }))),
-          this.section('Thickness', this.widths(v.width as number, (width) => this.apply('shape', { width }))),
-          this.section('Fill', this.segmented(
-            [{ label: 'None', value: 'none' }, { label: 'White', value: 'white' }, { label: 'Tint', value: 'tint' }],
+          this.section(msg('Thickness'), this.widths(v.width as number, (width) => this.apply('shape', { width }))),
+          this.section(msg('Fill'), this.segmented(
+            [{ label: t('None'), value: 'none' }, { label: t('White'), value: 'white' }, { label: t('Tint'), value: 'tint' }],
             fill, (f) => this.apply('shape', { fill: f === 'none' ? null : f === 'white' ? '#ffffff' : tint(v.color as string) }))),
         ];
       }
       case 'line':
         return [
-          this.section('Colour', this.swatches(INK_COLORS.slice(0, 7), v.color as string, (color) => this.apply('line', { color }))),
-          this.section('Thickness', this.widths(v.width as number, (width) => this.apply('line', { width }))),
+          this.section(msg('Colour'), this.swatches(INK_COLORS.slice(0, 7), v.color as string, (color) => this.apply('line', { color }))),
+          this.section(msg('Thickness'), this.widths(v.width as number, (width) => this.apply('line', { width }))),
         ];
       case 'text':
         return this.textControls(v);
       case 'whiteout':
-        return [this.section('Colour', this.swatches(['#ffffff', '#f8f8f4', '#000000'], v.color as string, (color) => this.apply('whiteout', { color })))];
+        return [this.section(msg('Colour'), this.swatches(['#ffffff', '#f8f8f4', '#000000'], v.color as string, (color) => this.apply('whiteout', { color })))];
       case 'redact':
-        return [this.section('Box colour', this.swatches(['#000000', '#ffffff'], v.color as string, (color) => this.apply('redact', { color }), false))];
+        return [this.section(msg('Box colour'), this.swatches(['#000000', '#ffffff'], v.color as string, (color) => this.apply('redact', { color }), false))];
       case 'note':
-        return [this.section('Colour', this.swatches(NOTE_COLORS, v.color as string, (color) => this.apply('note', { color }), false))];
+        return [this.section(msg('Colour'), this.swatches(NOTE_COLORS, v.color as string, (color) => this.apply('note', { color }), false))];
       case 'stamp':
         return this.stampControls(v);
       case 'field':
         {
         const kinds = this.segmented(FIELD_KINDS, v.kind as FieldKind, (kind) => this.apply('field', { kind }));
         kinds.classList.add('two-rows');
-        return [this.section('Field type', kinds)];
+        return [this.section(msg('Field type'), kinds)];
       }
     }
   }
@@ -264,7 +265,7 @@ export class Inspector {
       b.addEventListener('click', () => this.apply('stamp', { label: s }));
       return b;
     }));
-    const custom = h('input', { class: 'field-input', placeholder: 'Your own words', value: STAMPS.includes(label) ? '' : label, maxlength: '40' });
+    const custom = h('input', { class: 'field-input', placeholder: t('Your own words'), value: STAMPS.includes(label) ? '' : label, maxlength: '40' });
     custom.addEventListener('change', () => {
       const text = custom.value.trim().toUpperCase();
       if (text) this.apply('stamp', { label: text });
@@ -272,9 +273,9 @@ export class Inspector {
     const dated = h('input', { type: 'checkbox', checked: !!v.date });
     dated.addEventListener('change', () => this.apply('stamp', { date: dated.checked }));
     return [
-      this.section('Stamp', chips, custom),
-      this.section('Colour', this.swatches(STAMP_COLORS, v.color as string, (color) => this.apply('stamp', { color }), false)),
-      this.section('Date', h('label', { class: 'check' }, dated, ' Add today’s date')),
+      this.section(msg('Stamp'), chips, custom),
+      this.section(msg('Colour'), this.swatches(STAMP_COLORS, v.color as string, (color) => this.apply('stamp', { color }), false)),
+      this.section(msg('Date'), h('label', { class: 'check' }, dated, t(' Add today’s date'))),
     ];
   }
 
@@ -287,26 +288,26 @@ export class Inspector {
       doc.updateAnnot(pageId, { ...current, ...patch });
       doc.commit();
     };
-    const name = h('input', { class: 'field-input', value: f.name, maxlength: '60', 'aria-label': 'Field name' });
+    const name = h('input', { class: 'field-input', value: f.name, maxlength: '60', 'aria-label': t('Field name') });
     name.addEventListener('change', () => update({ name: name.value.trim() || f.name }));
     const required = h('input', { type: 'checkbox', checked: f.required });
     required.addEventListener('change', () => update({ required: required.checked }));
     const parts = [
-      this.section('Name', name, h('p', { class: 'insp-note' }, 'Shown to people filling the form, and used when the answers are collected.')),
-      this.section('Rules', h('label', { class: 'check' }, required, ' Must be filled in')),
+      this.section(msg('Name'), name, h('p', { class: 'insp-note' }, t('Shown to people filling the form, and used when the answers are collected.'))),
+      this.section(msg('Rules'), h('label', { class: 'check' }, required, t(' Must be filled in'))),
     ];
     if (f.kind === 'dropdown') {
-      const options = h('textarea', { class: 'field-input', rows: '4', 'aria-label': 'Choices, one per line' });
+      const options = h('textarea', { class: 'field-input', rows: '4', 'aria-label': t('Choices, one per line') });
       options.value = f.options.join('\n');
       options.addEventListener('change', () => update({ options: options.value.split('\n').map((o) => o.trim()).filter(Boolean) }));
-      parts.splice(1, 0, this.section('Choices', options, h('p', { class: 'insp-note' }, 'One per line.')));
+      parts.splice(1, 0, this.section(msg('Choices'), options, h('p', { class: 'insp-note' }, t('One per line.'))));
     }
     return parts;
   }
 
   private textControls(v: Record<string, unknown>): HTMLElement[] {
-    const font = h('select', { class: 'field-select', title: 'Font' },
-      new Option('Sans serif', 'sans'), new Option('Serif', 'serif'), new Option('Monospace', 'mono'));
+    const font = h('select', { class: 'field-select', title: t('Font') },
+      new Option(t('Sans serif'), 'sans'), new Option(t('Serif'), 'serif'), new Option(t('Monospace'), 'mono'));
     // a document or installed font shows up as its own entry at the top
     const custom = getFamily(v.family as string | undefined);
     if (custom) font.prepend(new Option(custom.source === 'document' ? `${custom.name} (original)` : custom.name, 'custom'));
@@ -315,16 +316,16 @@ export class Inspector {
       if (font.value !== 'custom') this.apply('text', { font: font.value as FontFamily, family: undefined });
     });
 
-    const size = h('input', { class: 'number', type: 'number', min: '4', max: '200', step: '0.5', value: String(v.size), title: 'Font size' });
+    const size = h('input', { class: 'number', type: 'number', min: '4', max: '200', step: '0.5', value: String(v.size), title: t('Font size') });
     const setSize = (n: number) => {
       const clamped = Math.max(4, Math.min(200, Math.round(n * 2) / 2));
       size.value = String(clamped);
       this.apply('text', { size: clamped });
     };
     size.addEventListener('change', () => setSize(Number(size.value) || 12));
-    const smaller = h('button', { class: 'step', title: 'Smaller' }, icon('minus'));
+    const smaller = h('button', { class: 'step', title: t('Smaller') }, icon('minus'));
     smaller.addEventListener('click', () => setSize(Number(size.value) - 1));
-    const larger = h('button', { class: 'step', title: 'Larger' }, icon('plus'));
+    const larger = h('button', { class: 'step', title: t('Larger') }, icon('plus'));
     larger.addEventListener('click', () => setSize(Number(size.value) + 1));
 
     const toggle = (name: 'bold' | 'italic' | 'underline', title: string) => {
@@ -334,17 +335,17 @@ export class Inspector {
     };
 
     return [
-      this.section('Font', font, h('div', { class: 'insp-row' },
+      this.section(msg('Font'), font, h('div', { class: 'insp-row' },
         h('div', { class: 'stepper' }, smaller, size, larger),
-        h('div', { class: 'segmented compact' }, toggle('bold', 'Bold'), toggle('italic', 'Italic'), toggle('underline', 'Underline')))),
-      this.section('Colour', this.swatches(INK_COLORS, v.color as string, (color) => this.apply('text', { color }))),
+        h('div', { class: 'segmented compact' }, toggle('bold', t('Bold')), toggle('italic', t('Italic')), toggle('underline', t('Underline'))))),
+      this.section(msg('Colour'), this.swatches(INK_COLORS, v.color as string, (color) => this.apply('text', { color }))),
     ];
   }
 
   private actionButton(iconName: string, label: string, fn: () => void, options: { danger?: boolean; hint?: string } = {}) {
     const b = h('button', { class: `insp-action${options.danger ? ' danger' : ''}` },
       icon(iconName),
-      h('span', {}, label),
+      h('span', {}, t(label)),
       options.hint ? h('kbd', {}, options.hint) : null,
     );
     b.addEventListener('click', fn);
@@ -356,10 +357,10 @@ export class Inspector {
     const doc = this.getDoc();
     const list = h('div', { class: 'insp-actions' });
     if (a.type === 'text' || a.type === 'replace') {
-      list.append(this.actionButton('pencil', 'Edit text', () => editor.editSelectedText(), { hint: 'Dbl-click' }));
+      list.append(this.actionButton('pencil', msg('Edit text'), () => editor.editSelectedText(), { hint: t('Dbl-click') }));
     }
     if (a.type === 'image') {
-      list.append(this.actionButton('rotate-cw', 'Rotate 90°', () => {
+      list.append(this.actionButton('rotate-cw', msg('Rotate 90°'), () => {
         if (!doc || !editor.selection) return;
         // turn clockwise on screen, keeping the image centred in place
         const cx = a.x + a.w / 2, cy = a.y + a.h / 2;
@@ -368,13 +369,13 @@ export class Inspector {
       }));
     }
     list.append(
-      this.actionButton('layers', 'Bring to front', () => {
+      this.actionButton('layers', msg('Bring to front'), () => {
         if (!doc || !editor.selection) return;
         doc.bringToFront(editor.selection.pageId, a.id);
         doc.commit();
       }),
-      this.actionButton('copy', 'Duplicate', () => editor.duplicateSelected(), { hint: 'Ctrl+D' }),
-      this.actionButton('trash-2', 'Delete', () => editor.deleteSelected(), { danger: true, hint: 'Del' }),
+      this.actionButton('copy', msg('Duplicate'), () => editor.duplicateSelected(), { hint: t('Ctrl+D') }),
+      this.actionButton('trash-2', msg('Delete'), () => editor.deleteSelected(), { danger: true, hint: t('Del') }),
     );
     return list;
   }
@@ -382,24 +383,24 @@ export class Inspector {
   private documentPanel(doc: EditorDoc): HTMLElement[] {
     const main = doc.sources.get(doc.mainSource);
     const facts: [string, string][] = [
-      ['Pages', String(doc.pages.length)],
-      ['Size', main ? formatBytes(main.bytes.length) : '—'],
-      ['Location', doc.path ?? 'Not saved yet'],
+      [t('Pages'), String(doc.pages.length)],
+      [t('Size'), main ? formatBytes(main.bytes.length) : '—'],
+      [t('Location'), doc.path ?? t('Not saved yet')],
     ];
-    if (doc.wasProtected) facts.push(['Protection', 'Was protected; saves unlocked']);
-    if (doc.dirty) facts.push(['Changes', 'Not saved']);
+    if (doc.wasProtected) facts.push([t('Protection'), t('Was protected; saves unlocked')]);
+    if (doc.dirty) facts.push([t('Changes'), t('Not saved')]);
 
     return [
-      this.section('Document',
+      this.section(msg('Document'),
         h('p', { class: 'doc-name', title: doc.name }, doc.name),
         h('dl', { class: 'facts' }, ...facts.flatMap(([k, v]) => [h('dt', {}, k), h('dd', { title: v }, v)])),
       ),
-      this.section('Pages', h('div', { class: 'insp-actions' },
-        this.actionButton('rotate-cw', 'Rotate current page', () => this.run('rotate-right')),
-        this.actionButton('file-plus-2', 'Insert blank page', () => this.run('insert-blank')),
-        this.actionButton('file-plus', 'Merge another PDF', () => this.run('insert-pdf')),
-        this.actionButton('file-output', 'Extract pages', () => this.run('extract')),
-        this.actionButton('scissors', 'Split document', () => this.run('split')),
+      this.section(msg('Pages'), h('div', { class: 'insp-actions' },
+        this.actionButton('rotate-cw', msg('Rotate current page'), () => this.run('rotate-right')),
+        this.actionButton('file-plus-2', msg('Insert blank page'), () => this.run('insert-blank')),
+        this.actionButton('file-plus', msg('Merge another PDF'), () => this.run('insert-pdf')),
+        this.actionButton('file-output', msg('Extract pages'), () => this.run('extract')),
+        this.actionButton('scissors', msg('Split document'), () => this.run('split')),
       )),
     ];
   }

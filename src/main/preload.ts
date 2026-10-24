@@ -56,6 +56,15 @@ const api: InkleafApi = {
   openRecent: (path) => ipcRenderer.invoke('recent:open', path),
   setRecentThumb: (path, thumb) => ipcRenderer.send('recent:thumb', path, thumb),
   forgetRecent: (path) => ipcRenderer.invoke('recent:forget', path),
+  i18n: (() => {
+    try {
+      return ipcRenderer.sendSync('i18n:catalog');
+    } catch {
+      return { locale: 'en', strings: {} };
+    }
+  })(),
+  languageChoice: () => ipcRenderer.invoke('i18n:choice'),
+  setLanguage: (choice) => ipcRenderer.invoke('i18n:set', choice),
   theme: () => ipcRenderer.invoke('theme:get'),
   setTheme: (theme) => ipcRenderer.send('theme:set', theme),
   windowCommand: (command) => ipcRenderer.send('window:command', command),

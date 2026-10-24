@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t } from '../shared/i18n';
 import { newId } from './geometry';
 import { loadPdf, PageInfo, PDFDocumentProxy, readPageInfo } from './pdf';
 import type { Annot, Box, Decor, FormValue, NoteAnnot, OutlineItem, PageRef, Snapshot } from './types';
@@ -308,7 +309,7 @@ export class EditorDoc extends EventTarget {
 
   deletePages(ids: string[]) {
     const remove = new Set(ids);
-    if (remove.size >= this.state.pages.length) throw new Error('A PDF needs at least one page.');
+    if (remove.size >= this.state.pages.length) throw new Error(t('A PDF needs at least one page.'));
     this.state.pages = this.state.pages.filter((p) => !remove.has(p.id));
     for (const id of remove) delete this.state.annots[id];
     this.emit({ kind: 'pages' });

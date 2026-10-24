@@ -4,6 +4,7 @@
 // is drawn as a sharp picture, and the system print dialog takes it from
 // there.
 
+import { t } from '../shared/i18n';
 import type { EditorDoc } from './document';
 import { loadPdf } from './pdf';
 
@@ -33,7 +34,7 @@ export async function printDocument(doc: EditorDoc, progress: (done: number, tot
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       await page.render({ canvas, canvasContext: ctx, viewport, intent: 'print' }).promise;
       const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Couldn’t prepare a page for printing'))), 'image/jpeg', 0.92));
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(t('Couldn’t prepare a page for printing')))), 'image/jpeg', 0.92));
       canvas.width = canvas.height = 0;
       const url = URL.createObjectURL(blob);
       urls.push(url);
@@ -47,7 +48,7 @@ export async function printDocument(doc: EditorDoc, progress: (done: number, tot
     await Promise.all([...root.querySelectorAll('img')].map((img) => img.decode().catch(() => {})));
     document.documentElement.classList.add('printing');
     const result = await window.inkleaf.print();
-    if (!result.ok && result.reason && !/cancel/i.test(result.reason)) throw new Error(`Printing didn’t work: ${result.reason}`);
+    if (!result.ok && result.reason && !/cancel/i.test(result.reason)) throw new Error(t('Printing didn’t work: {reason}', { reason: result.reason }));
   } finally {
     document.documentElement.classList.remove('printing');
     root.remove();

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t } from '../shared/i18n';
 import { app, BrowserWindow, Menu, MenuItemConstructorOptions } from 'electron';
 import { MENU, MenuItemSpec, shortcutFor, WindowCommand } from '../shared/commands';
 
@@ -36,7 +37,7 @@ export function buildMenu(runWindowCommand: (command: WindowCommand, win: Browse
   const appMenu: MenuItemConstructorOptions = {
     label: app.name,
     submenu: [
-      { label: `About ${app.name}`, click: () => BrowserWindow.getFocusedWindow()?.webContents.send('menu', 'about') },
+      { label: t('About {name}', { name: app.name }), click: () => BrowserWindow.getFocusedWindow()?.webContents.send('menu', 'about') },
       { type: 'separator' },
       { role: 'services' },
       { type: 'separator' },

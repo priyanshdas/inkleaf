@@ -3,6 +3,7 @@
 // phone), straighten each page from its four corners, clean it up so it
 // looks scanned rather than photographed, and make a PDF.
 
+import { t } from '../shared/i18n';
 import { embeddable } from './tools';
 import { h, icon, modal, toast } from './ui';
 
@@ -232,7 +233,7 @@ export async function scansToPdf(pages: ScanPage[], progress: (m: string) => voi
   const { PDFDocument } = await import('pdf-lib');
   const out = await PDFDocument.create();
   for (let i = 0; i < pages.length; i++) {
-    progress(`Cleaning up page ${i + 1} of ${pages.length}…`);
+    progress(t('Cleaning up page {n} of {total}…', { n: i + 1, total: pages.length }));
     const c = await finished(pages[i]);
     // black and white compresses far better losslessly
     const img = pages[i].mode === 'bw' ? await out.embedPng(await canvasBytes(c, 'image/png')) : await out.embedJpg(await canvasBytes(c, 'image/jpeg'));
@@ -268,21 +269,21 @@ export async function scanDialog(): Promise<Scanned | null> {
 
   const video = h('video', { class: 'scan-video', autoplay: true, muted: true, playsinline: true }) as HTMLVideoElement;
   const editCanvas = h('canvas', { class: 'scan-canvas' }) as HTMLCanvasElement;
-  const stage = h('div', { class: 'scan-stage' }, h('div', { class: 'scan-empty' }, icon('scan-line'), h('p', {}, 'Point your camera at a page, or add photos you’ve already taken.')));
+  const stage = h('div', { class: 'scan-stage' }, h('div', { class: 'scan-empty' }, icon('scan-line'), h('p', {}, t('Point your camera at a page, or add photos you’ve already taken.'))));
   const strip = h('div', { class: 'scan-strip' });
-  const count = h('span', { class: 'scan-count' }, 'No pages yet');
+  const count = h('span', { class: 'scan-count' }, t('No pages yet'));
 
-  const cameraBtn = h('button', { class: 'btn' }, icon('camera'), 'Use camera');
-  const captureBtn = h('button', { class: 'btn btn-primary', hidden: true }, icon('aperture'), 'Take picture');
-  const photosBtn = h('button', { class: 'btn' }, icon('images'), 'Add photos…');
-  const mode = h('select', { class: 'field-input scan-mode', title: 'How the page is cleaned up' },
-    new Option('Document (whiter paper, sharper ink)', 'document'),
-    new Option('Black & white', 'bw'),
-    new Option('Original colours', 'original'));
-  const turnBtn = h('button', { class: 'btn small btn-ghost', title: 'Turn the page' }, icon('rotate-cw'));
-  const resetBtn = h('button', { class: 'btn small btn-ghost', title: 'Use the whole photo' }, icon('maximize'));
-  const removeBtn = h('button', { class: 'btn small btn-ghost', title: 'Remove this page' }, icon('trash-2'));
-  const pageTools = h('div', { class: 'scan-page-tools', hidden: true }, h('span', { class: 'field-hint' }, 'Drag the corners onto the page’s corners.'), mode, turnBtn, resetBtn, removeBtn);
+  const cameraBtn = h('button', { class: 'btn' }, icon('camera'), t('Use camera'));
+  const captureBtn = h('button', { class: 'btn btn-primary', hidden: true }, icon('aperture'), t('Take picture'));
+  const photosBtn = h('button', { class: 'btn' }, icon('images'), t('Add photos…'));
+  const mode = h('select', { class: 'field-input scan-mode', title: t('How the page is cleaned up') },
+    new Option(t('Document (whiter paper, sharper ink)'), 'document'),
+    new Option(t('Black & white'), 'bw'),
+    new Option(t('Original colours'), 'original'));
+  const turnBtn = h('button', { class: 'btn small btn-ghost', title: t('Turn the page') }, icon('rotate-cw'));
+  const resetBtn = h('button', { class: 'btn small btn-ghost', title: t('Use the whole photo') }, icon('maximize'));
+  const removeBtn = h('button', { class: 'btn small btn-ghost', title: t('Remove this page') }, icon('trash-2'));
+  const pageTools = h('div', { class: 'scan-page-tools', hidden: true }, h('span', { class: 'field-hint' }, t('Drag the corners onto the page’s corners.')), mode, turnBtn, resetBtn, removeBtn);
   const ocr = h('input', { type: 'checkbox' }) as HTMLInputElement;
 
   const stopCamera = () => {
@@ -294,11 +295,11 @@ export async function scanDialog(): Promise<Scanned | null> {
 
   const refreshStrip = () => {
     strip.replaceChildren(...pages.map((p, i) => {
-      const el = h('button', { class: `scan-thumb${p === current ? ' active' : ''}`, title: `Page ${i + 1}` }, h('img', { src: p.thumb, alt: '' }), h('span', {}, String(i + 1)));
+      const el = h('button', { class: `scan-thumb${p === current ? ' active' : ''}`, title: t('Page {n}', { n: i + 1 }) }, h('img', { src: p.thumb, alt: '' }), h('span', {}, String(i + 1)));
       el.addEventListener('click', () => select(p));
       return el;
     }));
-    count.textContent = pages.length ? `${pages.length} page${pages.length === 1 ? '' : 's'}` : 'No pages yet';
+    count.textContent = pages.length ? t('{count, plural, one {# page} other {# pages}}', { count: pages.length }) : t('No pages yet');
   };
 
   const updateThumb = async (p: ScanPage) => {
@@ -394,7 +395,7 @@ export async function scanDialog(): Promise<Scanned | null> {
       requestAnimationFrame(draw);
     } else {
       pageTools.hidden = true;
-      if (!stream) stage.replaceChildren(h('div', { class: 'scan-empty' }, icon('scan-line'), h('p', {}, pages.length ? 'Pick a page below to adjust it, or add more.' : 'Point your camera at a page, or add photos you’ve already taken.')));
+      if (!stream) stage.replaceChildren(h('div', { class: 'scan-empty' }, icon('scan-line'), h('p', {}, pages.length ? t('Pick a page below to adjust it, or add more.') : t('Point your camera at a page, or add photos you’ve already taken.'))));
     }
     refreshStrip();
   }
@@ -411,7 +412,7 @@ export async function scanDialog(): Promise<Scanned | null> {
       stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 3840 }, height: { ideal: 2160 }, facingMode: 'environment' }, audio: false });
     } catch (err) {
       const name = (err as DOMException).name;
-      toast(name === 'NotFoundError' || name === 'OverconstrainedError' ? 'No camera was found. You can add photos instead.' : 'Inkleaf couldn’t use the camera. Check that no other app is using it, and that camera access is allowed in your system settings.', 'error', 7000);
+      toast(name === 'NotFoundError' || name === 'OverconstrainedError' ? t('No camera was found. You can add photos instead.') : t('Inkleaf couldn’t use the camera. Check that no other app is using it, and that camera access is allowed in your system settings.'), 'error', 7000);
       return;
     }
     current = null;
@@ -438,7 +439,7 @@ export async function scanDialog(): Promise<Scanned | null> {
         const img = await embeddable(file);
         last = await addBitmap(await createImageBitmap(new Blob([img.bytes as BlobPart])));
       } catch {
-        toast(`Couldn’t read “${file.name}”.`, 'error');
+        toast(t('Couldn’t read “{name}”.', { name: file.name }), 'error');
       }
     }
     if (last) select(last);
@@ -476,16 +477,16 @@ export async function scanDialog(): Promise<Scanned | null> {
     stage,
     pageTools,
     strip,
-    h('label', { class: 'check' }, ocr, h('span', {}, 'Recognise the text afterwards, so it can be searched and copied')),
+    h('label', { class: 'check' }, ocr, h('span', {}, t('Recognise the text afterwards, so it can be searched and copied'))),
   );
   const choice = await modal({
-    title: 'Scan to PDF',
+    title: t('Scan to PDF'),
     wide: true,
     body,
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Make PDF', value: 'ok', primary: true }],
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Make PDF'), value: 'ok', primary: true }],
     validate: async (value) => {
       if (value === 'ok' && !pages.length) {
-        toast('Add at least one page first.', 'info');
+        toast(t('Add at least one page first.'), 'info');
         return false;
       }
       return true;

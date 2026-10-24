@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t } from '../shared/i18n';
 import fontkit from '@pdf-lib/fontkit';
 import {
   BlendMode,
@@ -171,7 +172,7 @@ class Writer {
     }
     if (style.family) {
       const family = getFamily(style.family);
-      this.warnings.add(`Some text couldn’t use ${family?.name ?? 'its chosen font'} (it doesn’t have every letter typed), so it was saved in a standard font.`);
+      this.warnings.add(t('Some text couldn’t use {font} (it doesn’t have every letter typed), so it was saved in a standard font.', { font: family?.name ?? t('its chosen font') }));
     }
     return { font: await this.standardFont(style), fakeBold: false, fakeItalic: false };
   }
@@ -179,7 +180,7 @@ class Writer {
   private async standardFont(style: TextStyle): Promise<PDFFont> {
     if (!fitsStandardFont(style, style.text)) {
       if (style.bold || style.italic || style.font !== 'sans') {
-        this.warnings.add('Some text uses characters the built-in PDF fonts can’t show, so it was saved in DejaVu Sans instead.');
+        this.warnings.add(t('Some text uses characters the built-in PDF fonts can’t show, so it was saved in DejaVu Sans instead.'));
       }
       return this.unicodeFont();
     }
@@ -236,7 +237,7 @@ class Writer {
         page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: Math.max(0.5, a.size * UNDERLINE_THICKNESS), color: ink, opacity });
       }
     }
-    if (missing) this.warnings.add('Some text needs a language pack that couldn’t be downloaded, so it may not show correctly. Connect to the internet and save again.');
+    if (missing) this.warnings.add(t('Some text needs a language pack that couldn’t be downloaded, so it may not show correctly. Connect to the internet and save again.'));
   }
 
   /**
@@ -536,7 +537,7 @@ async function fillForms(out: PDFDocument, doc: EditorDoc, writer: Writer) {
     try {
       field = form.getField(name);
     } catch {
-      writer.warnings.add(`Couldn’t find form field “${name}” in the file, so its value wasn’t saved.`);
+      writer.warnings.add(t('Couldn’t find form field “{name}” in the file, so its value wasn’t saved.', { name }));
       continue;
     }
     try {
@@ -554,7 +555,7 @@ async function fillForms(out: PDFDocument, doc: EditorDoc, writer: Writer) {
         else field.clear();
       }
     } catch (err) {
-      writer.warnings.add(`Form field “${name}” couldn’t be filled: ${(err as Error).message}`);
+      writer.warnings.add(t('Form field “{name}” couldn’t be filled: {message}', { name, message: (err as Error).message }));
     }
   }
 
@@ -640,7 +641,7 @@ async function createFields(out: PDFDocument, pages: readonly PageRef[], doc: Ed
       if (taken.has(name)) {
         let n = 2;
         while (taken.has(`${name} ${n}`)) n++;
-        writer.warnings.add(`Two form fields were both called “${name}”, so one was saved as “${name} ${n}”.`);
+        writer.warnings.add(t('Two form fields were both called “{name}”, so one was saved as “{name} {n}”.', { name, n }));
         name = `${name} ${n}`;
       }
       taken.add(name);
@@ -668,7 +669,7 @@ async function createFields(out: PDFDocument, pages: readonly PageRef[], doc: Ed
           if (f.required) text.enableRequired();
         }
       } catch (err) {
-        writer.warnings.add(`Form field “${name}” couldn’t be added: ${(err as Error).message}`);
+        writer.warnings.add(t('Form field “{name}” couldn’t be added: {message}', { name, message: (err as Error).message }));
       }
     }
   }
@@ -784,7 +785,7 @@ export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[]): 
   const groupPages = groups.map((ids) => {
     const wanted = ids ? new Set(ids) : null;
     const pages = doc.pages.filter((p) => !wanted || wanted.has(p.id));
-    if (!pages.length) throw new Error('There are no pages to save.');
+    if (!pages.length) throw new Error(t('There are no pages to save.'));
     return pages;
   });
 

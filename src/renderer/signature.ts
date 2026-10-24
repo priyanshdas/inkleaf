@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t, msg } from '../shared/i18n';
 import { tracePath } from './render';
 import { h, icon, imageFileToDataUrl, modal } from './ui';
 
@@ -8,9 +9,9 @@ const SAVED_KEYS: Record<SignKind, string> = { signature: 'inkleaf.signatures.v1
 const MAX_SAVED = 4;
 
 const SCRIPT_FONTS = [
-  { label: 'Flowing', css: '"Segoe Script", "Snell Roundhand", "URW Chancery L", "Apple Chancery", cursive' },
-  { label: 'Brush', css: '"Brush Script MT", "Brush Script Std", "Lucida Handwriting", cursive' },
-  { label: 'Neat', css: '"Lucida Handwriting", "Bradley Hand", "Comic Neue", "Segoe Print", cursive' },
+  { label: msg('Flowing'), css: '"Segoe Script", "Snell Roundhand", "URW Chancery L", "Apple Chancery", cursive' },
+  { label: msg('Brush'), css: '"Brush Script MT", "Brush Script Std", "Lucida Handwriting", cursive' },
+  { label: msg('Neat'), css: '"Lucida Handwriting", "Bradley Hand", "Comic Neue", "Segoe Print", cursive' },
 ];
 
 const INKS = ['#14213d', '#1d3f91', '#1a1a1a'];
@@ -136,9 +137,9 @@ function drawPad(): { el: HTMLElement; result: () => string | null } {
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
 
-  const hint = h('span', { class: 'sig-hint' }, 'Sign here with your mouse, trackpad or pen');
+  const hint = h('span', { class: 'sig-hint' }, t('Sign here with your mouse, trackpad or pen'));
   const swatches = INKS.map((color) => {
-    const b = h('button', { class: 'swatch', style: `--swatch:${color}`, title: 'Ink colour', 'aria-pressed': String(color === ink) });
+    const b = h('button', { class: 'swatch', style: `--swatch:${color}`, title: t('Ink colour'), 'aria-pressed': String(color === ink) });
     b.addEventListener('click', () => {
       ink = color;
       swatches.forEach((s) => s.setAttribute('aria-pressed', String(s === b)));
@@ -147,8 +148,8 @@ function drawPad(): { el: HTMLElement; result: () => string | null } {
     });
     return b;
   });
-  const undo = h('button', { class: 'btn btn-ghost', onclick: () => { strokes.pop(); redraw(); } }, 'Undo stroke');
-  const clear = h('button', { class: 'btn btn-ghost', onclick: () => { strokes.length = 0; redraw(); } }, 'Clear');
+  const undo = h('button', { class: 'btn btn-ghost', onclick: () => { strokes.pop(); redraw(); } }, t('Undo stroke'));
+  const clear = h('button', { class: 'btn btn-ghost', onclick: () => { strokes.length = 0; redraw(); } }, t('Clear'));
 
   const el = h('div', { class: 'sig-pane' },
     h('div', { class: 'sig-surface' }, canvas, hint, h('div', { class: 'sig-line' })),
@@ -158,13 +159,13 @@ function drawPad(): { el: HTMLElement; result: () => string | null } {
 }
 
 function typePad(): { el: HTMLElement; result: () => string | null } {
-  const input = h('input', { class: 'field-input sig-name', placeholder: 'Type your name', autocomplete: 'name', spellcheck: 'false' });
+  const input = h('input', { class: 'field-input sig-name', placeholder: t('Type your name'), autocomplete: 'name', spellcheck: 'false' });
   let font = SCRIPT_FONTS[0].css;
   let ink = INKS[0];
   const preview = h('div', { class: 'sig-type-preview' });
 
   const render = () => {
-    preview.textContent = input.value || 'Your name';
+    preview.textContent = input.value || t('Your name');
     preview.style.fontFamily = font;
     preview.style.color = ink;
     preview.classList.toggle('placeholder', !input.value);
@@ -172,7 +173,7 @@ function typePad(): { el: HTMLElement; result: () => string | null } {
   input.addEventListener('input', render);
 
   const fonts = SCRIPT_FONTS.map((f, i) => {
-    const b = h('button', { class: 'chip', style: `font-family:${f.css}`, 'aria-pressed': String(i === 0) }, f.label);
+    const b = h('button', { class: 'chip', style: `font-family:${f.css}`, 'aria-pressed': String(i === 0) }, t(f.label));
     b.addEventListener('click', () => {
       font = f.css;
       fonts.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
@@ -207,7 +208,7 @@ function uploadPad(): { el: HTMLElement; result: () => Promise<string | null> } 
   const preview = h('img', { class: 'sig-upload-preview', alt: '' });
   preview.hidden = true;
   const knockout = h('input', { type: 'checkbox', checked: true });
-  const choose = h('button', { class: 'btn' }, icon('upload'), 'Choose image…');
+  const choose = h('button', { class: 'btn' }, icon('upload'), t('Choose image…'));
   const input = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp' });
   input.hidden = true;
   choose.addEventListener('click', () => input.click());
@@ -221,7 +222,7 @@ function uploadPad(): { el: HTMLElement; result: () => Promise<string | null> } 
 
   const el = h('div', { class: 'sig-pane' },
     h('div', { class: 'sig-upload' }, choose, input, preview),
-    h('label', { class: 'check' }, knockout, ' Remove white background'),
+    h('label', { class: 'check' }, knockout, t(' Remove white background')),
   );
   return {
     el,
@@ -256,15 +257,15 @@ export async function chooseSignature(kind: SignKind = 'signature'): Promise<str
   const keepIt = h('input', { type: 'checkbox', checked: true });
   const savedRow = saved.length
     ? h('div', { class: 'sig-saved' },
-        h('span', { class: 'field-label' }, 'Use a saved signature'),
+        h('span', { class: 'field-label' }, t('Use a saved signature')),
         h('div', { class: 'sig-saved-list' },
           ...saved.map((s) => {
-            const tile = h('button', { class: 'sig-saved-item', title: 'Use this signature' }, h('img', { src: s, alt: 'Saved signature' }));
+            const tile = h('button', { class: 'sig-saved-item', title: t('Use this signature') }, h('img', { src: s, alt: t('Saved signature') }));
             tile.addEventListener('click', () => {
               picked = s;
               (document.querySelector('.modal .btn-primary') as HTMLButtonElement)?.click();
             });
-            const remove = h('button', { class: 'sig-forget', title: 'Forget this signature' }, icon('x'));
+            const remove = h('button', { class: 'sig-forget', title: t('Forget this signature') }, icon('x'));
             remove.addEventListener('click', (e) => {
               e.stopPropagation();
               forgetSignature(s, kind);
@@ -278,17 +279,17 @@ export async function chooseSignature(kind: SignKind = 'signature'): Promise<str
 
   let result: string | null = null;
   const choice = await modal({
-    title: kind === 'initials' ? 'Add your initials' : 'Add your signature',
+    title: kind === 'initials' ? t('Add your initials') : t('Add your signature'),
     wide: true,
     body: h('div', { class: 'sig-dialog' },
       savedRow,
       tabs,
       body,
-      h('label', { class: 'check' }, keepIt, kind === 'initials' ? ' Remember these initials on this computer' : ' Remember this signature on this computer'),
+      h('label', { class: 'check' }, keepIt, kind === 'initials' ? t(' Remember these initials on this computer') : t(' Remember this signature on this computer')),
     ),
     buttons: [
-      { label: 'Cancel', value: 'cancel' },
-      { label: kind === 'initials' ? 'Place initials' : 'Place signature', value: 'ok', primary: true },
+      { label: t('Cancel'), value: 'cancel' },
+      { label: kind === 'initials' ? t('Place initials') : t('Place signature'), value: 'ok', primary: true },
     ],
     validate: async () => {
       result = picked ?? (await panes[tab].result());
@@ -332,11 +333,11 @@ export function signMenu(anchor: HTMLElement): Promise<{ dataUrl: string; kind: 
     const group = (kind: SignKind, title: string) => {
       const saved = savedSignatures(kind);
       const tiles = saved.map((s) => {
-        const b = h('button', { class: 'sign-tile', title: kind === 'initials' ? 'Place these initials' : 'Place this signature' }, h('img', { src: s, alt: '' }));
+        const b = h('button', { class: 'sign-tile', title: kind === 'initials' ? t('Place these initials') : t('Place this signature') }, h('img', { src: s, alt: '' }));
         b.addEventListener('click', () => finish({ dataUrl: s, kind }));
         return b;
       });
-      const create = h('button', { class: 'menu-item' }, icon('pen-tool'), h('span', { class: 'menu-label' }, kind === 'initials' ? 'New initials…' : 'New signature…'));
+      const create = h('button', { class: 'menu-item' }, icon('pen-tool'), h('span', { class: 'menu-label' }, kind === 'initials' ? t('New initials…') : t('New signature…')));
       create.addEventListener('click', async () => {
         // the dialog takes over: clicks in it mustn't count as "outside"
         menu.remove();
@@ -347,7 +348,7 @@ export function signMenu(anchor: HTMLElement): Promise<{ dataUrl: string; kind: 
       });
       return [h('div', { class: 'menu-heading' }, title), tiles.length ? h('div', { class: 'sign-tiles' }, ...tiles) : null, create];
     };
-    menu.append(...group('signature', 'Signatures').filter(Boolean) as HTMLElement[], h('div', { class: 'menu-separator' }), ...group('initials', 'Initials').filter(Boolean) as HTMLElement[]);
+    menu.append(...group('signature', t('Signatures')).filter(Boolean) as HTMLElement[], h('div', { class: 'menu-separator' }), ...group('initials', t('Initials')).filter(Boolean) as HTMLElement[]);
     document.getElementById('menus')!.append(menu);
     const r = anchor.getBoundingClientRect();
     menu.style.left = `${r.right + 8}px`;

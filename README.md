@@ -39,8 +39,24 @@ anywhere, there are no accounts, and every tool is free. Built by EPD.
 - **Find (Ctrl+F)**, **Print (Ctrl+P)**, **bookmarks** (read, add, rename,
   delete; saved with the file), **crop pages**, and continuous, two-page and
   one-page reading modes.
-- **Text recognition (OCR).** Makes scans searchable and editable, in English,
-  Hindi, Bengali and Italian. Runs offline; the scan looks exactly the same.
+- **Text recognition (OCR).** Makes scans searchable and editable in 56
+  languages, from English, Spanish and Arabic to Hindi, Chinese, Japanese,
+  Swahili and Amharic. English and Hindi come built in; any other language
+  is downloaded once (a few MB, checked against a known hash) and then works
+  offline. The scan looks exactly the same afterwards.
+- **Type in any major script.** New and edited text is shaped properly for
+  Devanagari, Bengali, Tamil, Arabic, Hebrew, Thai and the rest, right-to-left
+  lines included, and saved with the matching Noto font built into the file.
+  Chinese, Japanese and Korean fonts are larger, so they're fetched the first
+  time you need them.
+- **In your language.** Menus, dialogs and messages are available in 30
+  languages: English, Hindi, Bengali, Marathi, Tamil, Telugu, Gujarati, Urdu,
+  Spanish, French, German, Italian, Portuguese, Dutch, Polish, Ukrainian,
+  Russian, Turkish, Arabic, Persian, Hebrew, Chinese (Simplified and
+  Traditional), Japanese, Korean, Vietnamese, Thai, Indonesian, Malay and
+  Swahili. Inkleaf follows your computer's language, or pick one under
+  View › Language. Arabic, Persian, Urdu and Hebrew mirror the whole window,
+  while the PDF itself stays the right way round.
 - **Compress**, **password-protect** (AES-256, with optional print, copy and
   edit restrictions), **watermarks, page numbers, headers and footers**,
   **form builder** (text boxes, paragraphs, checkboxes, dropdowns), and
@@ -69,9 +85,9 @@ anywhere, there are no accounts, and every tool is free. Built by EPD.
 - **AI Summarizer and Translate PDF** (optional). They use Claude, from
   Anthropic, with your own API key (Tools › AI settings), and they're the
   only tools that send anything off your computer: the document's text,
-  and only when you run them. Translation either lays the new words over
-  a copy of the pages, keeping the layout, or makes a Word document (for
-  scripts like Hindi and Bengali). The key is stored encrypted.
+  and only when you run them. Translation goes into any of 56 languages
+  and either lays the new words over a copy of the pages, keeping the
+  layout, or makes a Word document. The key is stored encrypted.
 - **All tools** (Ctrl+K or ⌘K): every tool on one searchable page, grouped
   as Organize, Optimize, Convert, Edit, Security and Intelligence.
 - Several PDFs open at once in tabs, a recent-files home screen, and a
@@ -108,6 +124,22 @@ Bug reports, ideas, translations and pull requests are all welcome. See
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for how we treat each other. Please
 report security problems privately, as described in [SECURITY.md](SECURITY.md).
 
+### Translating Inkleaf
+
+Every message in the app is written in English and wrapped in `t('…')`.
+Translations live in `src/renderer/i18n/<code>.json`, one file per language.
+
+```bash
+npm run i18n                          # refresh the English list and show what each language is missing
+node scripts/i18n.mjs --missing fr    # list the French strings still to do
+```
+
+Keep `{placeholders}` exactly as they are, keep both halves of
+`{count, plural, one {…} other {…}}`, and leave shortcuts such as `Ctrl+S`
+untouched. To add a language, add its code to `UI_LANGUAGES` in
+`src/shared/i18n.ts` (and to `RTL_LANGUAGES` if it's written right to left),
+then create its JSON file.
+
 ## Getting started
 
 You need [Node.js](https://nodejs.org) 20 or newer.
@@ -130,7 +162,7 @@ npm run dist:mac     # on macOS:   .dmg + .zip
 npm run dist:linux   # on Linux:   AppImage + .deb
 ```
 
-Output lands in `dist/`. `dist:win` makes an installer (`Inkleaf Setup 2.2.0.exe`)
+Output lands in `dist/`. `dist:win` makes an installer (`Inkleaf Setup 2.3.0.exe`)
 and a portable `.exe` that runs without installing. It can also be built on
 Linux if Wine is installed.
 
@@ -260,9 +292,15 @@ Things that keep it fast, worth preserving when changing the viewer:
   are copied in as pictures. **PDF to Excel** finds tables by how the text
   lines up, which works well for invoices and statements but not for tables
   drawn as pictures (run OCR first).
-- **Translating over the page** works for languages written in Latin or
-  Cyrillic letters; other scripts come out as a Word document. Longer
-  translations are shrunk to fit the original line, so check the result.
+- **Translating over the page** replaces each line where it was. Longer
+  translations are shrunk to fit the original line, so check the result;
+  for long documents the Word option often reads better.
+- **Language packs** (OCR models and the Chinese, Japanese and Korean fonts)
+  need an internet connection the first time each one is used. They come
+  from jsDelivr; your pages are never sent anywhere.
+- **Interface translations** were written for this release and haven't all
+  been checked by native speakers yet. If something reads oddly in your
+  language, please open an issue or a pull request.
 - **Scan to PDF** finds the page by looking for the bright sheet on a darker
   background. On a white desk, drag the corners into place yourself.
 - **PDF/A** output is PDF/A-2b. Files with transparency groups or unusual
@@ -279,8 +317,8 @@ Things that keep it fast, worth preserving when changing the viewer:
   document used, so typing a letter the subset lacks switches that line to
   the closest standard font (Helvetica, Times or Courier). Fonts that map
   their own private codes, or whose licence forbids embedding, are never
-  reused. Scripts that need complex shaping (Devanagari, Arabic) aren't
-  supported in new text yet.
+  reused. Lines in scripts that need shaping (Devanagari, Arabic, Thai and
+  so on) are always written in the matching Noto font.
 - Installed fonts in the text toolbar's font list come from the system font
   list. Fonts stored in collection files (.ttc) can't be embedded in a PDF
   and are refused with a message.

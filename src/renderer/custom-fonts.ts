@@ -7,6 +7,7 @@
 // browser FontFace so the screen shows it, parsed with fontkit for exact
 // glyph widths and coverage, and embedded into the PDF when you save.
 
+import { msg } from '../shared/i18n';
 import type { Font as FontkitFont } from '@pdf-lib/fontkit';
 
 export interface Face {
@@ -115,13 +116,13 @@ export function loadFace(family: Family, face: Face): Promise<Face | null> {
         const fk = kit.create(bytes) as FontkitFont & { fonts?: unknown[] };
         if (fk.fonts) {
           // a .ttc collection: we'd need to split it out before embedding
-          face.unusable = 'This font is stored in a collection file that can’t be embedded in a PDF.';
+          face.unusable = msg('This font is stored in a collection file that can’t be embedded in a PDF.');
           return null;
         }
         // OS/2 fsType bit 1: the font's licence forbids embedding it
         const fsType = (fk as unknown as { 'OS/2'?: { fsType?: number } })['OS/2']?.fsType ?? 0;
         if ((fsType & 0x000f) === 0x0002) {
-          face.unusable = 'This font’s licence doesn’t allow embedding it in a PDF.';
+          face.unusable = msg('This font’s licence doesn’t allow embedding it in a PDF.');
           return null;
         }
         patchFontkit(fk);
@@ -144,7 +145,7 @@ export function loadFace(family: Family, face: Face): Promise<Face | null> {
           setTimeout(() => loading.delete(face.key), 20_000);
           return null;
         }
-        face.unusable = 'This font couldn’t be read.';
+        face.unusable = msg('This font couldn’t be read.');
         return null;
       }
     })();

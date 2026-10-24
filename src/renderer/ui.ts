@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { currentLocale, isRtl, t } from '../shared/i18n';
 import { icons } from './generated/icons';
 
 type Child = Node | string | null | undefined | false;
@@ -43,6 +44,29 @@ export function icon(name: string): SVGElement {
 }
 
 /** Replaces <i data-icon="name"> placeholders in static HTML with real icons. */
+/**
+ * Translates the window's built-in text (button labels and tooltips written
+ * in index.html) and sets the page's language and direction.
+ */
+export function localizeStatic(root: HTMLElement = document.body) {
+  document.documentElement.lang = currentLocale();
+  document.documentElement.dir = isRtl() ? 'rtl' : 'ltr';
+  if (currentLocale() === 'en') return;
+  for (const el of root.querySelectorAll<HTMLElement>('[title], [aria-label], [placeholder]')) {
+    for (const attr of ['title', 'aria-label', 'placeholder']) {
+      const value = el.getAttribute(attr);
+      if (value && /[A-Za-z]/.test(value)) el.setAttribute(attr, t(value));
+    }
+  }
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node.nodeValue?.trim();
+    if (text && /[A-Za-z]/.test(text) && text !== 'Inkleaf' && !node.parentElement?.closest('script, style')) {
+      node.nodeValue = node.nodeValue!.replace(text, t(text));
+    }
+  }
+}
+
 export function hydrateIcons(root: ParentNode = document) {
   for (const el of root.querySelectorAll<HTMLElement>('[data-icon]')) {
     el.replaceWith(icon(el.dataset.icon!));
@@ -61,6 +85,17 @@ export function toast(message: string, kind: 'info' | 'error' | 'success' = 'inf
     el.addEventListener('transitionend', () => el.remove(), { once: true });
     setTimeout(() => el.remove(), 400);
   }, ms);
+}
+
+/**
+ * A translated sentence with elements (links, bold names) in it: the
+ * sentence keeps {name} placeholders so translators can move them freely.
+ */
+export function richText(sentence: string, parts: Record<string, Node>): (Node | string)[] {
+  return sentence.split(/(\{\w+\})/).filter(Boolean).map((piece) => {
+    const m = /^\{(\w+)\}$/.exec(piece);
+    return m && parts[m[1]] ? parts[m[1]] : piece;
+  });
 }
 
 /** One toast that stays up and can be updated, for things like downloads. */
@@ -117,7 +152,7 @@ export function isModalOpen() {
 export function modal(options: ModalOptions): Promise<string> {
   return new Promise((resolve) => {
     const dismiss = options.dismissValue ?? 'cancel';
-    const buttons = options.buttons ?? [{ label: 'OK', value: 'ok', primary: true }];
+    const buttons = options.buttons ?? [{ label: t('OK'), value: 'ok', primary: true }];
     const previousFocus = document.activeElement as HTMLElement | null;
 
     const self = {};
@@ -187,7 +222,7 @@ export async function confirmDialog(title: string, body: string, confirmLabel = 
     title,
     body,
     buttons: [
-      { label: 'Cancel', value: 'cancel' },
+      { label: t('Cancel'), value: 'cancel' },
       { label: confirmLabel, value: 'ok', primary: true, danger },
     ],
   });
@@ -218,8 +253,8 @@ export async function promptDialog(
     title,
     body,
     buttons: [
-      { label: 'Cancel', value: 'cancel' },
-      { label: 'OK', value: 'ok', primary: true },
+      { label: t('Cancel'), value: 'cancel' },
+      { label: t('OK'), value: 'ok', primary: true },
     ],
     validate: () => {
       const message = options.validate?.(input.value) ?? null;

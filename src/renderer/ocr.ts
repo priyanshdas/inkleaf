@@ -6,16 +6,17 @@
 // That layer is laid over the original page, so the scan looks exactly the
 // same but its words can now be found, selected, copied and edited.
 
+import { t } from '../shared/i18n';
 import { createWorker, OEM } from 'tesseract.js';
 import type { EditorDoc } from './document';
 import { pageRuns } from './text-finder';
 import { pageViewport } from './pdf';
 import type { PageRef } from './types';
 import { h, icon, modal } from './ui';
-import { BUILT_IN_OCR, LANGUAGES as ALL_LANGUAGES } from '../shared/languages';
+import { BUILT_IN_OCR, LANGUAGES as ALL_LANGUAGES, languageLabel, languageName } from '../shared/languages';
 
 /** Every language text recognition can read, by its Tesseract code. */
-const LANGUAGES = ALL_LANGUAGES.filter((l) => l.ocr).map((l) => ({ code: l.ocr!, name: l.name, native: l.native }));
+const LANGUAGES = ALL_LANGUAGES.filter((l) => l.ocr).map((l) => ({ code: l.ocr!, name: languageName(l.name), native: l.native, label: languageLabel(l) }));
 const packName = (code: string) => `ocr/${code}.traineddata.gz`;
 
 const DPI = 300;
@@ -57,19 +58,19 @@ async function ask(doc: EditorDoc, currentPageId: string | null): Promise<Choice
   const refresh = () => {
     chips.replaceChildren(...[...chosen].map((code) => {
       const l = LANGUAGES.find((x) => x.code === code)!;
-      const remove = h('button', { class: 'chip-x', title: `Remove ${l.name}` }, icon('x'));
+      const remove = h('button', { class: 'chip-x', title: t('Remove {name}', { name: l.name }) }, icon('x'));
       remove.addEventListener('click', () => {
         chosen.delete(code);
         refresh();
       });
-      return h('span', { class: 'lang-chip' }, l.name, ready(code) ? '' : h('span', { class: 'chip-dl', title: 'Downloads once, then works offline' }, `↓ ${sizeOf(code)}`), remove);
+      return h('span', { class: 'lang-chip' }, l.name, ready(code) ? '' : h('span', { class: 'chip-dl', title: t('Downloads once, then works offline') }, `↓ ${sizeOf(code)}`), remove);
     }));
-    add.replaceChildren(new Option('Add a language…', ''), ...LANGUAGES.filter((l) => !chosen.has(l.code)).map((l) =>
-      new Option(`${l.name}${l.native !== l.name ? ` · ${l.native}` : ''}${ready(l.code) ? '' : `  (download ${sizeOf(l.code)})`}`, l.code)));
+    add.replaceChildren(new Option(t('Add a language…'), ''), ...LANGUAGES.filter((l) => !chosen.has(l.code)).map((l) =>
+      new Option(ready(l.code) ? l.label : t('{language} (download {size})', { language: l.label, size: sizeOf(l.code) }), l.code)));
     const downloads = [...chosen].filter((c) => !ready(c));
     note.textContent = downloads.length
-      ? 'Languages marked ↓ are downloaded once from jsDelivr, then work offline. Your pages never leave this computer.'
-      : 'Everything happens on this computer.';
+      ? t('Languages marked ↓ are downloaded once from jsDelivr, then work offline. Your pages never leave this computer.')
+      : t('Everything happens on this computer.');
   };
   add.addEventListener('change', () => {
     if (add.value) chosen.add(add.value);
@@ -77,24 +78,24 @@ async function ask(doc: EditorDoc, currentPageId: string | null): Promise<Choice
   });
   refresh();
   const which = h('select', { class: 'field-input' },
-    new Option('Pages without text (scans)', 'scans'),
-    new Option('Every page', 'all'),
-    new Option('Only the current page', 'current'));
+    new Option(t('Pages without text (scans)'), 'scans'),
+    new Option(t('Every page'), 'all'),
+    new Option(t('Only the current page'), 'current'));
   const error = h('p', { class: 'field-error' });
   const go = await modal({
-    title: 'Recognise text (OCR)',
+    title: t('Recognise text (OCR)'),
     body: h('div', {},
-      h('p', { class: 'modal-text' }, 'Reads the words in scanned pages so you can search, copy and edit them. The pages look exactly the same afterwards.'),
-      h('span', { class: 'field-label spaced' }, 'Languages in the document'),
+      h('p', { class: 'modal-text' }, t('Reads the words in scanned pages so you can search, copy and edit them. The pages look exactly the same afterwards.')),
+      h('span', { class: 'field-label spaced' }, t('Languages in the document')),
       chips,
       add,
       note,
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Pages'), which),
+      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Pages')), which),
       error),
-    buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Recognise text', value: 'ok', primary: true }],
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Recognise text'), value: 'ok', primary: true }],
     validate: () => {
       const any = chosen.size > 0;
-      error.textContent = any ? '' : 'Choose at least one language.';
+      error.textContent = any ? '' : t('Choose at least one language.');
       return any;
     },
   });
@@ -144,14 +145,14 @@ export async function recognise(doc: EditorDoc, currentPageId: string | null, pr
   const choice = await ask(doc, currentPageId);
   if (!choice) return null;
   if (!choice.pages.length) {
-    await modal({ title: 'Nothing to read', body: 'Every page already has text. To read them again anyway, choose “Every page”.' });
+    await modal({ title: t('Nothing to read'), body: t('Every page already has text. To read them again anyway, choose “Every page”.') });
     return null;
   }
 
-  return withBusy('Starting text recognition…', async () => {
+  return withBusy(t('Starting text recognition…'), async () => {
     const missing = choice.langs.filter((c) => !BUILT_IN_OCR.has(c)).map(packName);
     if (missing.length) {
-      progress('Downloading languages…');
+      progress(t('Downloading languages…'));
       await window.inkleaf.ensurePacks(missing);
     }
     let pageNo = 0;
@@ -164,9 +165,9 @@ export async function recognise(doc: EditorDoc, currentPageId: string | null, pr
       gzip: true,
       logger: (m: { status: string; progress: number }) => {
         if (m.status === 'recognizing text') {
-          progress(`Reading page ${pageNo} of ${choice.pages.length}… ${Math.round(m.progress * 100)}%`);
+          progress(t('Reading page {n} of {total}… {percent}%', { n: pageNo, total: choice.pages.length, percent: Math.round(m.progress * 100) }));
         } else if (/loading/.test(m.status)) {
-          progress('Loading languages…');
+          progress(t('Loading languages…'));
         }
       },
     });
@@ -177,7 +178,7 @@ export async function recognise(doc: EditorDoc, currentPageId: string | null, pr
       let words = 0;
       for (const ref of choice.pages) {
         pageNo++;
-        progress(`Reading page ${pageNo} of ${choice.pages.length}…`);
+        progress(t('Reading page {n} of {total}…', { n: pageNo, total: choice.pages.length }));
         const canvas = await picture(doc, ref);
         const { data } = await worker.recognize(canvas, { pdfTextOnly: true, pdfTitle: doc.name }, { pdf: true, text: true });
         canvas.width = canvas.height = 0;
@@ -189,7 +190,7 @@ export async function recognise(doc: EditorDoc, currentPageId: string | null, pr
         layers.set(ref.src, list);
       }
 
-      progress('Adding the text to the document…');
+      progress(t('Adding the text to the document…'));
       const { PDFDocument, degrees } = await import('pdf-lib');
       let pages = 0;
       for (const [srcId, list] of layers) {

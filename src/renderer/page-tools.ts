@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t } from '../shared/i18n';
 import { core } from './core';
 import { mightBeEncrypted } from './pdf';
 import type { EditorDoc } from './document';
@@ -21,18 +22,18 @@ export function parseRanges(text: string, pageCount: number): number[][] | strin
     const part = raw.trim();
     if (!part) continue;
     const m = part.match(/^(\d+)?\s*(?:(-|–|to)\s*(\d+)?)?$/i);
-    if (!m || (!m[1] && !m[3])) return `“${part}” isn’t a page or range.`;
+    if (!m || (!m[1] && !m[3])) return t('“{part}” isn’t a page or range.', { part });
     const start = m[1] ? Number(m[1]) : 1;
     const end = m[2] ? (m[3] ? Number(m[3]) : pageCount) : start;
     if (start < 1 || end < 1 || start > pageCount || end > pageCount) {
-      return `This document has ${pageCount} page${pageCount === 1 ? '' : 's'}.`;
+      return t('{count, plural, one {This document has # page.} other {This document has # pages.}}', { count: pageCount });
     }
     const step = start <= end ? 1 : -1;
     const group: number[] = [];
     for (let p = start; p !== end + step; p += step) group.push(p - 1);
     groups.push(group);
   }
-  return groups.length ? groups : 'Enter at least one page.';
+  return groups.length ? groups : t('Enter at least one page.');
 }
 
 /** Turns [0,1,2,4] into "1-3, 5". */
@@ -71,7 +72,7 @@ export async function unlock(bytes: Uint8Array, name: string, force = false): Pr
   try {
     info = await core.inspect(bytes);
   } catch (err) {
-    throw new Error(`“${name}” doesn’t look like a PDF Inkleaf can read. ${(err as Error).message}`);
+    throw new Error(t('“{name}” doesn’t look like a PDF Inkleaf can read. {message}', { name, message: (err as Error).message }));
   }
   if (!info.encrypted) return { bytes, wasProtected: false };
 
@@ -81,9 +82,9 @@ export async function unlock(bytes: Uint8Array, name: string, force = false): Pr
 
   let wrong = false;
   for (;;) {
-    const password = await promptDialog('Password required', `“${name}” is protected. Enter its password to open it.`, {
+    const password = await promptDialog(t('Password required'), t('“{name}” is protected. Enter its password to open it.', { name }), {
       type: 'password',
-      hint: wrong ? 'That password didn’t work. Try again.' : 'Saved copies won’t be password-protected.',
+      hint: wrong ? t('That password didn’t work. Try again.') : t('Saved copies won’t be password-protected.'),
     });
     if (password === null) return null;
     try {
@@ -128,10 +129,10 @@ export async function insertPdfFiles(doc: EditorDoc, files: { name: string; data
       index += source.pages.length;
       added += source.pages.length;
     } catch (err) {
-      toast(`Couldn’t insert “${file.name}”: ${(err as Error).message}`, 'error', 7000);
+      toast(t('Couldn’t insert “{name}”: {message}', { name: file.name, message: (err as Error).message }), 'error', 7000);
     }
   }
-  if (added) toast(`Inserted ${added} page${added === 1 ? '' : 's'}.`, 'success');
+  if (added) toast(t('{count, plural, one {Inserted # page.} other {Inserted # pages.}}', { count: added }), 'success');
 }
 
 export async function insertBlankPage(doc: EditorDoc, afterPageId: string | null) {
@@ -146,7 +147,7 @@ export async function insertBlankPage(doc: EditorDoc, afterPageId: string | null
 async function showWarnings(warnings: string[]) {
   if (!warnings.length) return;
   await modal({
-    title: 'Saved, with a few notes',
+    title: t('Saved, with a few notes'),
     body: h('ul', { class: 'warning-list' }, ...[...new Set(warnings)].map((w) => h('li', {}, w))),
   });
 }
@@ -154,10 +155,10 @@ async function showWarnings(warnings: string[]) {
 export async function extractPages(doc: EditorDoc, chosen: string[]) {
   const total = doc.pages.length;
   const suggestion = describePages(chosen.map((id) => doc.pageIndex(id)));
-  const text = await promptDialog('Extract pages', 'Pages to copy into a new PDF', {
+  const text = await promptDialog(t('Extract pages'), t('Pages to copy into a new PDF'), {
     value: suggestion,
-    placeholder: 'e.g. 1-3, 6',
-    hint: `Your edits on those pages come along. This document has ${total} pages.`,
+    placeholder: t('e.g. 1-3, 6'),
+    hint: t('Your edits on those pages come along. This document has {total} pages.', { total }),
     validate: (v) => {
       const r = parseRanges(v, total);
       return typeof r === 'string' ? r : null;
@@ -170,7 +171,7 @@ export async function extractPages(doc: EditorDoc, chosen: string[]) {
   const { bytes, warnings } = await exportPdf(doc, ids);
   const saved = await window.inkleaf.saveAs(bytes, `${baseName(doc.name)} (pages ${describePages(indices)}).pdf`);
   if (saved) {
-    toast(`Saved ${indices.length} page${indices.length === 1 ? '' : 's'} to a new file.`, 'success');
+    toast(t('{count, plural, one {Saved # page to a new file.} other {Saved # pages to a new file.}}', { count: indices.length }), 'success');
     await showWarnings(warnings);
   }
 }
@@ -178,20 +179,20 @@ export async function extractPages(doc: EditorDoc, chosen: string[]) {
 export async function splitDocument(doc: EditorDoc) {
   const total = doc.pages.length;
   if (total < 2) {
-    toast('There’s only one page, so there’s nothing to split.');
+    toast(t('There’s only one page, so there’s nothing to split.'));
     return;
   }
 
   const mode = h('select', { class: 'select field-input' },
-    new Option('Every page into its own file', 'each'),
-    new Option('Every few pages', 'chunks'),
-    new Option('Custom ranges', 'ranges'),
+    new Option(t('Every page into its own file'), 'each'),
+    new Option(t('Every few pages'), 'chunks'),
+    new Option(t('Custom ranges'), 'ranges'),
   );
   const chunk = h('input', { class: 'field-input', type: 'number', min: '1', max: String(total), value: '2' });
   const ranges = h('input', { class: 'field-input', placeholder: `e.g. 1-3, 4-${total}` });
-  const chunkRow = h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Pages per file'), chunk);
-  const rangeRow = h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'One file per range'), ranges,
-    h('span', { class: 'field-hint' }, 'Separate ranges with commas.'));
+  const chunkRow = h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Pages per file')), chunk);
+  const rangeRow = h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('One file per range')), ranges,
+    h('span', { class: 'field-hint' }, t('Separate ranges with commas.')));
   const error = h('p', { class: 'field-error' });
   const update = () => {
     chunkRow.hidden = mode.value !== 'chunks';
@@ -202,11 +203,11 @@ export async function splitDocument(doc: EditorDoc) {
 
   let groups: number[][] = [];
   const result = await modal({
-    title: 'Split into several PDFs',
-    body: h('div', { class: 'form-stack' }, h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'How to split'), mode), chunkRow, rangeRow, error),
+    title: t('Split into several PDFs'),
+    body: h('div', { class: 'form-stack' }, h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('How to split')), mode), chunkRow, rangeRow, error),
     buttons: [
-      { label: 'Cancel', value: 'cancel' },
-      { label: 'Choose folder…', value: 'ok', primary: true },
+      { label: t('Cancel'), value: 'cancel' },
+      { label: t('Choose folder…'), value: 'ok', primary: true },
     ],
     validate: () => {
       if (mode.value === 'each') groups = doc.pages.map((_, i) => [i]);
@@ -233,7 +234,7 @@ export async function splitDocument(doc: EditorDoc) {
   const warnings = outputs.flatMap((out) => out.warnings);
   const folder = await window.inkleaf.saveMany(files);
   if (folder) {
-    toast(`Saved ${files.length} files.`, 'success');
+    toast(t('{count, plural, one {Saved # file.} other {Saved # files.}}', { count: files.length }), 'success');
     await showWarnings(warnings);
   }
 }

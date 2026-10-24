@@ -8,6 +8,7 @@
 // spreadsheets become tables, one sheet after another; slides keep their
 // text, pictures and simple shapes. Everything happens on this computer.
 
+import { t } from '../shared/i18n';
 import { embeddable } from './tools';
 
 export interface Converted {
@@ -116,7 +117,7 @@ async function spreadsheetHtml(data: Uint8Array): Promise<{ html: string; wide: 
     });
     if (rows.length) sections.push(`<h2>${escapeHtml(sheet.name)}</h2><table>${rows.join('')}</table>`);
   });
-  if (!sections.length) throw new Error('This spreadsheet is empty.');
+  if (!sections.length) throw new Error(t('This spreadsheet is empty.'));
   return { html: sections.join('<div style="break-after:page"></div>'), wide: widest > 7 };
 }
 
@@ -130,17 +131,17 @@ export async function convertToPdf(file: { name: string; data: Uint8Array }, pro
   if (PICTURES.has(kind)) return { bytes: await picturePdf(file), notes: [] };
 
   if (OFFICE.has(kind) && (await api.officeAvailable())) {
-    progress(`Converting “${file.name}” with LibreOffice…`);
+    progress(t('Converting “{name}” with LibreOffice…', { name: file.name }));
     return { bytes: await api.officeToPdf(file.name, file.data), notes: [] };
   }
 
-  const builtIn = 'Converted with Inkleaf’s built-in converter. For an exact copy of the layout, install LibreOffice (free) and convert again.';
-  progress(`Converting “${file.name}”…`);
+  const builtIn = t('Converted with Inkleaf’s built-in converter. For an exact copy of the layout, install LibreOffice (free) and convert again.');
+  progress(t('Converting “{name}”…', { name: file.name }));
   switch (kind) {
     case 'docx': {
       const { html, warnings } = await docxHtml(file.data);
       const notes = [builtIn];
-      if (warnings) notes.push('Some formatting in the Word file had no equivalent and was simplified.');
+      if (warnings) notes.push(t('Some formatting in the Word file had no equivalent and was simplified.'));
       return { bytes: await api.htmlToPdf(page(title, html)), notes };
     }
     case 'xlsx': {
@@ -149,7 +150,7 @@ export async function convertToPdf(file: { name: string; data: Uint8Array }, pro
     }
     case 'csv': {
       const rows = parseCsv(decode(file.data));
-      if (!rows.length) throw new Error('This CSV file is empty.');
+      if (!rows.length) throw new Error(t('This CSV file is empty.'));
       const wide = Math.max(...rows.map((r) => r.length)) > 7;
       return { bytes: await api.htmlToPdf(page(title, tableHtml(rows), 'td, th { font-size: 9.5pt; }'), { landscape: wide, margin: 0.5 }), notes: [] };
     }
@@ -170,10 +171,10 @@ export async function convertToPdf(file: { name: string; data: Uint8Array }, pro
     case 'html':
     case 'htm':
       // printed as it is; scripts don't run and nothing loads from the internet
-      return { bytes: await api.htmlToPdf(decode(file.data)), notes: ['Web pages are printed without running their scripts or loading anything from the internet, so pictures that live online won’t appear.'] };
+      return { bytes: await api.htmlToPdf(decode(file.data)), notes: [t('Web pages are printed without running their scripts or loading anything from the internet, so pictures that live online won’t appear.')] };
     default: {
-      const names: Record<string, string> = { doc: 'old Word (.doc)', odt: 'OpenDocument text', rtf: 'RTF', xls: 'old Excel (.xls)', ods: 'OpenDocument spreadsheet', ppt: 'old PowerPoint (.ppt)', odp: 'OpenDocument presentation' };
-      throw new Error(`${names[kind] ?? `.${kind}`} files need LibreOffice to convert. It’s free from libreoffice.org; once it’s installed, Inkleaf uses it automatically. Or save the file as .docx, .xlsx or .pptx and convert that.`);
+      const names: Record<string, string> = { doc: t('Old Word (.doc)'), odt: t('OpenDocument text'), rtf: t('RTF'), xls: t('Old Excel (.xls)'), ods: t('OpenDocument spreadsheet'), ppt: t('Old PowerPoint (.ppt)'), odp: t('OpenDocument presentation') };
+      throw new Error(t('{format} files need LibreOffice to convert. It’s free from libreoffice.org; once it’s installed, Inkleaf uses it automatically. Or save the file as .docx, .xlsx or .pptx and convert that.', { format: names[kind] ?? `.${kind}` }));
     }
   }
 }

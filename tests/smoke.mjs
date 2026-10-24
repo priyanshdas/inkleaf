@@ -415,7 +415,7 @@ async function fontTest() {
   await win.waitForSelector('.text-editor');
   await win.keyboard.type('Checked in');
   await win.click('.text-toolbar button[title^="Underline"]');
-  await win.click('.text-toolbar button[title="Align center"]');
+  await win.click('.text-toolbar button[title="Centre"]');
   await win.click('.text-toolbar button[title="Background colour"]');
   await win.click('.tt-pop .tt-swatch[title="#fff3a3"]');
   check('typing survives toolbar clicks', await win.isVisible('.text-editor'));
@@ -1145,10 +1145,69 @@ print(min(rows))
   await quit(app, win);
 }
 
+// the same fingerprint src/shared/i18n.ts uses to look strings up
+function key(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36).padStart(7, '0');
+}
+
+async function uiLanguageTest() {
+  console.log('\nThe app in other languages');
+  const catalog = (code) => JSON.parse(fs.readFileSync(path.join(root, 'src', 'renderer', 'i18n', `${code}.json`), 'utf8')).strings;
+
+  for (const code of ['hi', 'ar', 'ja']) {
+    const profile = fs.mkdtempSync(path.join(out, `profile-${code}-`));
+    fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ language: code }));
+    const { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'), { profile });
+    await waitForPages(win);
+    const strings = catalog(code);
+    const tools = (await win.textContent('[data-menu="tools"] span')).trim();
+    check(`${code}: toolbar is translated (“${tools}”)`, tools === strings[key('Tools')]);
+    const lang = await win.evaluate(() => [document.documentElement.lang, document.documentElement.dir]);
+    check(`${code}: html lang and direction are set`, lang[0] === code && lang[1] === (code === 'ar' ? 'rtl' : 'ltr'), lang.join(' '));
+
+    // a message built at run time, with a plural inside it
+    const status = await win.evaluate(() => window.__inkleaf.t('{count, plural, one {# page} other {# pages}}', { count: 3 }));
+    check(`${code}: run-time messages come out translated (“${status}”)`, status.includes('3') && !status.includes('pages'));
+
+    // menus open on the right side for right-to-left languages, and stay on screen
+    await win.click('[data-menu="tools"]');
+    await win.waitForSelector('.menu');
+    const box = await win.evaluate(() => {
+      const r = document.querySelector('.menu').getBoundingClientRect();
+      return { left: r.left, right: r.right, width: innerWidth };
+    });
+    check(`${code}: the Tools menu stays inside the window`, box.left >= 0 && box.right <= box.width, JSON.stringify(box));
+    await win.keyboard.press('Escape');
+
+    // the page itself is never mirrored
+    const viewerDir = await win.evaluate(() => getComputedStyle(document.querySelector('.viewport')).direction);
+    check(`${code}: the page view keeps left-to-right layout`, viewerDir === 'ltr');
+    if (shots) await win.screenshot({ path: path.join(shots, `ui-${code}.png`) });
+    check(`${code}: no errors in the renderer`, errors.length === 0, errors.join('\n      '));
+    await quit(app, win);
+  }
+
+  // the picker lists every language and saves the choice
+  const { app, win, errors } = await launch(null);
+  await win.evaluate(() => { void window.__inkleaf.run('language'); });
+  await win.waitForSelector('.lang-grid');
+  const options = await win.locator('.lang-option').count();
+  check('language picker lists “Match my computer” plus 30 languages', options === 31, String(options));
+  check('English is chosen when nothing has been set', await win.evaluate(() => document.querySelector('.lang-option input:checked')?.value === 'system'));
+  await modalButton(win, 'Cancel');
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+}
+
 // ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

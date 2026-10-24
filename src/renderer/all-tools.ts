@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // "All tools": every tool in one place, grouped by what you're trying to do.
 
+import { t, msg } from '../shared/i18n';
 import { h, icon, modal } from './ui';
 
 export interface HubTool {
@@ -16,71 +17,71 @@ export interface HubTool {
 
 export const HUB: { group: string; tools: HubTool[] }[] = [
   {
-    group: 'Organize',
+    group: msg('Organize'),
     tools: [
-      { title: 'Merge PDF', detail: 'Add another PDF’s pages to this one.', icon: 'file-plus', command: 'insert-pdf' },
-      { title: 'Split PDF', detail: 'Break it into several files.', icon: 'scissors', command: 'split' },
-      { title: 'Remove pages', detail: 'Delete the pages you’ve selected.', icon: 'file-minus', command: 'delete-pages' },
-      { title: 'Extract pages', detail: 'Save some pages as a new PDF.', icon: 'file-output', command: 'extract' },
-      { title: 'Organize PDF', detail: 'Drag pages into a new order.', icon: 'layout-grid', command: 'organize' },
-      { title: 'Scan to PDF', detail: 'Use your camera or phone photos.', icon: 'scan-line', command: 'scan-to-pdf', standalone: true },
+      { title: msg('Merge PDF'), detail: msg('Add another PDF’s pages to this one.'), icon: 'file-plus', command: 'insert-pdf' },
+      { title: msg('Split PDF'), detail: msg('Break it into several files.'), icon: 'scissors', command: 'split' },
+      { title: msg('Remove pages'), detail: msg('Delete the pages you’ve selected.'), icon: 'file-minus', command: 'delete-pages' },
+      { title: msg('Extract pages'), detail: msg('Save some pages as a new PDF.'), icon: 'file-output', command: 'extract' },
+      { title: msg('Organize PDF'), detail: msg('Drag pages into a new order.'), icon: 'layout-grid', command: 'organize' },
+      { title: msg('Scan to PDF'), detail: msg('Use your camera or phone photos.'), icon: 'scan-line', command: 'scan-to-pdf', standalone: true },
     ],
   },
   {
-    group: 'Optimize',
+    group: msg('Optimize'),
     tools: [
-      { title: 'Compress PDF', detail: 'Make the file smaller.', icon: 'file-archive', command: 'compress' },
-      { title: 'Repair PDF', detail: 'Rescue a damaged file.', icon: 'wrench', command: 'repair', standalone: true },
-      { title: 'OCR PDF', detail: 'Make scanned text searchable.', icon: 'scan-text', command: 'ocr' },
+      { title: msg('Compress PDF'), detail: msg('Make the file smaller.'), icon: 'file-archive', command: 'compress' },
+      { title: msg('Repair PDF'), detail: msg('Rescue a damaged file.'), icon: 'wrench', command: 'repair', standalone: true },
+      { title: msg('OCR PDF'), detail: msg('Make scanned text searchable.'), icon: 'scan-text', command: 'ocr' },
     ],
   },
   {
-    group: 'Convert to PDF',
+    group: msg('Convert to PDF'),
     tools: [
-      { title: 'JPG to PDF', detail: 'Pictures, one per page.', icon: 'file-image', command: 'images-to-pdf', standalone: true },
-      { title: 'Word to PDF', detail: '.docx, .doc, .odt, .rtf', icon: 'file-text', command: 'convert-to-pdf', standalone: true },
-      { title: 'PowerPoint to PDF', detail: '.pptx, .ppt, .odp', icon: 'presentation', command: 'convert-to-pdf', standalone: true },
-      { title: 'Excel to PDF', detail: '.xlsx, .xls, .ods, .csv', icon: 'sheet', command: 'convert-to-pdf', standalone: true },
-      { title: 'HTML to PDF', detail: 'A web address or an .html file.', icon: 'globe', command: 'web-to-pdf', standalone: true, online: true },
+      { title: msg('JPG to PDF'), detail: msg('Pictures, one per page.'), icon: 'file-image', command: 'images-to-pdf', standalone: true },
+      { title: msg('Word to PDF'), detail: msg('.docx, .doc, .odt, .rtf'), icon: 'file-text', command: 'convert-to-pdf', standalone: true },
+      { title: msg('PowerPoint to PDF'), detail: msg('.pptx, .ppt, .odp'), icon: 'presentation', command: 'convert-to-pdf', standalone: true },
+      { title: msg('Excel to PDF'), detail: msg('.xlsx, .xls, .ods, .csv'), icon: 'sheet', command: 'convert-to-pdf', standalone: true },
+      { title: msg('HTML to PDF'), detail: msg('A web address or an .html file.'), icon: 'globe', command: 'web-to-pdf', standalone: true, online: true },
     ],
   },
   {
-    group: 'Convert from PDF',
+    group: msg('Convert from PDF'),
     tools: [
-      { title: 'PDF to JPG', detail: 'Each page as a picture.', icon: 'file-image', command: 'pdf-to-images' },
-      { title: 'PDF to Word', detail: 'Editable text and pictures.', icon: 'file-text', command: 'pdf-to-word' },
-      { title: 'PDF to PowerPoint', detail: 'One slide per page.', icon: 'presentation', command: 'pdf-to-pptx' },
-      { title: 'PDF to Excel', detail: 'Tables into rows and columns.', icon: 'sheet', command: 'pdf-to-xlsx' },
-      { title: 'PDF to PDF/A', detail: 'For long-term archiving.', icon: 'archive', command: 'pdf-to-pdfa' },
+      { title: msg('PDF to JPG'), detail: msg('Each page as a picture.'), icon: 'file-image', command: 'pdf-to-images' },
+      { title: msg('PDF to Word'), detail: msg('Editable text and pictures.'), icon: 'file-text', command: 'pdf-to-word' },
+      { title: msg('PDF to PowerPoint'), detail: msg('One slide per page.'), icon: 'presentation', command: 'pdf-to-pptx' },
+      { title: msg('PDF to Excel'), detail: msg('Tables into rows and columns.'), icon: 'sheet', command: 'pdf-to-xlsx' },
+      { title: msg('PDF to PDF/A'), detail: msg('For long-term archiving.'), icon: 'archive', command: 'pdf-to-pdfa' },
     ],
   },
   {
-    group: 'Edit',
+    group: msg('Edit'),
     tools: [
-      { title: 'Rotate PDF', detail: 'Turn the selected pages.', icon: 'rotate-cw', command: 'rotate-right' },
-      { title: 'Add page numbers', detail: 'Numbers, headers and footers.', icon: 'list-ordered', command: 'decor' },
-      { title: 'Add watermark', detail: 'Text across every page.', icon: 'droplets', command: 'decor' },
-      { title: 'Crop PDF', detail: 'Trim the edges of pages.', icon: 'crop', command: 'crop' },
-      { title: 'Edit PDF', detail: 'Change the text that’s already there.', icon: 'square-pen', command: 'edit-text' },
-      { title: 'PDF forms', detail: 'Add fields people can fill in.', icon: 'text-cursor', command: 'form-builder' },
+      { title: msg('Rotate PDF'), detail: msg('Turn the selected pages.'), icon: 'rotate-cw', command: 'rotate-right' },
+      { title: msg('Add page numbers'), detail: msg('Numbers, headers and footers.'), icon: 'list-ordered', command: 'decor' },
+      { title: msg('Add watermark'), detail: msg('Text across every page.'), icon: 'droplets', command: 'decor' },
+      { title: msg('Crop PDF'), detail: msg('Trim the edges of pages.'), icon: 'crop', command: 'crop' },
+      { title: msg('Edit PDF'), detail: msg('Change the text that’s already there.'), icon: 'square-pen', command: 'edit-text' },
+      { title: msg('PDF forms'), detail: msg('Add fields people can fill in.'), icon: 'text-cursor', command: 'form-builder' },
     ],
   },
   {
-    group: 'Security',
+    group: msg('Security'),
     tools: [
-      { title: 'Unlock PDF', detail: 'Remove a password you know.', icon: 'lock-open', command: 'unlock', standalone: true },
-      { title: 'Protect PDF', detail: 'Add a password.', icon: 'shield-check', command: 'protect' },
-      { title: 'Sign PDF', detail: 'Draw, type or add your signature.', icon: 'signature', command: 'sign' },
-      { title: 'Redact PDF', detail: 'Black out and remove private text.', icon: 'eye-off', command: 'redact' },
-      { title: 'Compare PDF', detail: 'See what changed between two.', icon: 'git-compare', command: 'compare' },
+      { title: msg('Unlock PDF'), detail: msg('Remove a password you know.'), icon: 'lock-open', command: 'unlock', standalone: true },
+      { title: msg('Protect PDF'), detail: msg('Add a password.'), icon: 'shield-check', command: 'protect' },
+      { title: msg('Sign PDF'), detail: msg('Draw, type or add your signature.'), icon: 'signature', command: 'sign' },
+      { title: msg('Redact PDF'), detail: msg('Black out and remove private text.'), icon: 'eye-off', command: 'redact' },
+      { title: msg('Compare PDF'), detail: msg('See what changed between two.'), icon: 'git-compare', command: 'compare' },
     ],
   },
   {
-    group: 'Intelligence',
+    group: msg('Intelligence'),
     tools: [
-      { title: 'AI Summarizer', detail: 'The key points, in seconds.', icon: 'sparkles', command: 'ai-summarize', online: true },
-      { title: 'Translate PDF', detail: 'Into 16 languages, layout kept.', icon: 'languages', command: 'ai-translate', online: true },
-      { title: 'PDF to Markdown', detail: 'Text with headings and lists.', icon: 'hash', command: 'pdf-to-md' },
+      { title: msg('AI Summarizer'), detail: msg('The key points, in seconds.'), icon: 'sparkles', command: 'ai-summarize', online: true },
+      { title: msg('Translate PDF'), detail: msg('Into 56 languages, layout kept.'), icon: 'languages', command: 'ai-translate', online: true },
+      { title: msg('PDF to Markdown'), detail: msg('Text with headings and lists.'), icon: 'hash', command: 'pdf-to-md' },
     ],
   },
 ];
@@ -89,31 +90,33 @@ export const HUB: { group: string; tools: HubTool[] }[] = [
 export async function allTools(hasDoc: boolean): Promise<HubTool | null> {
   let chosen: HubTool | null = null;
   let close: () => void = () => {};
-  const search = h('input', { class: 'field-input hub-search', type: 'search', placeholder: 'Find a tool…', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
+  const search = h('input', { class: 'field-input hub-search', type: 'search', placeholder: t('Find a tool…'), autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
   const groups = HUB.map(({ group, tools }) => {
-    const cards = tools.map((t) => {
-      const needsDoc = !t.standalone && !hasDoc;
-      const card = h('button', { class: 'hub-tool', 'data-hub': t.command, title: needsDoc ? `${t.detail} (opens a PDF first)` : t.detail },
-        h('span', { class: 'hub-icon' }, icon(t.icon)),
-        h('span', { class: 'hub-text' }, h('strong', {}, t.title), h('span', {}, t.detail)),
-        t.online ? h('span', { class: 'hub-badge', title: 'Uses the internet' }, icon('globe')) : '');
+    const cards = tools.map((tool) => {
+      const needsDoc = !tool.standalone && !hasDoc;
+      const title = t(tool.title), detail = t(tool.detail);
+      const card = h('button', { class: 'hub-tool', 'data-hub': tool.command, title: needsDoc ? t('{detail} (opens a PDF first)', { detail }) : detail },
+        h('span', { class: 'hub-icon' }, icon(tool.icon)),
+        h('span', { class: 'hub-text' }, h('strong', {}, title), h('span', {}, detail)),
+        tool.online ? h('span', { class: 'hub-badge', title: t('Uses the internet') }, icon('globe')) : '');
       card.addEventListener('click', () => {
-        chosen = t;
+        chosen = tool;
         close();
       });
-      return { t, card };
+      // found by its name in either language
+      return { words: `${title} ${detail} ${tool.title} ${tool.detail}`.toLowerCase(), card };
     });
-    const section = h('section', { class: 'hub-group' }, h('h3', {}, group), h('div', { class: 'hub-grid' }, ...cards.map((c) => c.card)));
+    const section = h('section', { class: 'hub-group' }, h('h3', {}, t(group)), h('div', { class: 'hub-grid' }, ...cards.map((c) => c.card)));
     return { section, cards };
   });
-  const empty = h('p', { class: 'hub-empty', hidden: true }, 'No tool matches that.');
+  const empty = h('p', { class: 'hub-empty', hidden: true }, t('No tool matches that.'));
   search.addEventListener('input', () => {
     const q = search.value.trim().toLowerCase();
     let any = false;
     for (const g of groups) {
       let shown = 0;
-      for (const { t, card } of g.cards) {
-        const hit = !q || `${t.title} ${t.detail}`.toLowerCase().includes(q);
+      for (const { words, card } of g.cards) {
+        const hit = !q || words.includes(q);
         card.hidden = !hit;
         if (hit) shown++;
       }
@@ -129,7 +132,7 @@ export async function allTools(hasDoc: boolean): Promise<HubTool | null> {
   });
 
   const body = h('div', { class: 'hub' }, search, ...groups.map((g) => g.section), empty);
-  const shown = modal({ title: 'All tools', wide: true, body, buttons: [{ label: 'Close', value: 'cancel' }] });
+  const shown = modal({ title: t('All tools'), wide: true, body, buttons: [{ label: t('Close'), value: 'cancel' }] });
   // a card click closes the dialog the same way Escape would
   close = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
   requestAnimationFrame(() => search.focus());

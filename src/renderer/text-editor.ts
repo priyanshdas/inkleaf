@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t } from '../shared/i18n';
 import type { EditorDoc } from './document';
 import { cssFont, LINE_HEIGHT, measureText } from './fonts';
 import type { ReplaceAnnot, TextAnnot } from './types';
@@ -56,7 +57,7 @@ export class TextEditor {
     area.className = 'text-editor';
     area.spellcheck = true;
     area.value = annot.text;
-    area.setAttribute('aria-label', 'Text');
+    area.setAttribute('aria-label', t('Text'));
     // each line takes its own direction (Arabic right to left, English left
     // to right), but stays left-aligned to match how it's drawn on the page
     area.dir = 'auto';

@@ -8,6 +8,7 @@
 // positions taken from the slide or inherited from its layout and master.
 // Charts, SmartArt, animations and fancy effects are left out.
 
+import { t } from '../shared/i18n';
 import JSZip from 'jszip';
 
 const EMU_PER_PT = 12700;
@@ -252,7 +253,7 @@ async function background(docs: (Document | null)[], ctx: Context): Promise<stri
 export async function pptxToHtml(data: Uint8Array): Promise<{ html: string; width: number; height: number; slides: number }> {
   const zip = await JSZip.loadAsync(data);
   const pres = await xml(zip, 'ppt/presentation.xml');
-  if (!pres) throw new Error('This doesn’t look like a PowerPoint file.');
+  if (!pres) throw new Error(t('This doesn’t look like a PowerPoint file.'));
   const size = find(pres.documentElement, 'sldSz');
   const cx = num(size, 'cx', 12192000), cy = num(size, 'cy', 6858000);
   const presRels = await relsOf(zip, 'ppt/presentation.xml');
@@ -274,7 +275,7 @@ export async function pptxToHtml(data: Uint8Array): Promise<{ html: string; widt
     const bg = await background([slide, layout, master], ctx);
     slides.push(`<section class="slide" style="${bg}">${tree ? await shapes(tree, ctx, (b) => b) : ''}</section>`);
   }
-  if (!slides.length) throw new Error('This presentation has no slides.');
+  if (!slides.length) throw new Error(t('This presentation has no slides.'));
 
   const w = cx / EMU_PER_PT, h = cy / EMU_PER_PT;
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>

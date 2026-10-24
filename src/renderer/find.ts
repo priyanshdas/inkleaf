@@ -2,6 +2,7 @@
 // Find in document (Ctrl+F). Searches every page's text, highlights all the
 // matches on the pages you can see and steps through them one at a time.
 
+import { t } from '../shared/i18n';
 import type { EditorDoc } from './document';
 import { matchQuads, pageText, PageText, placeQuad, Quad } from './text-finder';
 import { h, icon } from './ui';
@@ -26,12 +27,12 @@ export class FindBar {
   private texts = new WeakMap<object, Map<number, Promise<PageText>>>();
 
   constructor(private viewer: Viewer, private getDoc: () => EditorDoc | null) {
-    this.input = h('input', { class: 'find-input', type: 'search', placeholder: 'Find in document', 'aria-label': 'Find in document', spellcheck: 'false' });
+    this.input = h('input', { class: 'find-input', type: 'search', placeholder: t('Find in document'), 'aria-label': t('Find in document'), spellcheck: 'false' });
     this.count = h('span', { class: 'find-count', 'aria-live': 'polite' });
-    this.caseButton = h('button', { class: 'find-btn', title: 'Match case', 'aria-pressed': 'false' }, icon('case-sensitive'));
-    const prev = h('button', { class: 'find-btn', title: 'Previous (Shift+Enter)' }, icon('arrow-up'));
-    const next = h('button', { class: 'find-btn', title: 'Next (Enter)' }, icon('arrow-down'));
-    const close = h('button', { class: 'find-btn', title: 'Close (Esc)' }, icon('x'));
+    this.caseButton = h('button', { class: 'find-btn', title: t('Match case'), 'aria-pressed': 'false' }, icon('case-sensitive'));
+    const prev = h('button', { class: 'find-btn', title: t('Previous (Shift+Enter)') }, icon('arrow-up'));
+    const next = h('button', { class: 'find-btn', title: t('Next (Enter)') }, icon('arrow-down'));
+    const close = h('button', { class: 'find-btn', title: t('Close (Esc)') }, icon('x'));
     this.el = h('div', { class: 'find-bar', role: 'search', hidden: true },
       icon('search'), this.input, this.count, this.caseButton, h('span', { class: 'find-sep' }), prev, next, close);
     viewer.container.parentElement!.append(this.el);
@@ -120,7 +121,7 @@ export class FindBar {
       return;
     }
     const needle = this.matchCase ? query : query.toLowerCase();
-    this.count.textContent = 'Searching…';
+    this.count.textContent = t('Searching…');
 
     // start from the page you're on, so the first hit is the nearest one
     const startAt = Math.max(0, this.viewer.currentPageId ? doc.pageIndex(this.viewer.currentPageId) : 0);
@@ -137,10 +138,10 @@ export class FindBar {
         this.matches.push({ pageId: ref.id, quads: matchQuads(pt, at, at + needle.length) });
       }
       // show progress on long documents without redrawing on every page
-      if (k % 20 === 19) this.count.textContent = `${this.matches.length} so far…`;
+      if (k % 20 === 19) this.count.textContent = t('{count} so far…', { count: this.matches.length });
     }
     if (!this.matches.length) {
-      this.count.textContent = 'No matches';
+      this.count.textContent = t('No matches');
       return;
     }
     this.current = firstAfter >= 0 ? firstAfter : 0;
@@ -158,7 +159,7 @@ export class FindBar {
 
   private show() {
     const m = this.matches[this.current];
-    this.count.textContent = `${this.current + 1} of ${this.matches.length}`;
+    this.count.textContent = t('{n} of {total}', { n: this.current + 1, total: this.matches.length });
     const view = this.viewer.views.get(m.pageId);
     if (!view) return;
     if (this.viewer.mode === 'single') this.viewer.scrollToPage(m.pageId, false);

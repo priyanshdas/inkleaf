@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t } from '../shared/i18n';
 import type { EditorDoc } from './document';
 import { decorTexts } from './decor';
 import { AnnotationMode, pageViewport } from './pdf';
@@ -109,9 +110,9 @@ export class Thumbnails extends EventTarget {
       return b;
     };
     const actions = h('div', { class: 'thumb-actions' },
-      action('rotate-ccw', 'Rotate left', () => this.doc?.rotatePages(this.targets(id), -90)),
-      action('rotate-cw', 'Rotate right', () => this.doc?.rotatePages(this.targets(id), 90)),
-      action('trash-2', 'Delete page', () => this.dispatchEvent(new CustomEvent('delete', { detail: this.targets(id) }))),
+      action('rotate-ccw', t('Rotate left'), () => this.doc?.rotatePages(this.targets(id), -90)),
+      action('rotate-cw', t('Rotate right'), () => this.doc?.rotatePages(this.targets(id), 90)),
+      action('trash-2', t('Delete page'), () => this.dispatchEvent(new CustomEvent('delete', { detail: this.targets(id) }))),
     );
     const el = h('div', { class: 'thumb', draggable: 'true', 'data-page-id': id, tabindex: '0', role: 'option' },
       h('div', { class: 'thumb-frame' }, canvas, actions),
@@ -238,7 +239,7 @@ export class Thumbnails extends EventTarget {
     }
     const pdfs = [...(e.dataTransfer?.files ?? [])].filter((f) => f.name.toLowerCase().endsWith('.pdf'));
     if (pdfs.length) this.dispatchEvent(new CustomEvent('insert-files', { detail: { files: pdfs, index } }));
-    else if (e.dataTransfer?.files.length) toast('Only PDF files can be inserted as pages.', 'error');
+    else if (e.dataTransfer?.files.length) toast(t('Only PDF files can be inserted as pages.'), 'error');
   }
 
   // --- rendering --------------------------------------------------------------

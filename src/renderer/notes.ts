@@ -2,6 +2,7 @@
 // Comments: the sticky-note card that opens next to a selected note, and the
 // list of every comment in the sidebar.
 
+import { t } from '../shared/i18n';
 import type { EditorDoc } from './document';
 import { commentAuthor, Editor } from './editor';
 import { NOTE_COLORS } from './styles';
@@ -29,11 +30,11 @@ export class NotePopup {
   private frame = 0;
 
   constructor(private editor: Editor, private viewer: Viewer, private getDoc: () => EditorDoc | null) {
-    this.area = h('textarea', { class: 'note-text', rows: '4', placeholder: 'Write a comment…', 'aria-label': 'Comment' });
+    this.area = h('textarea', { class: 'note-text', rows: '4', placeholder: t('Write a comment…'), 'aria-label': t('Comment') });
     this.meta = h('span', { class: 'note-meta' });
     this.colours = h('div', { class: 'note-colours' });
-    const remove = h('button', { class: 'note-delete', title: 'Delete comment' }, icon('trash-2'));
-    this.el = h('div', { class: 'note-card', hidden: true, role: 'dialog', 'aria-label': 'Comment' },
+    const remove = h('button', { class: 'note-delete', title: t('Delete comment') }, icon('trash-2'));
+    this.el = h('div', { class: 'note-card', hidden: true, role: 'dialog', 'aria-label': t('Comment') },
       h('div', { class: 'note-head' }, icon('message-square'), this.meta),
       this.area,
       h('div', { class: 'note-foot' }, this.colours, h('span', { class: 'spacer' }), remove));
@@ -93,7 +94,7 @@ export class NotePopup {
     }
     this.meta.textContent = `${note.author || 'You'} · ${when(note.created)}`;
     this.colours.replaceChildren(...NOTE_COLORS.map((c) => {
-      const b = h('button', { class: 'note-colour', style: `background:${c}`, title: 'Note colour', 'aria-pressed': String(c === note.color) });
+      const b = h('button', { class: 'note-colour', style: `background:${c}`, title: t('Note colour'), 'aria-pressed': String(c === note.color) });
       b.addEventListener('click', () => this.editor.applyStyle('note', { color: c }));
       return b;
     }));
@@ -144,7 +145,7 @@ export class CommentsPanel {
       this.root.replaceChildren();
       return;
     }
-    const name = h('input', { class: 'field-input', value: commentAuthor() || this.defaultAuthor(), placeholder: 'Your name', 'aria-label': 'Your name on new comments' });
+    const name = h('input', { class: 'field-input', value: commentAuthor() || this.defaultAuthor(), placeholder: t('Your name'), 'aria-label': t('Your name on new comments') });
     name.addEventListener('change', () => {
       try {
         localStorage.setItem('inkleaf.author', name.value.trim());
@@ -161,8 +162,8 @@ export class CommentsPanel {
         const item = h('button', { class: `comment-item${selected ? ' selected' : ''}` },
           h('span', { class: 'comment-dot', style: `background:${a.color}` }),
           h('span', { class: 'comment-body' },
-            h('span', { class: 'comment-meta' }, `${a.author || 'You'} · Page ${index + 1}`),
-            h('span', { class: `comment-text${a.text.trim() ? '' : ' empty'}` }, a.text.trim() || 'Empty comment'),
+            h('span', { class: 'comment-meta' }, t('{author} · Page {page}', { author: a.author || t('You'), page: index + 1 })),
+            h('span', { class: `comment-text${a.text.trim() ? '' : ' empty'}` }, a.text.trim() || t('Empty comment')),
           ));
         item.addEventListener('click', () => {
           if (this.editor.tool !== 'select' && this.editor.tool !== 'note') this.editor.setTool('select');
@@ -174,11 +175,11 @@ export class CommentsPanel {
     });
 
     this.root.replaceChildren(
-      h('label', { class: 'side-field' }, h('span', { class: 'field-label' }, 'Your name on comments'), name),
+      h('label', { class: 'side-field' }, h('span', { class: 'field-label' }, t('Your name on comments')), name),
       items.length
         ? h('div', { class: 'comment-list' }, ...items)
         : h('div', { class: 'side-empty' }, icon('message-square'),
-            h('p', {}, 'No comments yet. Pick the Comment tool (N) and click on a page to add one.')),
+            h('p', {}, t('No comments yet. Pick the Comment tool (N) and click on a page to add one.'))),
     );
   }
 }

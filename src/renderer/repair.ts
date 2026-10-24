@@ -10,6 +10,7 @@
 //    drawn, each page is drawn as a picture into a new PDF. It looks right,
 //    but the text needs OCR to become searchable again.
 
+import { t } from '../shared/i18n';
 import { core } from './core';
 import { loadPdf } from './pdf';
 
@@ -72,7 +73,7 @@ export function withNewTrailer(bytes: Uint8Array): Uint8Array | null {
 }
 
 export async function repairPdf(bytes: Uint8Array, progress: (message: string) => void): Promise<Repaired> {
-  progress('Rebuilding the file…');
+  progress(t('Rebuilding the file…'));
   try {
     const { pdf } = await core.repair(bytes);
     const pages = await usable(pdf);
@@ -94,7 +95,7 @@ export async function repairPdf(bytes: Uint8Array, progress: (message: string) =
     bytes = retrailed;
   }
 
-  progress('Reading what’s left of the file…');
+  progress(t('Reading what’s left of the file…'));
   try {
     const { PDFDocument } = await import('pdf-lib');
     const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, throwOnInvalidObject: false, updateMetadata: false });
@@ -107,19 +108,19 @@ export async function repairPdf(bytes: Uint8Array, progress: (message: string) =
     // on to the last resort
   }
 
-  progress('Redrawing the pages…');
+  progress(t('Redrawing the pages…'));
   let source;
   try {
     source = await loadPdf(bytes);
   } catch {
-    throw new Error('This file is too badly damaged: no pages could be recovered from it.');
+    throw new Error(t('This file is too badly damaged: no pages could be recovered from it.'));
   }
   try {
     const { PDFDocument } = await import('pdf-lib');
     const out = await PDFDocument.create();
     let drawn = 0;
     for (let n = 1; n <= source.numPages; n++) {
-      progress(`Redrawing page ${n} of ${source.numPages}…`);
+      progress(t('Redrawing page {n} of {numPages}…', { n, numPages: source.numPages }));
       try {
         const page = await source.getPage(n);
         const base = page.getViewport({ scale: 1 });
@@ -137,7 +138,7 @@ export async function repairPdf(bytes: Uint8Array, progress: (message: string) =
         // a page that can't be drawn at all is skipped
       }
     }
-    if (!drawn) throw new Error('This file is too badly damaged: no pages could be recovered from it.');
+    if (!drawn) throw new Error(t('This file is too badly damaged: no pages could be recovered from it.'));
     return { bytes: await out.save(), pages: drawn, method: 'redrawn' };
   } finally {
     source.loadingTask.destroy();

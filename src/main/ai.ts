@@ -5,6 +5,7 @@
 // Requests go from here, the main process, so the page itself still can't
 // reach the internet.
 
+import { t } from '../shared/i18n';
 import { LANGUAGES } from '../shared/languages';
 import { app, safeStorage } from 'electron';
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -38,8 +39,8 @@ export function aiStatus(): { ready: boolean; model: AiModel; canEncrypt: boolea
 
 export function setKey(key: string, model: AiModel) {
   const trimmed = key.trim();
-  if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(trimmed)) throw new Error('That doesn’t look like an Anthropic API key. It starts with sk-ant-.');
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('This computer can’t store the key securely, so it wasn’t saved.');
+  if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(trimmed)) throw new Error(t('That doesn’t look like an Anthropic API key. It starts with sk-ant-.'));
+  if (!safeStorage.isEncryptionAvailable()) throw new Error(t('This computer can’t store the key securely, so it wasn’t saved.'));
   const stored: Stored = { key: safeStorage.encryptString(trimmed).toString('base64'), model: model === 'best' ? 'best' : 'fast' };
   writeFileSync(file(), JSON.stringify(stored), { mode: 0o600 });
 }
@@ -63,7 +64,7 @@ export interface AiRequest {
 export async function ask(request: AiRequest): Promise<string> {
   if (mock()) return mockAnswer(request);
   const stored = read();
-  if (!stored?.key) throw new Error('Add your Anthropic API key first (Tools › AI settings).');
+  if (!stored?.key) throw new Error(t('Add your Anthropic API key first (Tools › AI settings).'));
   const key = safeStorage.decryptString(Buffer.from(stored.key, 'base64'));
   let response: Response;
   try {
@@ -78,13 +79,13 @@ export async function ask(request: AiRequest): Promise<string> {
       }),
     });
   } catch {
-    throw new Error('Couldn’t reach Anthropic. Check your internet connection.');
+    throw new Error(t('Couldn’t reach Anthropic. Check your internet connection.'));
   }
   const body = await response.json().catch(() => null) as { content?: { type: string; text?: string }[]; error?: { message?: string } } | null;
   if (!response.ok) {
-    if (response.status === 401) throw new Error('Anthropic didn’t accept the API key. Check it in Tools › AI settings.');
-    if (response.status === 429) throw new Error('Anthropic says you’re sending requests too quickly or your credit has run out. Try again in a moment.');
-    throw new Error(body?.error?.message ?? `Anthropic returned an error (${response.status}).`);
+    if (response.status === 401) throw new Error(t('Anthropic didn’t accept the API key. Check it in Tools › AI settings.'));
+    if (response.status === 429) throw new Error(t('Anthropic says you’re sending requests too quickly or your credit has run out. Try again in a moment.'));
+    throw new Error(body?.error?.message ?? t('Anthropic returned an error ({status}).', { status: response.status }));
   }
   return (body?.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join('');
 }

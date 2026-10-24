@@ -138,6 +138,13 @@ function copyStatic() {
   copy(r('src', 'renderer', 'index.html'), path.join(renderer, 'index.html'));
   copy(r('src', 'renderer', 'styles.css'), path.join(renderer, 'styles.css'));
   copy(r('src', 'renderer', 'assets'), path.join(renderer, 'assets'));
+  // interface translations (strings.json is only the English list, for translators)
+  const i18n = r('src', 'renderer', 'i18n');
+  if (fs.existsSync(i18n)) {
+    for (const f of fs.readdirSync(i18n).filter((f) => f.endsWith('.json') && f !== 'strings.json')) {
+      copy(path.join(i18n, f), path.join(renderer, 'i18n', f));
+    }
+  }
   const font = nm('@fontsource-variable', 'instrument-sans', 'files');
   for (const subset of ['latin', 'latin-ext']) {
     for (const style of ['normal', 'italic']) {

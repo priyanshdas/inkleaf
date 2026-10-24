@@ -8,6 +8,7 @@
 // diff), first line by line and then word by word inside changed lines, which
 // keeps it quick even for long documents.
 
+import { t } from '../shared/i18n';
 import { loadPdf, PDFDocumentProxy } from './pdf';
 import { pageRuns, placeQuad, Quad, runSpan, spanQuad } from './text-finder';
 import { h, icon } from './ui';
@@ -214,9 +215,9 @@ export async function showComparison(
 ): Promise<void> {
   const oldPdf = await loadPdf(before.bytes);
   const newPdf = await loadPdf(after.bytes);
-  const a = await linesOf(oldPdf, (n) => progress(`Reading “${before.name}”, page ${n} of ${oldPdf.numPages}…`));
-  const b = await linesOf(newPdf, (n) => progress(`Reading “${after.name}”, page ${n} of ${newPdf.numPages}…`));
-  progress('Comparing…');
+  const a = await linesOf(oldPdf, (n) => progress(t('Reading “{name}”, page {n} of {total}…', { name: before.name, n, total: oldPdf.numPages })));
+  const b = await linesOf(newPdf, (n) => progress(t('Reading “{name}”, page {n} of {total}…', { name: after.name, n, total: newPdf.numPages })));
+  progress(t('Comparing…'));
   const found = changes(a, b);
 
   const marksOld = new Map<number, Quad[]>(), marksNew = new Map<number, Quad[]>();
@@ -229,11 +230,11 @@ export async function showComparison(
   const right = new Column(newPdf, after.name, 'new');
   const list = h('div', { class: 'cmp-list' });
   const count = h('span', { class: 'cmp-count' });
-  const close = h('button', { class: 'btn' }, icon('x'), 'Close');
-  const prev = h('button', { class: 'btn btn-ghost', title: 'Previous change' }, icon('arrow-up'));
-  const next = h('button', { class: 'btn btn-ghost', title: 'Next change' }, icon('arrow-down'));
-  const overlay = h('div', { class: 'compare-view', role: 'dialog', 'aria-label': 'Compare documents' },
-    h('header', { class: 'cmp-head' }, icon('git-compare'), h('strong', {}, 'Compare'), count, h('span', { class: 'spacer' }), prev, next, close),
+  const close = h('button', { class: 'btn' }, icon('x'), t('Close'));
+  const prev = h('button', { class: 'btn btn-ghost', title: t('Previous change') }, icon('arrow-up'));
+  const next = h('button', { class: 'btn btn-ghost', title: t('Next change') }, icon('arrow-down'));
+  const overlay = h('div', { class: 'compare-view', role: 'dialog', 'aria-label': t('Compare documents') },
+    h('header', { class: 'cmp-head' }, icon('git-compare'), h('strong', {}, t('Compare')), count, h('span', { class: 'spacer' }), prev, next, close),
     h('div', { class: 'cmp-body' }, left.el, right.el, list));
   document.body.append(overlay);
 
@@ -258,16 +259,16 @@ export async function showComparison(
   };
 
   if (!found) {
-    count.textContent = 'These documents are too different to compare word by word.';
+    count.textContent = t('These documents are too different to compare word by word.');
   } else if (!found.length) {
-    count.textContent = 'No differences in the text.';
-    list.append(h('div', { class: 'side-empty' }, icon('check'), h('p', {}, 'The words are identical. (Pictures and layout aren’t compared.)')));
+    count.textContent = t('No differences in the text.');
+    list.append(h('div', { class: 'side-empty' }, icon('check'), h('p', {}, t('The words are identical. (Pictures and layout aren’t compared.)'))));
   } else {
-    count.textContent = `${found.length} change${found.length === 1 ? '' : 's'}`;
+    count.textContent = t('{count, plural, one {# change} other {# changes}}', { count: found.length });
     found.forEach((c, i) => {
       const page = (c.added[0] ?? c.removed[0]).page + 1;
       const el = h('button', { class: 'cmp-item' },
-        h('span', { class: 'cmp-item-page' }, `Page ${page}`),
+        h('span', { class: 'cmp-item-page' }, t('Page {page}', { page })),
         c.removed.length ? h('span', { class: 'cmp-del' }, excerpt(c.removed)) : null,
         c.added.length ? h('span', { class: 'cmp-add' }, excerpt(c.added)) : null);
       el.addEventListener('click', () => go(i));

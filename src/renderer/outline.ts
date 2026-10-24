@@ -4,6 +4,7 @@
 // written back on save; until something is edited, the file's own outline is
 // left exactly as it was.
 
+import { t } from '../shared/i18n';
 import type { EditorDoc } from './document';
 import { newId } from './geometry';
 import type { OutlineItem } from './types';
@@ -77,7 +78,7 @@ export class OutlinePanel {
     if (this.loadedFor !== doc) {
       this.loadedFor = doc;
       this.fromFile = [];
-      this.root.replaceChildren(h('div', { class: 'side-empty' }, h('p', {}, 'Reading bookmarks…')));
+      this.root.replaceChildren(h('div', { class: 'side-empty' }, h('p', {}, t('Reading bookmarks…'))));
       try {
         this.fromFile = await readOutline(doc);
       } catch {
@@ -87,7 +88,7 @@ export class OutlinePanel {
     }
 
     const items = this.items(doc);
-    const add = h('button', { class: 'btn small' }, icon('plus'), 'Add bookmark');
+    const add = h('button', { class: 'btn small' }, icon('plus'), t('Add bookmark'));
     add.addEventListener('click', () => this.add());
 
     const pageNumber = (id: string | null) => {
@@ -107,9 +108,9 @@ export class OutlinePanel {
       });
       const go = h('button', { class: 'bm-title', title: it.title, disabled: !it.pageId || doc.pageIndex(it.pageId) < 0 }, it.title);
       go.addEventListener('click', () => it.pageId && this.viewer.scrollToPage(it.pageId));
-      const rename = h('button', { class: 'bm-act', title: 'Rename' }, icon('pencil'));
+      const rename = h('button', { class: 'bm-act', title: t('Rename') }, icon('pencil'));
       rename.addEventListener('click', () => this.rename(it));
-      const remove = h('button', { class: 'bm-act', title: 'Delete bookmark' }, icon('x'));
+      const remove = h('button', { class: 'bm-act', title: t('Delete bookmark') }, icon('x'));
       remove.addEventListener('click', () => this.edit(mapTree(this.items(doc), (x) => (x.id === it.id ? null : x))));
       const row = h('div', { class: 'bm-row', style: `--depth:${depth}` },
         toggle, go, h('span', { class: 'bm-page' }, pageNumber(it.pageId)), rename, remove);
@@ -120,7 +121,7 @@ export class OutlinePanel {
       h('div', { class: 'side-actions-row' }, add),
       items.length
         ? h('div', { class: 'bm-list' }, ...tree(items, 0))
-        : h('div', { class: 'side-empty' }, icon('bookmark'), h('p', {}, 'This PDF has no bookmarks yet. Add one for the page you’re on, and it’s saved with the file.')),
+        : h('div', { class: 'side-empty' }, icon('bookmark'), h('p', {}, t('This PDF has no bookmarks yet. Add one for the page you’re on, and it’s saved with the file.'))),
     );
   }
 
@@ -132,7 +133,7 @@ export class OutlinePanel {
     const doc = this.getDoc();
     const pageId = this.viewer.currentPageId ?? doc?.pages[0]?.id;
     if (!doc || !pageId) return;
-    const title = await promptDialog('Add bookmark', 'Bookmark name', { value: `Page ${doc.pageIndex(pageId) + 1}` });
+    const title = await promptDialog(t('Add bookmark'), t('Bookmark name'), { value: t('Page {n}', { n: doc.pageIndex(pageId) + 1 }) });
     if (!title?.trim()) return;
     // keep bookmarks in page order at the top level
     const list = [...this.items(doc)];
@@ -146,7 +147,7 @@ export class OutlinePanel {
   private async rename(item: OutlineItem) {
     const doc = this.getDoc();
     if (!doc) return;
-    const title = await promptDialog('Rename bookmark', 'Bookmark name', { value: item.title });
+    const title = await promptDialog(t('Rename bookmark'), t('Bookmark name'), { value: item.title });
     if (!title?.trim() || title.trim() === item.title) return;
     this.edit(mapTree(this.items(doc), (x) => (x.id === item.id ? { ...x, title: title.trim() } : x)));
   }

@@ -6,6 +6,7 @@
 // SHA-256. A download is only kept if it matches exactly, so a tampered or
 // broken file never gets used. Once downloaded, packs work offline.
 
+import { t } from '../shared/i18n';
 import { app, net, type WebContents } from 'electron';
 import { createHash } from 'node:crypto';
 import { createWriteStream, existsSync, statSync } from 'node:fs';
@@ -52,9 +53,9 @@ async function download(name: string, onProgress: (received: number) => void) {
     // net.fetch uses the system's proxy settings, like a browser would
     response = await net.fetch(entry.url, { cache: 'no-store' });
   } catch {
-    throw new Error('Couldn’t download the language pack. Check your internet connection and try again.');
+    throw new Error(t('Couldn’t download the language pack. Check your internet connection and try again.'));
   }
-  if (!response.ok || !response.body) throw new Error(`Couldn’t download the language pack (the server said ${response.status}).`);
+  if (!response.ok || !response.body) throw new Error(t('Couldn’t download the language pack (the server said {status}).', { status: response.status }));
 
   const hash = createHash('sha256');
   const out = createWriteStream(partial);
@@ -66,7 +67,7 @@ async function download(name: string, onProgress: (received: number) => void) {
       const { done, value } = await reader.read();
       if (done) break;
       received += value.length;
-      if (received > entry.size) throw new Error('The language pack was bigger than expected, so it wasn’t kept.');
+      if (received > entry.size) throw new Error(t('The language pack was bigger than expected, so it wasn’t kept.'));
       hash.update(value);
       if (!out.write(value)) await new Promise<void>((resolve) => out.once('drain', () => resolve()));
       if (received - lastReport > 256 * 1024) {
@@ -76,7 +77,7 @@ async function download(name: string, onProgress: (received: number) => void) {
     }
     await new Promise<void>((resolve, reject) => out.end((err?: Error | null) => (err ? reject(err) : resolve())));
     if (received !== entry.size || hash.digest('hex') !== entry.sha256) {
-      throw new Error('The downloaded language pack didn’t match what Inkleaf expected, so it wasn’t kept. Please try again.');
+      throw new Error(t('The downloaded language pack didn’t match what Inkleaf expected, so it wasn’t kept. Please try again.'));
     }
     await fs.rename(partial, target);
     onProgress(received);

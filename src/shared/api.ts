@@ -25,7 +25,7 @@ export type MenuCommand =
   | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'check-updates' | 'show-comments' | 'show-bookmarks'
   | 'toggle-autosave' | 'open-backups' | 'open-github' | 'report-problem' | 'donate'
   | 'convert-to-pdf' | 'convert-from-pdf' | 'web-to-pdf' | 'scan-to-pdf' | 'repair' | 'pdf-to-pdfa'
-  | 'ai-summarize' | 'ai-translate' | 'ai-settings' | 'all-tools' | 'unlock' | 'terms' | 'privacy';
+  | 'ai-summarize' | 'ai-translate' | 'ai-settings' | 'all-tools' | 'unlock' | 'language' | 'terms' | 'privacy';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
@@ -159,6 +159,12 @@ export interface InkleafApi {
   setRecentThumb(path: string, thumb: string): void;
   forgetRecent(path: string): Promise<void>;
 
+  /** The interface language and its translations, loaded before the page runs. */
+  i18n: { locale: string; strings: Record<string, string> };
+  /** "system" or a language code. */
+  languageChoice(): Promise<string>;
+  /** Saves the choice and restarts Inkleaf in that language. */
+  setLanguage(choice: string): Promise<boolean>;
   theme(): Promise<ThemeSetting>;
   setTheme(theme: ThemeSetting): void;
   /** Window-level actions for the in-app menu on Windows and Linux. */

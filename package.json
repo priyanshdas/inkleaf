@@ -1,7 +1,7 @@
 {
   "name": "inkleaf",
   "productName": "Inkleaf",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "A free, open-source, offline PDF editor: edit text, annotate, sign, fill and build forms, OCR, compress, compare and convert.",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/priyanshdas/inkleaf",
@@ -21,6 +21,7 @@
     "start": "node scripts/build.mjs && electron .",
     "dev": "node scripts/build.mjs --watch",
     "typecheck": "tsc --noEmit -p .",
+    "i18n": "node scripts/i18n.mjs",
     "test": "node scripts/build.mjs && node tests/smoke.mjs",
     "test:core": "cd core && cargo test",
     "dist": "node scripts/build.mjs && electron-builder --publish never",

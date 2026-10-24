@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { t } from '../shared/i18n';
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, protocol, screen, session, shell } from 'electron';
 import os from 'node:os';
 import fs from 'node:fs/promises';
@@ -7,6 +8,7 @@ import path from 'node:path';
 import type { OpenedFile, RecentFile, ThemeSetting } from '../shared/api';
 import type { WindowCommand } from '../shared/commands';
 import { buildMenu } from './menu';
+import { catalog, loadLocale } from './locale';
 import { CONVERTIBLE } from '../shared/api';
 import { findOffice, htmlToPdf, officeToPdf, urlToPdf } from './convert';
 import { ensurePacks, packPath, packStatus, removePacks } from './packs';
@@ -104,7 +106,7 @@ const windows = new Map<number, WindowContext>();
 
 function contextFor(sender: Electron.WebContents): WindowContext {
   const ctx = windows.get(sender.id);
-  if (!ctx) throw new Error('Unknown window');
+  if (!ctx) throw new Error(t('Unknown window'));
   return ctx;
 }
 
@@ -250,13 +252,13 @@ function createWindow(fileToOpen?: OpenedFile): BrowserWindow {
 
     const choice = dialog.showMessageBoxSync(win, {
       type: 'warning',
-      buttons: ['Save', "Don't Save", 'Cancel'],
+      buttons: [t('Save'), t('Don’t save'), t('Cancel')],
       defaultId: 0,
       cancelId: 2,
       message: ctx.dirtyCount > 1
-        ? `You have unsaved changes in ${ctx.dirtyCount} documents. Save them?`
-        : `Do you want to save the changes you made to “${ctx.dirtyName || ctx.title}”?`,
-      detail: "Your changes will be lost if you don't save them.",
+        ? t('You have unsaved changes in {count} documents. Save them?', { count: ctx.dirtyCount })
+        : t('Do you want to save the changes you made to “{name}”?', { name: ctx.dirtyName || ctx.title }),
+      detail: t('Your changes will be lost if you don’t save them.'),
     });
     if (choice === 1) {
       ctx.closeConfirmed = true;
@@ -274,7 +276,7 @@ async function readPdf(filePath: string): Promise<OpenedFile> {
   const resolved = path.resolve(filePath);
   const ext = path.extname(resolved).toLowerCase().slice(1);
   if (ext !== 'pdf' && !CONVERTIBLE.includes(ext)) {
-    throw new Error('Inkleaf opens PDFs, and documents, spreadsheets, slides, text and pictures it can turn into PDFs.');
+    throw new Error(t('Inkleaf opens PDFs, and documents, spreadsheets, slides, text and pictures it can turn into PDFs.'));
   }
   const data = await fs.readFile(resolved);
   if (ext !== 'pdf') {
@@ -292,7 +294,7 @@ async function openFromSystem(filePath: string) {
   try {
     file = await readPdf(filePath);
   } catch (err) {
-    dialog.showErrorBox('Couldn’t open file', `${filePath}\n\n${(err as Error).message}`);
+    dialog.showErrorBox(t('Couldn’t open file'), `${filePath}\n\n${(err as Error).message}`);
     return;
   }
   // Open it as a new tab in the window you were last using.
@@ -390,7 +392,7 @@ function needsAgreement(): boolean {
 function registerIpc() {
   ipcMain.handle('packs:status', () => packStatus());
   ipcMain.handle('packs:ensure', (event, names: unknown) => {
-    if (!Array.isArray(names) || !names.every((n) => typeof n === 'string')) throw new Error('Bad request.');
+    if (!Array.isArray(names) || !names.every((n) => typeof n === 'string')) throw new Error(t('Bad request.'));
     return ensurePacks(names, event.sender);
   });
   ipcMain.handle('packs:remove', (_event, prefix: unknown) => removePacks(typeof prefix === 'string' ? prefix : ''));
@@ -415,11 +417,11 @@ function registerIpc() {
   ipcMain.handle('file:open-dialog', async (event) => {
     const ctx = contextFor(event.sender);
     const result = await dialog.showOpenDialog(ctx.win, {
-      title: 'Open',
+      title: t('Open'),
       properties: ['openFile'],
       filters: [
-        { name: 'PDFs and files Inkleaf can convert', extensions: ['pdf', ...CONVERTIBLE] },
-        { name: 'PDF documents', extensions: ['pdf'] },
+        { name: t('PDFs and files Inkleaf can convert'), extensions: ['pdf', ...CONVERTIBLE] },
+        { name: t('PDF documents'), extensions: ['pdf'] },
       ],
     });
     if (result.canceled || !result.filePaths[0]) return null;
@@ -438,15 +440,15 @@ function registerIpc() {
   ipcMain.handle('file:pick-convertible', async (event) => {
     const ctx = contextFor(event.sender);
     const result = await dialog.showOpenDialog(ctx.win, {
-      title: 'Choose files to convert to PDF',
+      title: t('Choose files to convert to PDF'),
       properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: 'Documents, spreadsheets, slides, text and pictures', extensions: CONVERTIBLE },
+        { name: t('Documents, spreadsheets, slides, text and pictures'), extensions: CONVERTIBLE },
         { name: 'Word', extensions: ['docx', 'doc', 'odt', 'rtf'] },
         { name: 'Excel', extensions: ['xlsx', 'xls', 'ods', 'csv'] },
         { name: 'PowerPoint', extensions: ['pptx', 'ppt', 'odp'] },
-        { name: 'Text and web pages', extensions: ['txt', 'md', 'markdown', 'html', 'htm'] },
-        { name: 'Pictures', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] },
+        { name: t('Text and web pages'), extensions: ['txt', 'md', 'markdown', 'html', 'htm'] },
+        { name: t('Pictures'), extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] },
       ],
     });
     if (result.canceled) return [];
@@ -467,9 +469,9 @@ function registerIpc() {
   ipcMain.handle('file:pick-pdfs', async (event, title?: unknown) => {
     const ctx = contextFor(event.sender);
     const result = await dialog.showOpenDialog(ctx.win, {
-      title: typeof title === 'string' && title.length < 120 ? title : 'Choose PDFs to insert',
+      title: typeof title === 'string' && title.length < 120 ? title : t('Choose PDFs to insert'),
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'PDF documents', extensions: ['pdf'] }],
+      filters: [{ name: t('PDF documents'), extensions: ['pdf'] }],
     });
     if (result.canceled) return [];
     return Promise.all(
@@ -481,7 +483,7 @@ function registerIpc() {
     const ctx = contextFor(event.sender);
     const resolved = path.resolve(String(target));
     if (!ctx.allowedPaths.has(resolved)) {
-      throw new Error('This window isn’t allowed to write to that location. Use Save As instead.');
+      throw new Error(t('This window isn’t allowed to write to that location. Use Save As instead.'));
     }
     await writeFileSafely(resolved, data);
     rememberRecent(resolved);
@@ -490,9 +492,9 @@ function registerIpc() {
   ipcMain.handle('file:save-as', async (event, data: Uint8Array, suggestedName: string) => {
     const ctx = contextFor(event.sender);
     const result = await dialog.showSaveDialog(ctx.win, {
-      title: 'Save PDF',
+      title: t('Save PDF'),
       defaultPath: safeFileName(suggestedName),
-      filters: [{ name: 'PDF document', extensions: ['pdf'] }],
+      filters: [{ name: t('PDF document'), extensions: ['pdf'] }],
     });
     if (result.canceled || !result.filePath) return null;
     let target = result.filePath;
@@ -506,7 +508,7 @@ function registerIpc() {
   ipcMain.handle('file:save-many', async (event, files: { name: string; data: Uint8Array }[]) => {
     const ctx = contextFor(event.sender);
     const result = await dialog.showOpenDialog(ctx.win, {
-      title: 'Choose a folder for the new files',
+      title: t('Choose a folder for the new files'),
       buttonLabel: 'Save Here',
       properties: ['openDirectory', 'createDirectory'],
     });
@@ -526,13 +528,14 @@ function registerIpc() {
 
   ipcMain.handle('file:save-copy', async (event, data: Uint8Array, suggestedName: string, kind: string) => {
     const ctx = contextFor(event.sender);
-    const kinds: Record<string, [string, string]> = {
-      pdf: ['PDF document', 'pdf'], docx: ['Word document', 'docx'], xlsx: ['Excel workbook', 'xlsx'],
-      pptx: ['PowerPoint presentation', 'pptx'], txt: ['Plain text', 'txt'], md: ['Markdown', 'md'], html: ['Web page', 'html'],
+    const kinds: Record<string, [string, string, string]> = {
+      pdf: [t('PDF document'), 'pdf', t('Save a copy')], docx: [t('Word document'), 'docx', t('Save Word document')],
+      xlsx: [t('Excel workbook'), 'xlsx', t('Save Excel workbook')], pptx: [t('PowerPoint presentation'), 'pptx', t('Save PowerPoint presentation')],
+      txt: [t('Plain text'), 'txt', t('Save text file')], md: [t('Markdown'), 'md', t('Save Markdown file')], html: [t('Web page'), 'html', t('Save web page')],
     };
-    const [label, ext] = kinds[kind] ?? kinds.pdf;
+    const [label, ext, title] = kinds[kind] ?? kinds.pdf;
     const result = await dialog.showSaveDialog(ctx.win, {
-      title: ext === 'pdf' ? 'Save a copy' : `Save ${label.toLowerCase()}`,
+      title,
       defaultPath: safeFileName(suggestedName),
       filters: [{ name: label, extensions: [ext] }],
     });
@@ -542,7 +545,7 @@ function registerIpc() {
     // refuse to overwrite the document that's open in this window: a copy
     // should never silently replace the original
     if (ctx.allowedPaths.has(path.resolve(target)) && ext === 'pdf') {
-      throw new Error('That’s the file you’re editing. Choose a different name for the copy.');
+      throw new Error(t('That’s the file you’re editing. Choose a different name for the copy.'));
     }
     await writeFileSafely(target, data);
     if (ext === 'pdf') rememberRecent(target);
@@ -552,9 +555,9 @@ function registerIpc() {
   ipcMain.handle('file:pick-images', async (event) => {
     const ctx = contextFor(event.sender);
     const result = await dialog.showOpenDialog(ctx.win, {
-      title: 'Choose pictures',
+      title: t('Choose pictures'),
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Pictures', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }],
+      filters: [{ name: t('Pictures'), extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }],
     });
     if (result.canceled) return [];
     return Promise.all(
@@ -621,7 +624,7 @@ function registerIpc() {
   });
   ipcMain.handle('recovery:read', async (_event, id: string) => {
     const safe = recoveryId(id);
-    if (!safe) throw new Error('Unknown recovered file');
+    if (!safe) throw new Error(t('Unknown recovered file'));
     const data = new Uint8Array(await fs.readFile(path.join(recoveryDir(), `${safe}.pdf`)));
     return data;
   });
@@ -651,7 +654,7 @@ function registerIpc() {
   ipcMain.handle('recent:open', async (event, filePath: string) => {
     const ctx = contextFor(event.sender);
     const known = recentList().some((r) => r.path === filePath);
-    if (!known) throw new Error('That file isn’t in your recent list.');
+    if (!known) throw new Error(t('That file isn’t in your recent list.'));
     const file = await readPdf(filePath);
     ctx.allowedPaths.add(file.path!);
     return file;
@@ -668,6 +671,20 @@ function registerIpc() {
     writeJson(recentFile(), recentList().filter((r) => r.path !== filePath));
   });
 
+  // the renderer needs its words before any of its code runs, hence sync
+  ipcMain.on('i18n:catalog', (event) => {
+    event.returnValue = catalog();
+  });
+  ipcMain.handle('i18n:choice', () => readJson<{ language?: string }>(settingsFile(), {}).language ?? 'system');
+  ipcMain.handle('i18n:set', (_event, choice: unknown) => {
+    if (typeof choice !== 'string' || !/^(system|[a-z]{2}(-[A-Z]{2})?)$/.test(choice)) return false;
+    writeJson(settingsFile(), { ...readJson(settingsFile(), {}), language: choice });
+    // a clean restart, so every window and the menu switch together; the
+    // usual "save your changes?" questions still come first
+    app.relaunch();
+    app.quit();
+    return true;
+  });
   ipcMain.handle('theme:get', () => readJson<{ theme?: ThemeSetting }>(settingsFile(), {}).theme ?? 'system');
   ipcMain.on('theme:set', (_event, theme: ThemeSetting) => {
     if (!['system', 'light', 'dark'].includes(theme)) return;
@@ -745,6 +762,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     session.defaultSession.setPermissionCheckHandler((wc, permission, origin) => allowed.has(permission) && ours(origin || wc?.getURL() || ''));
     applyTheme(readJson<{ theme?: ThemeSetting }>(settingsFile(), {}).theme ?? 'system');
+    loadLocale(readJson<{ language?: string }>(settingsFile(), {}).language);
     nativeTheme.on('updated', () => applyTheme(nativeTheme.themeSource as ThemeSetting));
     registerIpc();
     buildMenu((command, win) => runWindowCommand(command, win));
@@ -759,7 +777,7 @@ if (!app.requestSingleInstanceLock()) {
       try {
         createWindow(await readPdf(file));
       } catch (err) {
-        dialog.showErrorBox('Couldn’t open file', `${file}\n\n${(err as Error).message}`);
+        dialog.showErrorBox(t('Couldn’t open file'), `${file}\n\n${(err as Error).message}`);
       }
     }
     if (windows.size === 0) createWindow();

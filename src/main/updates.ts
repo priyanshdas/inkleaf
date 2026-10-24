@@ -7,6 +7,7 @@
 // portable .exe and runs from source just report that updates aren't
 // available, so "Check for updates" can say something useful.
 
+import { t } from '../shared/i18n';
 import { app } from 'electron';
 import type { UpdateState } from '../shared/api';
 
@@ -18,8 +19,8 @@ let manual = false;
 let ready = false;
 
 function why(): string | null {
-  if (!app.isPackaged) return 'Updates only work in the installed app.';
-  if (process.env.PORTABLE_EXECUTABLE_DIR) return 'The portable version can’t update itself. Download the new version from the releases page instead.';
+  if (!app.isPackaged) return t('Updates only work in the installed app.');
+  if (process.env.PORTABLE_EXECUTABLE_DIR) return t('The portable version can’t update itself. Download the new version from the releases page instead.');
   return null;
 }
 

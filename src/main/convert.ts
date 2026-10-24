@@ -9,6 +9,7 @@
 //   isn't available; this prints that HTML to a PDF in a hidden window that
 //   can't run scripts or reach the network.
 
+import { t } from '../shared/i18n';
 import { app, BrowserWindow, session } from 'electron';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -51,7 +52,7 @@ export function findOffice(): string | null {
 function run(file: string, args: string[], timeout: number): Promise<void> {
   return new Promise((resolve, reject) => {
     execFile(file, args, { timeout, windowsHide: true }, (err, _stdout, stderr) => {
-      if (err) reject(new Error((err as NodeJS.ErrnoException).code === 'ETIMEDOUT' || err.killed ? 'LibreOffice took too long.' : (stderr || err.message).trim()));
+      if (err) reject(new Error((err as NodeJS.ErrnoException).code === 'ETIMEDOUT' || err.killed ? t('LibreOffice took too long.') : (stderr || err.message).trim()));
       else resolve();
     });
   });
@@ -60,9 +61,9 @@ function run(file: string, args: string[], timeout: number): Promise<void> {
 /** Converts an office document to PDF with LibreOffice. */
 export async function officeToPdf(name: string, data: Uint8Array): Promise<Uint8Array> {
   const soffice = findOffice();
-  if (!soffice) throw new Error('LibreOffice isn’t installed.');
+  if (!soffice) throw new Error(t('LibreOffice isn’t installed.'));
   const ext = path.extname(name).toLowerCase().slice(1);
-  if (!OFFICE_FORMATS.includes(ext)) throw new Error(`.${ext} files can’t be converted with LibreOffice.`);
+  if (!OFFICE_FORMATS.includes(ext)) throw new Error(t('.{ext} files can’t be converted with LibreOffice.', { ext }));
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'inkleaf-convert-'));
   try {
     // a plain file name: LibreOffice and some shells dislike unusual characters
@@ -75,7 +76,7 @@ export async function officeToPdf(name: string, data: Uint8Array): Promise<Uint8
       '--convert-to', 'pdf', '--outdir', work, input,
     ], 180_000);
     const output = path.join(work, 'document.pdf');
-    if (!existsSync(output)) throw new Error('LibreOffice didn’t produce a PDF. The file may be damaged or password-protected.');
+    if (!existsSync(output)) throw new Error(t('LibreOffice didn’t produce a PDF. The file may be damaged or password-protected.'));
     return new Uint8Array(await fs.readFile(output));
   } finally {
     await fs.rm(work, { recursive: true, force: true }).catch(() => {});
@@ -137,9 +138,9 @@ export async function urlToPdf(address: string, page: HtmlPage = {}): Promise<{ 
   try {
     url = new URL(/^[a-z]+:\/\//i.test(address) ? address : `https://${address}`);
   } catch {
-    throw new Error('That doesn’t look like a web address.');
+    throw new Error(t('That doesn’t look like a web address.'));
   }
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Only web addresses (http or https) can be printed.');
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error(t('Only web addresses (http or https) can be printed.'));
 
   const ses = session.fromPartition(`inkleaf-web-${Date.now()}`);
   ses.setPermissionRequestHandler((_wc, _permission, done) => done(false));
@@ -156,7 +157,7 @@ export async function urlToPdf(address: string, page: HtmlPage = {}): Promise<{ 
   try {
     await Promise.race([
       win.loadURL(url.href),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('The page took too long to load.')), 45_000)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(t('The page took too long to load.'))), 45_000)),
     ]);
     // give late pictures and fonts a moment
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -170,7 +171,7 @@ export async function urlToPdf(address: string, page: HtmlPage = {}): Promise<{ 
     return { pdf: new Uint8Array(pdf), title: win.webContents.getTitle() || url.hostname };
   } catch (err) {
     const message = (err as Error).message ?? String(err);
-    if (/ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_CONNECTION/i.test(message)) throw new Error('Couldn’t reach that page. Check the address and your internet connection.');
+    if (/ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_CONNECTION/i.test(message)) throw new Error(t('Couldn’t reach that page. Check the address and your internet connection.'));
     throw err;
   } finally {
     win.destroy();
