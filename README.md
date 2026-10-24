@@ -9,7 +9,7 @@ anywhere, there are no accounts, and every tool is free. Built by EPD.
 [![Support on Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/inkleaf)
 
 **Download:** the latest installers are on the
-[releases page](https://github.com/priyanshdas/inkleaf-releases/releases).
+[releases page](https://github.com/priyanshdas/inkleaf/releases).
 
 ## What it does
 
