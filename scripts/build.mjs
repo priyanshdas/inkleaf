@@ -89,6 +89,48 @@ function writeIcons() {
   }
 }
 
+// --- terms and privacy ------------------------------------------------------
+// TERMS.md and PRIVACY.md are the single source. The app shows them from
+// Help, and the installers show them (as plain text) before installing.
+
+function plainText(markdown) {
+  return markdown
+    .replace(/^#+\s*/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+    .replace(/^\| --- .*\n/gm, '')
+    .replace(/^\| (.*) \|$/gm, (_, row) => row.split(' | ').join(' - '))
+    .replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/—/g, '-');
+}
+
+function writeLegal() {
+  const terms = fs.readFileSync(r('TERMS.md'), 'utf8');
+  const privacy = fs.readFileSync(r('PRIVACY.md'), 'utf8');
+  const legal = path.join(out, 'renderer', 'legal');
+  fs.mkdirSync(legal, { recursive: true });
+  fs.writeFileSync(path.join(legal, 'terms.md'), terms);
+  fs.writeFileSync(path.join(legal, 'privacy.md'), privacy);
+  const text = [
+    'Please read these terms and the privacy policy. By installing Inkleaf you agree to them.',
+    '',
+    plainText(terms),
+    '',
+    '========================================================================',
+    '',
+    plainText(privacy),
+    '',
+    '========================================================================',
+    '',
+    'Inkleaf is free software under the GNU General Public License, version 3 or later.',
+    'The full licence is installed with the app (LICENSE.txt) and is at https://www.gnu.org/licenses/gpl-3.0.html',
+    '',
+  ].join('\r\n').replace(/\r?\n/g, '\r\n');
+  // a byte-order mark tells the Windows installer the file is UTF-8
+  for (const name of ['installer-terms.txt', 'license_en.txt']) {
+    fs.writeFileSync(r('build', name), '\ufeff' + text);
+  }
+}
+
 // --- static files ----------------------------------------------------------
 
 function copyStatic() {
@@ -181,6 +223,7 @@ const targets = [
 fs.rmSync(out, { recursive: true, force: true });
 writeIcons();
 copyStatic();
+writeLegal();
 
 if (watch) {
   for (const options of targets) {

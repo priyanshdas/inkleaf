@@ -292,6 +292,14 @@ Things that keep it fast, worth preserving when changing the viewer:
   from another PDF keep their fields' appearance but not their fillability.
 - XFA forms (an old Adobe-only format) aren't supported.
 
+## Terms and privacy
+
+Using Inkleaf means agreeing to the [Terms of Use](TERMS.md) and
+[Privacy Policy](PRIVACY.md). The installer shows both before installing,
+the portable and Linux builds ask once on first start, and both are under
+Help in the app. In short: Inkleaf is provided as is, with no warranty and
+no liability for how it's used, and it collects nothing about you.
+
 ## Licence
 
 Copyright © 2026 Priyansh Das.

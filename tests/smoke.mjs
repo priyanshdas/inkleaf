@@ -898,6 +898,20 @@ async function moreToolsTest() {
   // PDF/A, checked with pikepdf's own validator
   let { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'), { env: { INKLEAF_AI_MOCK: '1' } });
   await waitForPages(win);
+
+  // terms and privacy, from the Help menu
+  await win.evaluate(() => { void window.__inkleaf.run('terms'); });
+  await win.waitForSelector('.legal-doc');
+  check('terms of use open from Help, with the no-liability section',
+    (await win.textContent('.modal-title')).includes('Terms of Use') && (await win.textContent('.legal-doc')).includes('No liability'));
+  await modalButton(win, 'Close');
+  await win.waitForTimeout(250);
+  await win.evaluate(() => { void window.__inkleaf.run('privacy'); });
+  await win.waitForSelector('.modal-title:has-text("Privacy Policy")');
+  check('privacy policy opens from Help', (await win.textContent('.legal-doc')).includes("doesn't collect anything"));
+  await modalButton(win, 'Close');
+  await win.waitForTimeout(250);
+
   const pdfa = path.join(out, 'sample-pdfa.pdf');
   await stubDialog(app, 'showSaveDialog', pdfa);
   await win.evaluate(() => { void window.__inkleaf.run('pdf-to-pdfa'); });

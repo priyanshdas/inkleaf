@@ -4,6 +4,7 @@ import type { InkleafApi, MenuCommand, OpenedFile } from '../shared/api';
 
 const api: InkleafApi = {
   info: () => ipcRenderer.invoke('app:info'),
+  agreeToTerms: () => ipcRenderer.invoke('app:agree-terms'),
   openDialog: () => ipcRenderer.invoke('file:open-dialog'),
   openPath: (path) => ipcRenderer.invoke('file:open-path', path),
   pathForFile: (file) => {

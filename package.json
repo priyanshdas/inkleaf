@@ -89,7 +89,7 @@
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
       "artifactName": "${productName} Setup ${version}.${ext}",
-      "license": "LICENSE"
+      "license": "build/installer-terms.txt"
     },
     "mac": {
       "target": [
@@ -135,6 +135,14 @@
       {
         "from": "LICENSE",
         "to": "LICENSE.txt"
+      },
+      {
+        "from": "TERMS.md",
+        "to": "TERMS.md"
+      },
+      {
+        "from": "PRIVACY.md",
+        "to": "PRIVACY.md"
       }
     ]
   },

@@ -25,7 +25,7 @@ export type MenuCommand =
   | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'check-updates' | 'show-comments' | 'show-bookmarks'
   | 'toggle-autosave' | 'open-backups' | 'open-github' | 'report-problem' | 'donate'
   | 'convert-to-pdf' | 'convert-from-pdf' | 'web-to-pdf' | 'scan-to-pdf' | 'repair' | 'pdf-to-pdfa'
-  | 'ai-summarize' | 'ai-translate' | 'ai-settings' | 'all-tools' | 'unlock';
+  | 'ai-summarize' | 'ai-translate' | 'ai-settings' | 'all-tools' | 'unlock' | 'terms' | 'privacy';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
@@ -45,6 +45,8 @@ export interface AppInfo {
   packaged: boolean;
   /** The computer's account name, the default author for comments. */
   userName: string;
+  /** True when the person hasn't agreed to the current terms yet (builds with no installer page). */
+  needsAgreement: boolean;
 }
 
 export type UpdateState =
@@ -78,6 +80,8 @@ export interface RecoveredFile {
 
 export interface InkleafApi {
   info(): Promise<AppInfo>;
+  /** Records that the person agreed to the terms and privacy policy. */
+  agreeToTerms(): Promise<void>;
 
   /** Shows the system Open dialog. Resolves to null if the user cancels. */
   openDialog(): Promise<OpenedFile | null>;

@@ -600,7 +600,7 @@ type Command = AppCommand | 'prev-page' | 'next-page';
 const NO_DOC_NEEDED = new Set<Command>([
   'new', 'open', 'about', 'shortcuts', 'close', 'close-tab', 'new-window', 'quit', 'fullscreen', 'devtools',
   'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
-  'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools',
+  'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'terms', 'privacy',
 ]);
 
 /** Runs one of the bigger tools, turning failures into a readable dialog. */
@@ -737,6 +737,8 @@ async function run(command: Command) {
     case 'ai-summarize': return tool('Couldn’t summarize this PDF', async () => (await aiTools()).summarize(doc!, aiHost));
     case 'ai-translate': return tool('Couldn’t translate this PDF', async () => (await aiTools()).translate(doc!, aiHost));
     case 'all-tools': return tool('Something went wrong', openAllTools);
+    case 'terms': return tool('Couldn’t show the terms', () => showLegal('terms'));
+    case 'privacy': return tool('Couldn’t show the privacy policy', () => showLegal('privacy'));
     case 'pdf-to-images': return tool('Couldn’t export the pages', () => pdfToImages(doc!, toolHost));
     case 'pdf-to-word': return tool('Couldn’t export to Word', () => exportWord(doc!));
     case 'ocr': return tool('Text recognition didn’t work', () => runOcr(doc!));
@@ -954,6 +956,49 @@ const aiHost = {
   openDoc: (opened: EditorDoc) => addTab(opened),
   currentPageId: () => viewer.currentPageId,
 };
+
+// --- terms and privacy ---------------------------------------------------------------------
+
+async function legalHtml(kind: 'terms' | 'privacy') {
+  const [{ marked }, text] = await Promise.all([import('marked'), fetch(`./legal/${kind}.md`).then((r) => r.text())]);
+  const body = h('div', { class: 'legal-doc' });
+  // our own file, but treated like any Markdown: no raw HTML
+  body.innerHTML = await marked.parse(text.replace(/</g, '&lt;'), { gfm: true });
+  body.querySelectorAll('a').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (/^https:\/\//.test(a.href)) api.openExternal(a.href);
+    });
+  });
+  // the document's own heading becomes the dialog title
+  const title = body.querySelector('h1');
+  title?.remove();
+  return { body, title: title?.textContent ?? '' };
+}
+
+async function showLegal(kind: 'terms' | 'privacy') {
+  const { body, title } = await legalHtml(kind);
+  await modal({ title, wide: true, body, buttons: [{ label: 'Close', value: 'ok', primary: true }] });
+}
+
+/** First start of a build without an installer page: agree to the terms or quit. */
+async function askForAgreement() {
+  const read = (kind: 'terms' | 'privacy', label: string) => {
+    const link = h('button', { class: 'link-button' }, label);
+    link.addEventListener('click', () => void showLegal(kind));
+    return link;
+  };
+  const choice = await modal({
+    title: 'Welcome to Inkleaf',
+    body: h('div', {},
+      h('p', { class: 'modal-text' }, 'Inkleaf is free and open source, and it never collects your files or anything about you.'),
+      h('p', { class: 'modal-text' }, 'Before you start, please read and agree to the ', read('terms', 'Terms of Use'), ' and ', read('privacy', 'Privacy Policy'), '. Inkleaf is provided as is, without any warranty, and you use it at your own risk.')),
+    buttons: [{ label: 'Quit', value: 'quit' }, { label: 'I agree', value: 'agree', primary: true }],
+    dismissValue: 'quit',
+  });
+  if (choice === 'agree') return api.agreeToTerms();
+  api.windowCommand('quit');
+}
 
 async function openAllTools() {
   const { allTools } = await import('./all-tools');
@@ -1651,6 +1696,7 @@ async function start() {
   updatePanelButtons();
   updateChrome();
   renderWelcome();
+  if (info.needsAgreement) await askForAgreement();
 
   // exact font widths and the PDF writer aren't needed until you edit, so
   // fetch them once the window is showing

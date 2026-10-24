@@ -1770,3 +1770,13 @@ kbd {
 .ai-summary ul { padding-left: 20px; }
 .ai-summary p:first-child { margin-top: 0; }
 .modal-list { margin: 6px 0 0; padding-left: 20px; color: var(--ink-2); line-height: 1.5; }
+
+/* --- terms and privacy ---------------------------------------------------------------------- */
+.legal-doc { max-height: 60vh; overflow-y: auto; padding-right: 6px; color: var(--ink-2); line-height: 1.55; user-select: text; }
+.legal-doc h2 { margin: 18px 0 6px; color: var(--ink); font-size: 14.5px; }
+.legal-doc p:first-child { margin-top: 0; }
+.legal-doc ul { padding-left: 20px; }
+.legal-doc table { border-collapse: collapse; font-size: 12.5px; }
+.legal-doc td, .legal-doc th { padding: 5px 8px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.legal-doc a { color: var(--accent); }
+.link-button { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }

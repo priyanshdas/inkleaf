@@ -7,3 +7,5 @@ src/renderer/generated/
 .DS_Store
 keys/
 tests/bench/big.pdf
+build/installer-terms.txt
+build/license_en.txt

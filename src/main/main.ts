@@ -358,8 +358,30 @@ function runWindowCommand(command: WindowCommand, win: BrowserWindow | null) {
 
 // --- IPC -------------------------------------------------------------------
 
+// --- terms ------------------------------------------------------------------
+// The Windows installer and the macOS disk image show the terms before
+// installing. The portable and Linux builds have no such page, so the app
+// asks once on first start instead. Bump this when the terms change.
+const TERMS_VERSION = '2026-10-24';
+const legalFile = () => path.join(app.getPath('userData'), 'legal.json');
+
+function needsAgreement(): boolean {
+  if (!app.isPackaged) return false;
+  const installed = (process.platform === 'win32' && !process.env.PORTABLE_EXECUTABLE_FILE) || process.platform === 'darwin';
+  if (installed) return false;
+  try {
+    return JSON.parse(readFileSync(legalFile(), 'utf8')).agreed !== TERMS_VERSION;
+  } catch {
+    return true;
+  }
+}
+
 function registerIpc() {
+  ipcMain.handle('app:agree-terms', async () => {
+    await fs.writeFile(legalFile(), JSON.stringify({ agreed: TERMS_VERSION, at: new Date().toISOString() }));
+  });
   ipcMain.handle('app:info', () => ({
+    needsAgreement: needsAgreement(),
     version: app.getVersion(),
     platform: process.platform,
     electron: process.versions.electron,

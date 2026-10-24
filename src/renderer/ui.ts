@@ -84,6 +84,8 @@ export interface ModalOptions {
 }
 
 let openModals = 0;
+/** Open dialogs, newest last: only the top one answers the keyboard. */
+const modalStack: object[] = [];
 
 export function isModalOpen() {
   return openModals > 0;
@@ -95,8 +97,10 @@ export function modal(options: ModalOptions): Promise<string> {
     const buttons = options.buttons ?? [{ label: 'OK', value: 'ok', primary: true }];
     const previousFocus = document.activeElement as HTMLElement | null;
 
+    const self = {};
     const close = async (value: string) => {
       if (value !== dismiss && options.validate && !(await options.validate(value))) return;
+      modalStack.splice(modalStack.indexOf(self), 1);
       backdrop.classList.remove('show');
       // let clicks through while it fades out
       backdrop.style.pointerEvents = 'none';
@@ -108,6 +112,7 @@ export function modal(options: ModalOptions): Promise<string> {
     };
 
     const onKey = (e: KeyboardEvent) => {
+      if (modalStack[modalStack.length - 1] !== self) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -143,6 +148,7 @@ export function modal(options: ModalOptions): Promise<string> {
 
     document.getElementById('modal-root')!.append(backdrop);
     openModals++;
+    modalStack.push(self);
     document.addEventListener('keydown', onKey, true);
     requestAnimationFrame(() => {
       backdrop.classList.add('show');
