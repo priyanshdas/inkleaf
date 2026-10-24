@@ -36,9 +36,10 @@ import { core, RedactJob } from './core';
 import type { EditorDoc } from './document';
 import { getFamily } from './custom-fonts';
 import {
-  activeFace, BASELINE, fitsStandardFont, LINE_HEIGHT, lineOffsets, lineWidth, loadFontMetrics, measureText,
-  standardFontName, textLines,
+  activeFace, BASELINE, fitsStandardFont, LINE_HEIGHT, lineOffsets, lineRuns, lineWidth, loadFontMetrics, measureText,
+  needsShaping, prepareFonts, runWidth, shape, standardFontName, textLines, TextRun,
 } from './fonts';
+import type { Face } from './custom-fonts';
 import { frameToUser, imageLocalSize, rotateVec } from './geometry';
 import { decorTexts } from './decor';
 import { arrowHead, STAMP_BASELINE, stampLayout, TEXT_PAD, UNDERLINE_OFFSET, UNDERLINE_THICKNESS } from './render';
@@ -128,6 +129,14 @@ function strokePath(points: [number, number][]): string {
   return d + ` L ${p(...points[points.length - 1])}`;
 }
 
+/** The parts of pdf-lib's font embedder that shaped text works with. */
+type ShapedEmbedder = {
+  font: Parameters<typeof shape>[0];
+  used: Map<number, { id: number }>;
+  glyphCache: { access(): unknown[]; invalidate(): void };
+  serializeFont(): Promise<Uint8Array>;
+};
+
 /** Everything that needs per-file caching while one PDF is being written. */
 class Writer {
   private fonts = new Map<string, PDFFont>();
@@ -184,6 +193,117 @@ class Writer {
     return this.fonts.get(name)!;
   }
 
+  /**
+   * Text that mixes fonts or directions (any script beyond Western European
+   * letters): each line is drawn run by run, in visual order, with complex
+   * scripts shaped glyph by glyph.
+   */
+  private async drawMixedText(page: PDFPage, a: Annot & TextStyle & { x: number; y: number; angle: number }) {
+    const lines = textLines(a.text);
+    const { width, height } = measureText(a);
+    const offsets = lineOffsets(a, width);
+    const opacity = a.opacity ?? 1;
+    const ink = color(a.color);
+    if (a.background) {
+      const pad = a.size * TEXT_PAD;
+      const [x, y] = frameToUser(a, -pad, height + pad);
+      page.drawRectangle({ x, y, width: width + pad * 2, height: height + pad * 2, color: color(a.background), opacity, rotate: degrees(a.angle) });
+    }
+    let missing = false;
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i]) continue;
+      const baseline = i * a.size * LINE_HEIGHT + a.size * BASELINE;
+      let cursor = offsets[i];
+      for (const run of lineRuns(a, lines[i])) {
+        const w = runWidth(a, run, a.size);
+        const [x, y] = frameToUser(a, cursor, baseline);
+        if (run.face?.bytes) {
+          const fakeBold = a.bold && !run.face.bold;
+          const fakeItalic = a.italic && !run.face.italic;
+          await this.drawShapedRun(page, run, await this.faceFont(run.face), { x, y, size: a.size, angle: a.angle, ink, opacity, fakeBold, fakeItalic });
+        } else if (run.text.trim()) {
+          if (run.pending) missing = true;
+          const font = await this.standardFont({ ...a, text: run.text });
+          page.drawText(run.text, { x, y, size: a.size, font, color: ink, opacity, rotate: degrees(a.angle) });
+        }
+        cursor += w;
+      }
+      if (a.underline) {
+        const under = i * a.size * LINE_HEIGHT + a.size * (BASELINE + UNDERLINE_OFFSET + UNDERLINE_THICKNESS / 2);
+        const lw = lineWidth(a, lines[i], a.size);
+        const [x1, y1] = frameToUser(a, offsets[i], under);
+        const [x2, y2] = frameToUser(a, offsets[i] + lw, under);
+        page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: Math.max(0.5, a.size * UNDERLINE_THICKNESS), color: ink, opacity });
+      }
+    }
+    if (missing) this.warnings.add('Some text needs a language pack that couldn’t be downloaded, so it may not show correctly. Connect to the internet and save again.');
+  }
+
+  /**
+   * Draws one shaped run. Each glyph is placed exactly where the shaper put
+   * it: advances that differ from the font's own widths (kerning, joined
+   * Arabic letters) become TJ adjustments, and marks that sit above or
+   * below a letter (Hindi vowel signs, Arabic vowels) use text rise.
+   */
+  private async drawShapedRun(page: PDFPage, run: TextRun, font: PDFFont, o: {
+    x: number; y: number; size: number; angle: number; ink: RGB; opacity: number; fakeBold: boolean; fakeItalic: boolean;
+  }) {
+    const embedder = (font as unknown as { embedder: ShapedEmbedder }).embedder;
+    const fk = embedder.font;
+    const shaped = shape(fk, run.text, run.rtl);
+    const k = 1000 / fk.unitsPerEm;
+    const context = this.out.context;
+    const items: (PDFHexString | number)[] = [];
+    const ops: PDFOperator[] = [];
+    const num = (n: number) => Math.round(n * 1000) / 1000;
+    const flush = () => {
+      if (items.length) ops.push(PDFOperator.of('TJ' as never, [context.obj(items.splice(0))]));
+    };
+    let rise = 0;
+    shaped.glyphs.forEach((glyph, i) => {
+      const p = shaped.positions[i];
+      const id = glyph.id;
+      if (!embedder.used.has(id)) embedder.used.set(id, glyph);
+      const wantRise = p.yOffset * k * o.size / 1000;
+      if (Math.abs(wantRise - rise) > 1e-4) {
+        flush();
+        ops.push(PDFOperator.of('Ts' as never, [context.obj(num(wantRise))]));
+        rise = wantRise;
+      }
+      // TJ numbers move left by thousandths of the font size
+      if (p.xOffset) items.push(num(-p.xOffset * k));
+      items.push(PDFHexString.of(id.toString(16).padStart(4, '0')));
+      const extra = p.xAdvance - p.xOffset - glyph.advanceWidth;
+      if (Math.abs(extra) > 0.01) items.push(num(-extra * k));
+    });
+    flush();
+    (font as unknown as { modified: boolean }).modified = true;
+
+    const fontKey = (page as unknown as { node: { newFontDictionary(n: string, r: PDFRef): PDFName } }).node.newFontDictionary(font.name, font.ref);
+    const gsKey = (page as unknown as { maybeEmbedGraphicsState(o: { opacity?: number; borderOpacity?: number }): string | undefined })
+      .maybeEmbedGraphicsState({ opacity: o.opacity, borderOpacity: o.opacity });
+    const r = (o.angle * Math.PI) / 180;
+    const skew = o.fakeItalic ? Math.tan((12 * Math.PI) / 180) : 0;
+    const [cos, sin] = [Math.cos(r), Math.sin(r)];
+    page.pushOperators(
+      pushGraphicsState(),
+      ...(gsKey ? [PDFOperator.of('gs' as never, [gsKey])] : []),
+      PDFOperator.of('BT' as never),
+      PDFOperator.of('Tf' as never, [fontKey, context.obj(o.size)]),
+      PDFOperator.of('rg' as never, [context.obj(o.ink.red), context.obj(o.ink.green), context.obj(o.ink.blue)]),
+      ...(o.fakeBold ? [
+        PDFOperator.of('Tr' as never, [context.obj(2)]),
+        PDFOperator.of('RG' as never, [context.obj(o.ink.red), context.obj(o.ink.green), context.obj(o.ink.blue)]),
+        PDFOperator.of('w' as never, [context.obj(num(o.size * 0.035))]),
+      ] : []),
+      // rotation, then the slant for imitated italic, then the position
+      PDFOperator.of('Tm' as never, [cos, sin, num(-sin + skew * cos), num(cos + skew * sin), num(o.x), num(o.y)].map((v) => context.obj(num(v)))),
+      ...ops,
+      PDFOperator.of('ET' as never),
+      popGraphicsState(),
+    );
+  }
+
   async drawStamp(page: PDFPage, a: StampAnnot) {
     const L = stampLayout(a);
     const c = color(a.color);
@@ -221,7 +341,32 @@ class Writer {
     return image;
   }
 
+  /**
+   * The embedded copy of a face for shaped text (one per face per file).
+   * pdf-lib writes the font dictionary, widths and text-extraction map for
+   * just the glyphs used; HarfBuzz makes the font file itself (subset.ts).
+   */
+  private async faceFont(face: Face): Promise<PDFFont> {
+    const key = `shaped:${face.key}`;
+    let embedded = this.custom.get(key);
+    if (!embedded) {
+      embedded = await this.out.embedFont(face.bytes!, { subset: false });
+      const used = new Map<number, { id: number }>();
+      const embedder = (embedded as unknown as { embedder: ShapedEmbedder }).embedder;
+      embedder.used = used;
+      embedder.glyphCache = { access: () => [...used.values()].sort((a, b) => a.id - b.id), invalidate: () => {} };
+      const bytes = face.bytes!;
+      embedder.serializeFont = async () => (await import('./subset')).subsetFont(bytes, used.keys());
+      this.custom.set(key, embedded);
+    }
+    return embedded;
+  }
+
   async drawText(page: PDFPage, a: Annot & TextStyle & { x: number; y: number; angle: number }) {
+    if (needsShaping(a.text)) {
+      await prepareFonts(a, a.text);
+      return this.drawMixedText(page, a);
+    }
     const { font, fakeBold, fakeItalic } = await this.font(a);
     const lines = textLines(a.text);
     const { width, height } = measureText(a);

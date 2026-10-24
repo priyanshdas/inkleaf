@@ -63,6 +63,29 @@ export function toast(message: string, kind: 'info' | 'error' | 'success' = 'inf
   }, ms);
 }
 
+/** One toast that stays up and can be updated, for things like downloads. */
+let liveToast: HTMLElement | null = null;
+let liveTimer = 0;
+export function liveStatus(message: string | null) {
+  clearTimeout(liveTimer);
+  if (message === null) {
+    const el = liveToast;
+    liveToast = null;
+    el?.classList.remove('show');
+    setTimeout(() => el?.remove(), 400);
+    return;
+  }
+  if (!liveToast) {
+    liveToast = h('div', { class: 'toast toast-info', role: 'status' });
+    document.getElementById('toasts')!.append(liveToast);
+    const el = liveToast;
+    requestAnimationFrame(() => el.classList.add('show'));
+  }
+  liveToast.textContent = message;
+  // never left hanging if the last update doesn't arrive
+  liveTimer = window.setTimeout(() => liveStatus(null), 60_000);
+}
+
 // --- modals ------------------------------------------------------------------
 
 export interface ModalButton {

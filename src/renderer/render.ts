@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { BASELINE, cssFamily, cssFont, LINE_HEIGHT, lineOffsets, lineWidth, measureText, textLines } from './fonts';
+import { BASELINE, cssFamily, cssFont, LINE_HEIGHT, lineDirection, lineOffsets, lineWidth, measureText, needsShaping, textLines } from './fonts';
 import { annotBounds, handlesFor, imageLocalSize, Point } from './geometry';
 import type { Annot, FieldAnnot, ImageAnnot, LineAnnot, NoteAnnot, StampAnnot, TextStyle } from './types';
 
@@ -69,6 +69,9 @@ export function drawTextBlock(ctx: CanvasRenderingContext2D, style: TextStyle) {
     const baseline = i * style.size * LINE_HEIGHT + style.size * BASELINE;
     ctx.save();
     ctx.translate(offsets[i], baseline);
+    // Arabic and Hebrew lines order their words right to left, as in the PDF
+    ctx.direction = needsShaping(line) ? lineDirection(line) : 'ltr';
+    ctx.textAlign = 'left';
     if (measured > 0 && target > 0) ctx.scale(target / measured, 1);
     ctx.fillText(line, 0, 0);
     ctx.restore();

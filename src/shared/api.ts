@@ -83,6 +83,14 @@ export interface InkleafApi {
   /** Records that the person agreed to the terms and privacy policy. */
   agreeToTerms(): Promise<void>;
 
+  /** Which language pack files exist, and whether each is downloaded. */
+  packStatus(): Promise<Record<string, { size: number; installed: boolean }>>;
+  /** Downloads any of these pack files that aren't on disk yet. */
+  ensurePacks(names: string[]): Promise<void>;
+  /** Deletes downloaded packs whose names start with the prefix ('' for all). */
+  removePacks(prefix: string): Promise<void>;
+  onPackProgress(fn: (progress: { received: number; total: number }) => void): void;
+
   /** Shows the system Open dialog. Resolves to null if the user cancels. */
   openDialog(): Promise<OpenedFile | null>;
   /** Opens a file the user dropped onto the window. */

@@ -147,6 +147,20 @@ function copyStatic() {
   }
   copy(prebuiltWasm, path.join(renderer, 'core.wasm'));
 
+  // Noto fonts for every script except Chinese, Japanese and Korean (those
+  // are large and download on first use): about 200 KB a style each.
+  const noto = path.join(renderer, 'assets', 'fonts', 'noto');
+  for (const pkg of NOTO_PACKAGES) {
+    const dir = nm('@expo-google-fonts', pkg);
+    const base = fs.readdirSync(path.join(dir, '400Regular')).find((f) => f.endsWith('.ttf')).replace(/_400Regular\.ttf$/, '');
+    const styles = { '400Regular': 'Regular', '700Bold': 'Bold', '400Regular_Italic': 'Italic', '700Bold_Italic': 'BoldItalic' };
+    for (const [weight, style] of Object.entries(styles)) {
+      const from = path.join(dir, weight, `${base}_${weight}.ttf`);
+      if (fs.existsSync(from)) copy(from, path.join(noto, `${base}-${style}.ttf`));
+    }
+  }
+  copy(nm('@expo-google-fonts', 'noto-sans', 'LICENSE_FONT'), path.join(noto, 'OFL.txt'));
+
   const pdfjs = path.join(renderer, 'vendor', 'pdfjs');
   copy(nm('pdfjs-dist', 'build', 'pdf.worker.min.mjs'), path.join(pdfjs, 'pdf.worker.mjs'));
   for (const dir of ['cmaps', 'standard_fonts', 'wasm', 'iccs']) {
@@ -166,9 +180,20 @@ function copyStatic() {
     copy(nm('@tesseract.js-data', lang, '4.0.0_best_int', `${lang}.traineddata.gz`), path.join(ocr, 'lang', `${lang}.traineddata.gz`));
   }
   copy(nm('tesseract.js', 'LICENSE.md'), path.join(ocr, 'LICENSE.md'));
+
+  // HarfBuzz's font subsetter, for writing fonts into PDFs
+  copy(nm('harfbuzzjs', 'dist', 'harfbuzz-subset.wasm'), path.join(renderer, 'vendor', 'harfbuzz', 'harfbuzz-subset.wasm'));
+  copy(nm('harfbuzzjs', 'LICENSE'), path.join(renderer, 'vendor', 'harfbuzz', 'LICENSE'));
 }
 
-/** Languages OCR can read. Each adds 1–3 MB to the app. */
+const NOTO_PACKAGES = [
+  'noto-sans', 'noto-sans-arabic', 'noto-sans-hebrew', 'noto-sans-devanagari', 'noto-sans-bengali',
+  'noto-sans-gujarati', 'noto-sans-gurmukhi', 'noto-sans-tamil', 'noto-sans-telugu', 'noto-sans-kannada',
+  'noto-sans-malayalam', 'noto-sans-oriya', 'noto-sans-sinhala', 'noto-sans-thai', 'noto-sans-lao',
+  'noto-sans-khmer', 'noto-sans-myanmar', 'noto-sans-ethiopic', 'noto-sans-georgian', 'noto-sans-armenian',
+];
+
+/** Languages OCR can read without downloading anything. Each adds 1–3 MB to the app. */
 const OCR_LANGUAGES = ['eng', 'hin', 'ben', 'ita'];
 
 // --- TypeScript ------------------------------------------------------------

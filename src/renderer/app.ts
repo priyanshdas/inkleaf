@@ -26,7 +26,7 @@ import {
 import { chooseSignature, signMenu } from './signature';
 import { Thumbnails } from './thumbnails';
 import type { ImageAnnot, Tool } from './types';
-import { confirmDialog, h, hydrateIcons, icon, isModalOpen, modal, pickImage, toast } from './ui';
+import { confirmDialog, h, hydrateIcons, icon, isModalOpen, liveStatus, modal, pickImage, toast } from './ui';
 import { Viewer } from './viewer';
 
 const api = window.inkleaf;
@@ -1692,6 +1692,13 @@ async function start() {
     // storage unavailable: defaults are fine
   }
   api.onUpdate(onUpdate);
+  // language packs download in the background the first time they're needed
+  api.onPackProgress(({ received, total }) => {
+    if (!total) return;
+    const mb = (n: number) => (n / 1048576).toFixed(n < 10485760 ? 1 : 0);
+    liveStatus(received >= total ? null : `Downloading a language pack… ${mb(received)} of ${mb(total)} MB`);
+    if (received >= total) toast('Language pack downloaded. It works offline from now on.', 'success');
+  });
   updateToolButtons();
   updatePanelButtons();
   updateChrome();

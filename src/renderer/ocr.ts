@@ -11,20 +11,20 @@ import type { EditorDoc } from './document';
 import { pageRuns } from './text-finder';
 import { pageViewport } from './pdf';
 import type { PageRef } from './types';
-import { h, modal } from './ui';
+import { h, icon, modal } from './ui';
+import { BUILT_IN_OCR, LANGUAGES as ALL_LANGUAGES } from '../shared/languages';
 
-const LANGUAGES = [
-  { code: 'eng', name: 'English' },
-  { code: 'hin', name: 'Hindi' },
-  { code: 'ben', name: 'Bengali' },
-  { code: 'ita', name: 'Italian' },
-];
+/** Every language text recognition can read, by its Tesseract code. */
+const LANGUAGES = ALL_LANGUAGES.filter((l) => l.ocr).map((l) => ({ code: l.ocr!, name: l.name, native: l.native }));
+const packName = (code: string) => `ocr/${code}.traineddata.gz`;
 
 const DPI = 300;
 /** Largest picture side we hand Tesseract; bigger only slows it down. */
 const MAX_SIDE = 5000;
 
 const base = new URL('./vendor/tesseract/', location.href).href;
+// models that ship with the app and downloaded ones are served from one place
+const langPath = new URL('./packs/ocr', location.href).href;
 
 interface Choice {
   langs: string[];
@@ -44,7 +44,38 @@ async function ask(doc: EditorDoc, currentPageId: string | null): Promise<Choice
   } catch {
     // keep English
   }
-  const boxes = LANGUAGES.map((l) => ({ code: l.code, input: h('input', { type: 'checkbox', checked: remembered.includes(l.code) }), name: l.name }));
+  const status = await window.inkleaf.packStatus().catch(() => ({} as Record<string, { size: number; installed: boolean }>));
+  const ready = (code: string) => BUILT_IN_OCR.has(code) || !!status[packName(code)]?.installed;
+  const sizeOf = (code: string) => `${Math.max(1, Math.round((status[packName(code)]?.size ?? 2e6) / 1048576))} MB`;
+
+  // chosen languages show as chips; any other can be added from the list
+  const chosen = new Set(remembered.filter((c) => LANGUAGES.some((l) => l.code === c)));
+  if (!chosen.size) chosen.add('eng');
+  const chips = h('div', { class: 'lang-chips' });
+  const add = h('select', { class: 'field-input' }) as HTMLSelectElement;
+  const note = h('p', { class: 'field-hint' });
+  const refresh = () => {
+    chips.replaceChildren(...[...chosen].map((code) => {
+      const l = LANGUAGES.find((x) => x.code === code)!;
+      const remove = h('button', { class: 'chip-x', title: `Remove ${l.name}` }, icon('x'));
+      remove.addEventListener('click', () => {
+        chosen.delete(code);
+        refresh();
+      });
+      return h('span', { class: 'lang-chip' }, l.name, ready(code) ? '' : h('span', { class: 'chip-dl', title: 'Downloads once, then works offline' }, `↓ ${sizeOf(code)}`), remove);
+    }));
+    add.replaceChildren(new Option('Add a language…', ''), ...LANGUAGES.filter((l) => !chosen.has(l.code)).map((l) =>
+      new Option(`${l.name}${l.native !== l.name ? ` · ${l.native}` : ''}${ready(l.code) ? '' : `  (download ${sizeOf(l.code)})`}`, l.code)));
+    const downloads = [...chosen].filter((c) => !ready(c));
+    note.textContent = downloads.length
+      ? 'Languages marked ↓ are downloaded once from jsDelivr, then work offline. Your pages never leave this computer.'
+      : 'Everything happens on this computer.';
+  };
+  add.addEventListener('change', () => {
+    if (add.value) chosen.add(add.value);
+    refresh();
+  });
+  refresh();
   const which = h('select', { class: 'field-input' },
     new Option('Pages without text (scans)', 'scans'),
     new Option('Every page', 'all'),
@@ -53,20 +84,22 @@ async function ask(doc: EditorDoc, currentPageId: string | null): Promise<Choice
   const go = await modal({
     title: 'Recognise text (OCR)',
     body: h('div', {},
-      h('p', { class: 'modal-text' }, 'Reads the words in scanned pages so you can search, copy and edit them. The pages look exactly the same afterwards. Everything happens on this computer.'),
+      h('p', { class: 'modal-text' }, 'Reads the words in scanned pages so you can search, copy and edit them. The pages look exactly the same afterwards.'),
       h('span', { class: 'field-label spaced' }, 'Languages in the document'),
-      h('div', { class: 'check-grid' }, ...boxes.map((b) => h('label', { class: 'check' }, b.input, ` ${b.name}`))),
+      chips,
+      add,
+      note,
       h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Pages'), which),
       error),
     buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Recognise text', value: 'ok', primary: true }],
     validate: () => {
-      const any = boxes.some((b) => b.input.checked);
+      const any = chosen.size > 0;
       error.textContent = any ? '' : 'Choose at least one language.';
       return any;
     },
   });
   if (go !== 'ok') return null;
-  const langs = boxes.filter((b) => b.input.checked).map((b) => b.code);
+  const langs = [...chosen];
   try {
     localStorage.setItem('inkleaf.ocr-langs', JSON.stringify(langs));
   } catch {
@@ -116,11 +149,16 @@ export async function recognise(doc: EditorDoc, currentPageId: string | null, pr
   }
 
   return withBusy('Starting text recognition…', async () => {
+    const missing = choice.langs.filter((c) => !BUILT_IN_OCR.has(c)).map(packName);
+    if (missing.length) {
+      progress('Downloading languages…');
+      await window.inkleaf.ensurePacks(missing);
+    }
     let pageNo = 0;
     const worker = await createWorker(choice.langs, OEM.LSTM_ONLY, {
       workerPath: `${base}worker.min.js`,
       corePath: `${base}core`,
-      langPath: `${base}lang`,
+      langPath,
       workerBlobURL: false,
       cacheMethod: 'none',
       gzip: true,

@@ -1,0 +1,304 @@
+{
+ "files": {
+  "ocr/chi_sim.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/chi_sim@1.0.0/4.0.0_best_int/chi_sim.traineddata.gz",
+   "size": 1718768,
+   "sha256": "b8a23f10c7de500891eb458a8adc9cc58ab7f242f08b7d149f5e9aea4ad5db7c"
+  },
+  "ocr/chi_tra.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/chi_tra@1.0.0/4.0.0_best_int/chi_tra.traineddata.gz",
+   "size": 1656239,
+   "sha256": "11fe2610dab05d8a880d02f193ce70203f4c4bbe061b987d5529a2c038a22743"
+  },
+  "ocr/spa.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa@1.0.0/4.0.0_best_int/spa.traineddata.gz",
+   "size": 2100190,
+   "sha256": "40be52f97b5d4eb7460073dc1f94cd546b27150333c0bf854ed7e7132db6bceb"
+  },
+  "ocr/fra.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/fra@1.0.0/4.0.0_best_int/fra.traineddata.gz",
+   "size": 707406,
+   "sha256": "d611139672b3752c7097e671e4a1d9209dfd37f2aeb081ef6487fba3351e9255"
+  },
+  "ocr/ara.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/ara@1.0.0/4.0.0_best_int/ara.traineddata.gz",
+   "size": 1661906,
+   "sha256": "f4746c44b02342dd5b3d4f0198000f47d7c49f1a229e63e0f436c0592dcd9639"
+  },
+  "ocr/por.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/por@1.0.0/4.0.0_best_int/por.traineddata.gz",
+   "size": 1392239,
+   "sha256": "dacebc1386ddaaf8389f81094236cca0d690897cde693d48cbdaa881c86e2b4c"
+  },
+  "ocr/rus.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/rus@1.0.0/4.0.0_best_int/rus.traineddata.gz",
+   "size": 2679598,
+   "sha256": "f51f5edc992249ff9b70a227b22f242dfa47b2b1bbc7ae0ea74908640c101f6a"
+  },
+  "ocr/urd.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/urd@1.0.0/4.0.0_best_int/urd.traineddata.gz",
+   "size": 1023740,
+   "sha256": "9e1860440339543c935fca7cee2ce5ac742b1d1249c4ba5982385ce19d23096f"
+  },
+  "ocr/ind.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/ind@1.0.0/4.0.0_best_int/ind.traineddata.gz",
+   "size": 1194182,
+   "sha256": "a8896d2f584a5baae73d658b86b765acc7b15b7ba05e014f62b1a2a23b699a91"
+  },
+  "ocr/deu.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/deu@1.0.0/4.0.0_best_int/deu.traineddata.gz",
+   "size": 1333102,
+   "sha256": "306c4280d0cbed46fbff727486bd43b92730181bae80f56941a091f363bdf28b"
+  },
+  "ocr/jpn.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/jpn@1.0.0/4.0.0_best_int/jpn.traineddata.gz",
+   "size": 2030256,
+   "sha256": "2b63ebfbf1484de4a08ce53b29ef98a1c17658a93cbd38acb665d7d316d0be88"
+  },
+  "ocr/mar.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/mar@1.0.0/4.0.0_best_int/mar.traineddata.gz",
+   "size": 1966154,
+   "sha256": "e4c20d649ab646e1d46da35f45d357eea25b7f28af4b0a7af3e205abaf6be788"
+  },
+  "ocr/tel.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/tel@1.0.0/4.0.0_best_int/tel.traineddata.gz",
+   "size": 1735518,
+   "sha256": "8b478895dfc1f5d6baee6f8e6cf84a873793dd8948124315437ff2dc38d49fe4"
+  },
+  "ocr/tur.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/tur@1.0.0/4.0.0_best_int/tur.traineddata.gz",
+   "size": 2141291,
+   "sha256": "384ba0dc28040451b7818d7d60e0a88df0d3003fa5a01d713a468779bc3d8c04"
+  },
+  "ocr/tam.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/tam@1.0.0/4.0.0_best_int/tam.traineddata.gz",
+   "size": 1446167,
+   "sha256": "2c4b255ede87931cb56c20a5b2b8e2cda4913e34fb3e4957f9b9e04ea069ff21"
+  },
+  "ocr/vie.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/vie@1.0.0/4.0.0_best_int/vie.traineddata.gz",
+   "size": 1423003,
+   "sha256": "2284f610f262a1b19ec8df9f196b9ff6ce38ddb4a66329e998941df4b8961c8d"
+  },
+  "ocr/kor.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/kor@1.0.0/4.0.0_best_int/kor.traineddata.gz",
+   "size": 1572336,
+   "sha256": "78c21276ab14c9bb734d83be1055d9fe5469a4e7e977c51ad385be5737e61126"
+  },
+  "ocr/fas.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/fas@1.0.0/4.0.0_best_int/fas.traineddata.gz",
+   "size": 424507,
+   "sha256": "b5847360e25f646c55449f1fe93eee57d53e406a265ead2374e7320bf0b82025"
+  },
+  "ocr/guj.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/guj@1.0.0/4.0.0_best_int/guj.traineddata.gz",
+   "size": 1219824,
+   "sha256": "f23bec3f02feca371fb37fe1733fca94881af376dc06ede6168ca54068f20efc"
+  },
+  "ocr/pol.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/pol@1.0.0/4.0.0_best_int/pol.traineddata.gz",
+   "size": 2642356,
+   "sha256": "a20fdec4ff99d8f8e84c708da3e42a4e935c26863055a0ed88aef5c66a59b91b"
+  },
+  "ocr/ukr.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/ukr@1.0.0/4.0.0_best_int/ukr.traineddata.gz",
+   "size": 2114206,
+   "sha256": "ea2789a0ad99ff84bfd252a7410a1e8661a7bc5acaa41573d23b54b71446aa4c"
+  },
+  "ocr/kan.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/kan@1.0.0/4.0.0_best_int/kan.traineddata.gz",
+   "size": 1914250,
+   "sha256": "3ce2f873f3a8371e82a85c204fcfae1635e01b5796be26df0610e6916cb54cf0"
+  },
+  "ocr/mal.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/mal@1.0.0/4.0.0_best_int/mal.traineddata.gz",
+   "size": 2794667,
+   "sha256": "a4a5b24474889dbbe9943bb3cb7b24819c1cd594f2f371340bba83c30fd81bf0"
+  },
+  "ocr/ori.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/ori@1.0.0/4.0.0_best_int/ori.traineddata.gz",
+   "size": 1058704,
+   "sha256": "b42f60e0460daf814952ed1b239723f9a4c4c694a29ab016d772a02c68ef5ddc"
+  },
+  "ocr/pan.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/pan@1.0.0/4.0.0_best_int/pan.traineddata.gz",
+   "size": 1396216,
+   "sha256": "10624ae040eb967316fcb1a1843421786a48542b22ef2fdd50afc00de58d27b5"
+  },
+  "ocr/tha.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/tha@1.0.0/4.0.0_best_int/tha.traineddata.gz",
+   "size": 896631,
+   "sha256": "4550a5505184d1b79cf10416d5b19e643001d95411d5e717954dd26feef3ae74"
+  },
+  "ocr/mya.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/mya@1.0.0/4.0.0_best_int/mya.traineddata.gz",
+   "size": 2691297,
+   "sha256": "a6ac329fbc61a902c05bb10ec7a863e9983e3da65dc558fe1db909b61af67ce4"
+  },
+  "ocr/nld.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/nld@1.0.0/4.0.0_best_int/nld.traineddata.gz",
+   "size": 3005696,
+   "sha256": "a2d904b6ddc4feb0d31ecfcd7361a554102e7aa2e278c54f4fc029e0d0815571"
+  },
+  "ocr/msa.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/msa@1.0.0/4.0.0_best_int/msa.traineddata.gz",
+   "size": 1177136,
+   "sha256": "35ae490b99462d04cf4e2a7985d98f0ba5e10ca62adb13aeda070c6f1783f097"
+  },
+  "ocr/tgl.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/tgl@1.0.0/4.0.0/tgl.traineddata.gz",
+   "size": 3296556,
+   "sha256": "b4a6cb3f629f8226c919b37474a867b098f97241fa1c15aabc414f8ac4758802"
+  },
+  "ocr/swa.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/swa@1.0.0/4.0.0_best_int/swa.traineddata.gz",
+   "size": 1094930,
+   "sha256": "74c7bd51f173a3f174fbc8aaf8738819aa36000566857929ba6679ad5a2cf71f"
+  },
+  "ocr/amh.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/amh@1.0.0/4.0.0_best_int/amh.traineddata.gz",
+   "size": 2366946,
+   "sha256": "f1644849fd6afb587f7b2fea19b02a5c0a2a2f138cb04ff7cf0272ce66e28b80"
+  },
+  "ocr/nep.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/nep@1.0.0/4.0.0_best_int/nep.traineddata.gz",
+   "size": 1594252,
+   "sha256": "cda17f5f7c18a81167be44ce4f545d0b244f8b00912d55f6568ac08d0e0f3b0e"
+  },
+  "ocr/sin.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/sin@1.0.0/4.0.0_best_int/sin.traineddata.gz",
+   "size": 1138317,
+   "sha256": "02d34b1f6565d26991fa25605c0bbddd3e39d9eefe471fce4b8a27fe9363ec94"
+  },
+  "ocr/asm.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/asm@1.0.0/4.0.0_best_int/asm.traineddata.gz",
+   "size": 1469955,
+   "sha256": "d92c8b7cca44d3e19cf8aaac098eca74acb044a9d68ec614581afeb17c17aa20"
+  },
+  "ocr/khm.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/khm@1.0.0/4.0.0_best_int/khm.traineddata.gz",
+   "size": 1064461,
+   "sha256": "f3aab6301b2570ee7cd6cd051094e1c4f075a0a7eeeb4ff111e7e67a9bc012c9"
+  },
+  "ocr/lao.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/lao@1.0.0/4.0.0_best_int/lao.traineddata.gz",
+   "size": 3699720,
+   "sha256": "660306d4a42941426256c723a7d6d3b65f81e6c428e5f83d5f25180a486d0011"
+  },
+  "ocr/ell.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/ell@1.0.0/4.0.0_best_int/ell.traineddata.gz",
+   "size": 1324749,
+   "sha256": "e8a293abb398ec479176c1575aef24e2bacb0611c713f3fa996f97f0cd996fb3"
+  },
+  "ocr/heb.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/heb@1.0.0/4.0.0_best_int/heb.traineddata.gz",
+   "size": 580576,
+   "sha256": "9c70b524200dae77fb25e3567566eee600ccbcae9aeb89722990ccae0e84e805"
+  },
+  "ocr/ron.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/ron@1.0.0/4.0.0_best_int/ron.traineddata.gz",
+   "size": 1692160,
+   "sha256": "3c2f550b6369f43254adf637cfe1088c7b6faff3d0382555219315112a24582a"
+  },
+  "ocr/ces.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/ces@1.0.0/4.0.0_best_int/ces.traineddata.gz",
+   "size": 2225029,
+   "sha256": "1ea33a8b6f9a9c18a6aae44a71eda06bbfdc206fe53cf1fc8121fb74def99166"
+  },
+  "ocr/hun.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/hun@1.0.0/4.0.0_best_int/hun.traineddata.gz",
+   "size": 2854466,
+   "sha256": "99feb1ac618ddd39942d646f1df792e5bd4504df45e1ef68e47df51db476a2ed"
+  },
+  "ocr/swe.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/swe@1.0.0/4.0.0_best_int/swe.traineddata.gz",
+   "size": 2503095,
+   "sha256": "b60d9fea7e570d11d6fdf26c8d0ef1d63b49222313773ce66777ed08fa20dc5a"
+  },
+  "ocr/dan.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/dan@1.0.0/4.0.0_best_int/dan.traineddata.gz",
+   "size": 1845116,
+   "sha256": "6af1a07c22894b728ebc75f0fd0c8519eca002cfab6da903eb4d62e24f163abc"
+  },
+  "ocr/fin.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/fin@1.0.0/4.0.0_best_int/fin.traineddata.gz",
+   "size": 3795323,
+   "sha256": "138c59f6a0bef68fd98d8baf565477f5cdb5198bfc4a68e558efd3b6a57acadd"
+  },
+  "ocr/nor.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/nor@1.0.0/4.0.0_best_int/nor.traineddata.gz",
+   "size": 2490241,
+   "sha256": "6c5d91a5b684da387bfcf16b38bae8d94771812dc9ef706b413c728ca1d37c93"
+  },
+  "ocr/bul.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/bul@1.0.0/4.0.0_best_int/bul.traineddata.gz",
+   "size": 1411343,
+   "sha256": "a38fdba9367316dad1d595427a975756e8c31367fc94a6530d012827833db8d7"
+  },
+  "ocr/srp.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/srp@1.0.0/4.0.0_best_int/srp.traineddata.gz",
+   "size": 1537929,
+   "sha256": "4a864eba46de4a7c264fc3c34b63db6889218eb51eefc5d38c5eaac548d58c96"
+  },
+  "ocr/hrv.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/hrv@1.0.0/4.0.0_best_int/hrv.traineddata.gz",
+   "size": 2290948,
+   "sha256": "3256cd52165cb82f5f136264daf68ee54320ee68fad6a4a9ddfd1bc1861f806a"
+  },
+  "ocr/slk.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/slk@1.0.0/4.0.0_best_int/slk.traineddata.gz",
+   "size": 2377899,
+   "sha256": "839350509c06e498448e35ce9faf13e24b28150b2d5cc39b900a751c5009127f"
+  },
+  "ocr/kat.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/kat@1.0.0/4.0.0_best_int/kat.traineddata.gz",
+   "size": 1088063,
+   "sha256": "74505e238b208fc30471654b9f694bda08e521cdc7c8a5e0846d1340ed585899"
+  },
+  "ocr/hye.traineddata.gz": {
+   "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/hye@1.0.0/4.0.0_best_int/hye.traineddata.gz",
+   "size": 1620716,
+   "sha256": "ff791a6c85736354350a487b40fa58337372e03291abf97863916aea35d603e8"
+  },
+  "fonts/NotoSansSC-Regular.ttf": {
+   "url": "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-sc@0.4.4/400Regular/NotoSansSC_400Regular.ttf",
+   "size": 10559284,
+   "sha256": "d45f67f0a7c0ca3f256950777ce6a61cc7ce5f9696d02900cbbaac25f8aa7d16"
+  },
+  "fonts/NotoSansSC-Bold.ttf": {
+   "url": "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-sc@0.4.4/700Bold/NotoSansSC_700Bold.ttf",
+   "size": 10549020,
+   "sha256": "9a38ae0ab28cd5a256f9ea8e00dedc688aac17f7915fcb000572990afa956b96"
+  },
+  "fonts/NotoSansTC-Regular.ttf": {
+   "url": "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-tc@0.4.4/400Regular/NotoSansTC_400Regular.ttf",
+   "size": 7109460,
+   "sha256": "add35d53f70727657b4509531677c4e3712b67df3d54661efdee5d3a0c16d954"
+  },
+  "fonts/NotoSansTC-Bold.ttf": {
+   "url": "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-tc@0.4.4/700Bold/NotoSansTC_700Bold.ttf",
+   "size": 7104212,
+   "sha256": "ed4ae6ed781e34d0beee896e9be5d835a938ac7adabbcc1b6b6904290006f372"
+  },
+  "fonts/NotoSansJP-Regular.ttf": {
+   "url": "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-jp@0.4.4/400Regular/NotoSansJP_400Regular.ttf",
+   "size": 5731428,
+   "sha256": "6255ea4692e97ef27330304fb96fd650f9111f868cd585fcf2802d42823930e5"
+  },
+  "fonts/NotoSansJP-Bold.ttf": {
+   "url": "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-jp@0.4.4/700Bold/NotoSansJP_700Bold.ttf",
+   "size": 5726432,
+   "sha256": "7c03e14d8a03e8f5181dbd130712d51e4ae01ac648cbd59442ae8b16c0951835"
+  },
+  "fonts/NotoSansKR-Regular.ttf": {
+   "url": "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-kr@0.4.4/400Regular/NotoSansKR_400Regular.ttf",
+   "size": 6191364,
+   "sha256": "b4a747e78805bc25b610dcfc3003cb5fb2e2ec034763774b24216ed15889eef4"
+  },
+  "fonts/NotoSansKR-Bold.ttf": {
+   "url": "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-kr@0.4.4/700Bold/NotoSansKR_700Bold.ttf",
+   "size": 6189424,
+   "sha256": "c76f806dc46b8e7981410cb083801f7f124b7f8bc0d181cdae80e78f16d0e9cc"
+  }
+ }
+}

@@ -5,6 +5,12 @@ import type { InkleafApi, MenuCommand, OpenedFile } from '../shared/api';
 const api: InkleafApi = {
   info: () => ipcRenderer.invoke('app:info'),
   agreeToTerms: () => ipcRenderer.invoke('app:agree-terms'),
+  packStatus: () => ipcRenderer.invoke('packs:status'),
+  ensurePacks: (names: string[]) => ipcRenderer.invoke('packs:ensure', names),
+  removePacks: (prefix: string) => ipcRenderer.invoke('packs:remove', prefix),
+  onPackProgress: (fn: (p: { received: number; total: number }) => void) => {
+    ipcRenderer.on('packs:progress', (_e, p) => fn(p));
+  },
   openDialog: () => ipcRenderer.invoke('file:open-dialog'),
   openPath: (path) => ipcRenderer.invoke('file:open-path', path),
   pathForFile: (file) => {

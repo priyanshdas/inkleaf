@@ -6,7 +6,9 @@
 // plainly, before it runs, that the document's text will be sent.
 
 import type { EditorDoc } from './document';
-import { BASELINE, lineWidth } from './fonts';
+import { BASELINE, lineWidth, prepareFonts } from './fonts';
+import { setHanScript } from './script-fonts';
+import { LANGUAGES as ALL_LANGUAGES } from '../shared/languages';
 import { newId, rotateVec } from './geometry';
 import type { PDFDocumentProxy } from './pdf';
 import type { PageStructure } from './pdf-structure';
@@ -23,9 +25,6 @@ export interface AiHost {
   currentPageId(): string | null;
 }
 
-const LANGUAGES = ['English', 'Hindi', 'Bengali', 'Italian', 'Spanish', 'French', 'German', 'Portuguese', 'Dutch', 'Japanese', 'Chinese (Simplified)', 'Arabic', 'Russian', 'Tamil', 'Telugu', 'Marathi'];
-/** Languages whose letters the PDF fonts Inkleaf writes with can show. */
-const LAID_OVER_OK = new Set(['English', 'Italian', 'Spanish', 'French', 'German', 'Portuguese', 'Dutch', 'Russian']);
 
 const PRIVACY = 'This sends the document’s text to Anthropic (the company behind Claude) using your API key. Nothing else leaves your computer.';
 
@@ -105,7 +104,7 @@ export async function summarize(doc: EditorDoc, host: AiHost) {
   const length = h('select', { class: 'field-input' },
     new Option('Short: a few sentences', 'short'),
     new Option('Detailed: key points, numbers and dates', 'detailed'));
-  const language = h('select', { class: 'field-input' }, new Option('Same as the document', ''), ...LANGUAGES.map((l) => new Option(l, l)));
+  const language = h('select', { class: 'field-input' }, new Option('Same as the document', ''), ...ALL_LANGUAGES.map((l) => new Option(l.native === l.name ? l.name : `${l.name} · ${l.native}`, l.name)));
   const go = await modal({
     title: 'AI Summarizer',
     body: h('div', {},
@@ -232,7 +231,7 @@ function overlay(run: TextRun, text: string): ReplaceAnnot {
 
 export async function translate(doc: EditorDoc, host: AiHost) {
   if (!(await ensureReady())) return;
-  const language = h('select', { class: 'field-input' }, ...LANGUAGES.map((l) => new Option(l, l)));
+  const language = h('select', { class: 'field-input' }, ...ALL_LANGUAGES.map((l) => new Option(l.native === l.name ? l.name : `${l.name} · ${l.native}`, l.name)));
   language.value = 'English';
   const how = h('select', { class: 'field-input' },
     new Option('Over the original pages (keeps the layout)', 'pages'),
@@ -241,9 +240,10 @@ export async function translate(doc: EditorDoc, host: AiHost) {
   const note = h('p', { class: 'field-hint' });
   const sync = () => {
     const laidOver = how.value === 'pages';
-    note.textContent = laidOver && !LAID_OVER_OK.has(language.value)
-      ? `${language.value} needs letters the PDF fonts can’t draw over the page yet, so it will be made as a Word document instead.`
-      : laidOver ? 'Opens a translated copy in a new tab. Each line is replaced where it was; your original isn’t changed.' : 'Saves the translated text as a Word file, with its headings and paragraphs.';
+    const cjk = /Chinese|Japanese|Korean/.test(language.value);
+    note.textContent = laidOver
+      ? `Opens a translated copy in a new tab. Each line is replaced where it was; your original isn’t changed.${cjk ? ' The first time, Inkleaf downloads a font for this language (about 15 MB).' : ''}`
+      : 'Saves the translated text as a Word file, with its headings and paragraphs.';
   };
   language.addEventListener('change', sync);
   how.addEventListener('change', sync);
@@ -261,7 +261,10 @@ export async function translate(doc: EditorDoc, host: AiHost) {
   if (go !== 'ok') return;
 
   const target = language.value;
-  const asWord = how.value === 'word' || !LAID_OVER_OK.has(target);
+  const asWord = how.value === 'word';
+  // Chinese characters take the shapes of the language they're written in
+  if (target === 'Chinese (Traditional)') setHanScript('tc');
+  else if (target === 'Chinese (Simplified)') setHanScript('sc');
   const current = host.currentPageId();
   const pageIds = which.value === 'current' && current ? [current] : undefined;
   const [{ exportPdf }, { loadPdf }] = await Promise.all([import('./exporter'), import('./pdf')]);
@@ -302,6 +305,11 @@ export async function translate(doc: EditorDoc, host: AiHost) {
     const all = perPage.flat();
     if (!all.some((r) => r.str.trim())) throw new Error(NO_TEXT);
     const translated = await translateLines(all.map((r) => r.str), target, host, `Translating into ${target}`);
+    // fonts for the new language (downloaded for Chinese, Japanese and Korean)
+    // must be ready before the lines can be fitted
+    host.progress('Preparing fonts…');
+    await prepareFonts({ font: 'sans', bold: false, italic: false }, translated.join('\n'));
+    await prepareFonts({ font: 'sans', bold: true, italic: false }, translated.join('\n'));
     let k = 0;
     perPage.forEach((runs, i) => {
       for (const run of runs) {

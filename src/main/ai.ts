@@ -5,6 +5,7 @@
 // Requests go from here, the main process, so the page itself still can't
 // reach the internet.
 
+import { LANGUAGES } from '../shared/languages';
 import { app, safeStorage } from 'electron';
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
@@ -91,9 +92,11 @@ export async function ask(request: AiRequest): Promise<string> {
 function mockAnswer(request: AiRequest): string {
   const lines = request.prompt.match(/<lines>([\s\S]*)<\/lines>/);
   if (lines) {
-    // "translation": the input lines, marked so the tests can see them
+    // "translation": each line, led by the language's own name, so the
+    // tests can see both that it happened and that the script is drawn
     const list = JSON.parse(lines[1]) as string[];
-    return JSON.stringify(list.map((l) => `[T] ${l}`));
+    const target = LANGUAGES.find((l) => request.system?.includes(`into ${l.name}.`));
+    return JSON.stringify(list.map((l) => `[${target?.native ?? 'T'}] ${l}`));
   }
   return 'Summary: this is a test summary of the document.\n\n- First key point\n- Second key point';
 }

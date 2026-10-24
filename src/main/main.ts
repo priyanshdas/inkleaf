@@ -9,6 +9,7 @@ import type { WindowCommand } from '../shared/commands';
 import { buildMenu } from './menu';
 import { CONVERTIBLE } from '../shared/api';
 import { findOffice, htmlToPdf, officeToPdf, urlToPdf } from './convert';
+import { ensurePacks, packPath, packStatus, removePacks } from './packs';
 import { aiStatus, ask, removeKey, setKey, setModel } from './ai';
 import { checkForUpdates, installUpdate, startUpdates } from './updates';
 
@@ -58,8 +59,18 @@ async function serveAppFile(request: Request): Promise<Response> {
   if (url.host !== 'inkleaf') return new Response('Not found', { status: 404 });
 
   const relative = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html';
-  const file = path.normalize(path.join(rendererDir, relative));
-  if (!file.startsWith(rendererDir + path.sep)) return new Response('Forbidden', { status: 403 });
+  let file = path.normalize(path.join(rendererDir, relative));
+  if (relative.startsWith('packs/')) {
+    // language packs: the text-recognition models that ship with the app,
+    // then whatever has been downloaded
+    const name = relative.slice('packs/'.length);
+    const bundled = name.startsWith('ocr/') ? path.join(rendererDir, 'vendor', 'tesseract', 'lang', path.basename(name)) : null;
+    const found = bundled && existsSync(bundled) ? bundled : packPath(name);
+    if (!found) return new Response('Not found', { status: 404 });
+    file = found;
+  } else if (!file.startsWith(rendererDir + path.sep)) {
+    return new Response('Forbidden', { status: 403 });
+  }
 
   try {
     const body = await fs.readFile(file);
@@ -377,6 +388,12 @@ function needsAgreement(): boolean {
 }
 
 function registerIpc() {
+  ipcMain.handle('packs:status', () => packStatus());
+  ipcMain.handle('packs:ensure', (event, names: unknown) => {
+    if (!Array.isArray(names) || !names.every((n) => typeof n === 'string')) throw new Error('Bad request.');
+    return ensurePacks(names, event.sender);
+  });
+  ipcMain.handle('packs:remove', (_event, prefix: unknown) => removePacks(typeof prefix === 'string' ? prefix : ''));
   ipcMain.handle('app:agree-terms', async () => {
     await fs.writeFile(legalFile(), JSON.stringify({ agreed: TERMS_VERSION, at: new Date().toISOString() }));
   });

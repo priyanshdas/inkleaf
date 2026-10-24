@@ -25,13 +25,15 @@ export interface Face {
 }
 
 export interface Family {
-  /** 'doc:…' for fonts from a PDF, 'sys:…' for installed fonts. */
+  /** 'doc:…' for fonts from a PDF, 'sys:…' for installed fonts, 'script:…' for Noto fonts. */
   key: string;
   name: string;
-  source: 'document' | 'system';
+  source: 'document' | 'system' | 'script';
   /** CSS family the faces are registered under. */
   css: string;
   faces: Face[];
+  /** Characters the browser may use this family for (CSS unicode-range). */
+  unicodeRange?: string;
 }
 
 const families = new Map<string, Family>();
@@ -42,6 +44,37 @@ let counter = 0;
 type Fontkit = { create(data: Uint8Array, postscriptName?: string): FontkitFont & { fonts?: unknown[] } };
 let fontkitModule: Promise<Fontkit> | null = null;
 const fontkit = () => (fontkitModule ??= import('@pdf-lib/fontkit').then((m) => (m.default ?? m) as unknown as Fontkit));
+
+/**
+ * fontkit stumbles over mark anchors that are deliberately empty (an
+ * OpenType font may say "this mark doesn't attach to that letter"); some
+ * fonts, such as Noto Sans Gurmukhi, have them. Empty anchors are skipped
+ * instead. The class isn't exported, so it's patched through the first font
+ * that uses it.
+ */
+let anchorsPatched = false;
+export function patchFontkit(fk: FontkitFont) {
+  if (anchorsPatched) return;
+  type Gpos = { applyAnchor(m: { markAnchor?: unknown }, base: unknown, i: number): void; getAnchor(a: unknown): { x: number; y: number } };
+  try {
+    (fk as unknown as { layout(t: string): unknown }).layout('a');
+    const gpos = (fk as unknown as { _layoutEngine?: { engine?: { GPOSProcessor?: Gpos } } })._layoutEngine?.engine?.GPOSProcessor;
+    if (!gpos) return;
+    const proto = Object.getPrototypeOf(gpos) as Gpos;
+    const applyAnchor = proto.applyAnchor;
+    const getAnchor = proto.getAnchor;
+    proto.applyAnchor = function (mark, base, i) {
+      if (!base || !mark?.markAnchor) return;
+      applyAnchor.call(this, mark, base, i);
+    };
+    proto.getAnchor = function (anchor) {
+      return anchor ? getAnchor.call(this, anchor) : { x: 0, y: 0 };
+    };
+    anchorsPatched = true;
+  } catch {
+    // a font without a usable GPOS table: try with the next one
+  }
+}
 
 export function onFontsChanged(fn: () => void) {
   listeners.add(fn);
@@ -55,8 +88,13 @@ export function getFamily(key: string | undefined | null): Family | undefined {
   return key ? families.get(key) : undefined;
 }
 
+/** Families offered in the font list (script fonts work behind the scenes). */
 export function allFamilies(): Family[] {
-  return [...families.values()];
+  return [...families.values()].filter((f) => f.source !== 'script');
+}
+
+export function registerFamily(family: Family) {
+  families.set(family.key, family);
 }
 
 /** The face that best matches the requested weight and slant. */
@@ -86,12 +124,14 @@ export function loadFace(family: Family, face: Face): Promise<Face | null> {
           face.unusable = 'This font’s licence doesn’t allow embedding it in a PDF.';
           return null;
         }
+        patchFontkit(fk);
         face.bytes = bytes;
         face.fk = fk;
         face.coverage = new Set(fk.characterSet);
         const css = new FontFace(family.css, bytes as BufferSource, {
           weight: face.bold ? '700' : '400',
           style: face.italic ? 'italic' : 'normal',
+          ...(family.unicodeRange ? { unicodeRange: family.unicodeRange } : {}),
         });
         await css.load();
         document.fonts.add(css);
@@ -99,6 +139,11 @@ export function loadFace(family: Family, face: Face): Promise<Face | null> {
         return face;
       } catch (err) {
         console.warn('font failed to load', face.postscriptName, err);
+        if (family.source === 'script') {
+          // usually a download that failed (offline?): try again later
+          setTimeout(() => loading.delete(face.key), 20_000);
+          return null;
+        }
         face.unusable = 'This font couldn’t be read.';
         return null;
       }

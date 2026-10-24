@@ -57,6 +57,11 @@ export class TextEditor {
     area.spellcheck = true;
     area.value = annot.text;
     area.setAttribute('aria-label', 'Text');
+    // each line takes its own direction (Arabic right to left, English left
+    // to right), but stays left-aligned to match how it's drawn on the page
+    area.dir = 'auto';
+    area.style.unicodeBidi = 'plaintext';
+    area.style.textAlign = 'left';
     area.addEventListener('input', () => this.onInput());
     area.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {

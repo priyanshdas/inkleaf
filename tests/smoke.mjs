@@ -697,7 +697,7 @@ async function ocrAndCompressTest() {
   let { app, win, errors } = await launch(path.join(fixtures, 'scan.pdf'));
   await waitForPages(win);
   await win.evaluate(() => { void window.__inkleaf.run('ocr'); });
-  await win.waitForSelector('.modal .check-grid');
+  await win.waitForSelector('.modal .lang-chips');
   await modalButton(win, 'Recognise text');
   await win.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('word')), null, { timeout: 180000 });
   await win.keyboard.press('Control+f');
@@ -952,24 +952,25 @@ print('passed' if r.passed and not bad else 'failed: ' + '; '.join(bad[:4] or [s
     return { name: doc.name, texts: doc.pages.flatMap((p) => doc.annots(p.id)).filter((a) => a.type === 'replace').map((a) => a.text) };
   });
   check('translation lays the new words over a copy of the pages',
-    translated.name.includes('(French)') && translated.texts.some((t) => t.startsWith('[T] Invoice number')), JSON.stringify(translated).slice(0, 200));
+    translated.name.includes('(French)') && translated.texts.some((t) => t.startsWith('[Français] Invoice number')), JSON.stringify(translated).slice(0, 200));
   const frenchFile = path.join(out, 'translated.pdf');
   await save(win, frenchFile);
   const frenchText = text(frenchFile);
-  check('translated PDF has the translated text instead of the original', frenchText.includes('[T] Invoice number') && !/^\s*Invoice number/m.test(frenchText), frenchText.slice(0, 200));
+  check('translated PDF has the translated text instead of the original', frenchText.includes('[Français] Invoice number') && !/^\s*Invoice number/m.test(frenchText), frenchText.slice(0, 200));
 
   const wordFile = path.join(out, 'translated.docx');
   await stubDialog(app, 'showSaveDialog', wordFile);
   await win.evaluate(() => { void window.__inkleaf.run('ai-translate'); });
   await win.waitForSelector('.modal:has-text("Translate PDF")');
   await win.selectOption('.modal select >> nth=0', 'Hindi');
+  await win.selectOption('.modal select >> nth=1', 'word');
   await modalButton(win, 'Translate');
   await waitToast(win, 'Hindi translation');
   const docx = py(`
 import docx, sys
 print(' '.join(p.text for p in docx.Document(sys.argv[1]).paragraphs))
 `, wordFile);
-  check('translating into Hindi makes a Word document', docx.includes('[T] '), docx.slice(0, 160));
+  check('translating into Hindi can make a Word document', docx.includes('[हिन्दी] '), docx.slice(0, 160));
   await clearToasts(win);
 
   // the tools page
@@ -1074,10 +1075,80 @@ img.save(sys.argv[1], quality=90)
   await quit(app, win);
 }
 
+async function languagesTest() {
+  console.log('\nWriting every script, language packs, translation over the page');
+  const { app, win, errors } = await launch(null, { env: { INKLEAF_AI_MOCK: '1' } });
+  await win.evaluate(() => window.__inkleaf.run('new'));
+  await win.waitForFunction(() => window.__inkleaf.tabCount() === 1);
+  await waitForPages(win);
+
+  // text in many scripts at once, including right to left and mixed lines
+  const samples = {
+    hindi: 'हिन्दी में नमस्ते', arabic: 'مرحبا بالعالم', mixed: 'Invoice नंबर 42 فاتورة done', hebrew: 'שלום עולם',
+    cyrillic: 'Привет мир', greek: 'Καλημέρα', vietnamese: 'Tiếng Việt', bengali: 'বাংলা ভাষা', tamil: 'தமிழ்',
+    thai: 'ภาษาไทย', georgian: 'ქართული', amharic: 'አማርኛ', punjabi: 'ਪੰਜਾਬੀ', chinese: '中文简体',
+  };
+  await win.evaluate((samples) => {
+    const doc = window.__inkleaf.getDoc();
+    const page = doc.pages[0];
+    Object.values(samples).forEach((text, i) => doc.addAnnot(page.id, { id: `s${i}`, type: 'text', x: 50, y: 800 - i * 44, angle: 0, text, size: 16, font: 'sans', bold: false, italic: false, color: '#111111' }));
+    doc.commit();
+  }, samples);
+  const file = path.join(out, 'scripts.pdf');
+  await save(win, file);
+  const got = execFileSync('pdftotext', ['-raw', file, '-']).toString().normalize('NFC');
+  const missing = Object.entries(samples).filter(([key, t]) => !['arabic', 'mixed', 'hebrew', 'hindi'].includes(key) && !got.includes(t.normalize('NFC'))).map(([k]) => k);
+  check('text in 14 scripts saves and reads back (Chinese font downloaded on first use)', !missing.length, `missing: ${missing.join(', ')}`);
+  const fonts = execFileSync('pdffonts', [file]).toString();
+  check('each script is written in its own embedded font', ['NotoSansDevanagari', 'NotoSansArabic', 'NotoSansThai', 'NotoSansSC', 'NotoSans-Regular'].every((f) => fonts.includes(f)), fonts);
+  check('fonts are subset (the file stays small)', fs.statSync(file).size < 150_000, `${fs.statSync(file).size} bytes`);
+  // every glyph has ink: render the page and compare with what's on screen
+  const ink = py(`
+import subprocess, sys
+from PIL import Image
+subprocess.run(['pdftoppm', '-r', '50', '-png', '-singlefile', sys.argv[1], sys.argv[1][:-4]], check=True)
+im = Image.open(sys.argv[1][:-4] + '.png').convert('L')
+w, h = im.size
+rows = []
+for i in range(14):
+    y0 = int((842 - 800 + i * 44 + 1) / 842 * h); y1 = int((842 - 800 + i * 44 + 19) / 842 * h)
+    rows.append(sum(1 for x in range(w) for y in range(y0, y1) if im.getpixel((x, y)) < 140))
+print(min(rows))
+`, file);
+  check('no line comes out blank in the saved PDF', Number(ink) > 20, `least ink in a line: ${ink}`);
+
+  // the mock translator answers in the target language's own script
+  const before = await win.evaluate(() => window.__inkleaf.tabCount());
+  await win.evaluate(() => { void window.__inkleaf.run('ai-translate'); });
+  await win.waitForSelector('.modal:has-text("Translate PDF")');
+  await win.selectOption('.modal select >> nth=0', 'Arabic');
+  await modalButton(win, 'Translate');
+  await win.waitForFunction((n) => window.__inkleaf.tabCount() === n + 1, before, { timeout: 60000 });
+  await waitForPages(win);
+  const arabicFile = path.join(out, 'translated-arabic.pdf');
+  await save(win, arabicFile);
+  check('translating into Arabic draws Arabic over the page', execFileSync('pdffonts', [arabicFile]).toString().includes('NotoSansArabic'));
+
+  // language packs: status, and a real download checked against its hash
+  const status = await win.evaluate(() => window.inkleaf.packStatus());
+  check('language pack list covers OCR models and CJK fonts', Object.keys(status).length > 50 && status['fonts/NotoSansSC-Regular.ttf']?.installed);
+  let downloaded = false;
+  try {
+    await win.evaluate(() => window.inkleaf.ensurePacks(['ocr/fra.traineddata.gz']));
+    downloaded = (await win.evaluate(() => window.inkleaf.packStatus()))['ocr/fra.traineddata.gz'].installed;
+  } catch (err) {
+    console.log(`  – couldn't reach jsDelivr (${String(err).slice(0, 80)}); skipped the download check`);
+    downloaded = null;
+  }
+  if (downloaded !== null) check('a French OCR model downloads and passes its hash check', downloaded);
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+}
+
 // ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

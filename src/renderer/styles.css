@@ -1780,3 +1780,11 @@ kbd {
 .legal-doc td, .legal-doc th { padding: 5px 8px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
 .legal-doc a { color: var(--accent); }
 .link-button { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
+
+/* --- language chips ----------------------------------------------------------------------- */
+.lang-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
+.lang-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 10px; border-radius: 14px; background: var(--accent-soft); color: var(--ink); font-size: 12.5px; }
+.chip-dl { color: var(--accent); font-size: 11.5px; }
+.chip-x { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); cursor: pointer; }
+.chip-x:hover { background: rgba(0, 0, 0, 0.08); }
+.chip-x .icon { width: 12px; height: 12px; }
