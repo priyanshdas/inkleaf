@@ -20,6 +20,7 @@ let ready = false;
 
 function why(): string | null {
   if (!app.isPackaged) return t('Updates only work in the installed app.');
+  if (process.windowsStore) return t('Updates for the Microsoft Store version are handled by Microsoft Store.');
   if (process.env.PORTABLE_EXECUTABLE_DIR) return t('The portable version can’t update itself. Download the new version from the releases page instead.');
   return null;
 }
