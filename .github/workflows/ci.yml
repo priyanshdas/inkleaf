@@ -21,8 +21,8 @@ jobs:
       - name: Install tools the tests use
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb poppler-utils qpdf fonts-dejavu unzip
-          pip install pypdf openpyxln pptx
+          sudo apt-get install -y xvfb poppler-utils qpdf fonts-dejavu unzip python3-openpyxl
+          pip install pypdf pptx
 
       - run: npm ci
       - run: npm run build
