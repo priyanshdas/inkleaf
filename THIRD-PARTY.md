@@ -29,7 +29,7 @@ must travel with any copy of Inkleaf you share.
 | [DejaVu fonts](https://dejavu-fonts.github.io) | Fallback font in saved PDFs | Bitstream Vera licence |
 | [Liberation fonts](https://github.com/liberationfonts/liberation-fonts) | Built-in fonts for PDF/A | SIL Open Font License 1.1 |
 | sRGB colour profile by Graeme W. Gill (from ArgyllCMS) | Colour profile for PDF/A | Public domain |
-| [Claude API](https://docs.claude.com) | AI Summarizer and Translate (optional, your own key; not bundled) | Anthropic's terms |
+| The AI service you pick in AI settings (Claude, ChatGPT, Gemini, Grok, Perplexity, a local model or any compatible service) | AI Summarizer and Translate (optional, your own key; not bundled) | That service's own terms |
 
 The full licence texts ship inside each package (`node_modules/<name>/LICENSE`
 when building from source) and next to the bundled files in the app.
