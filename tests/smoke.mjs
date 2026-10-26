@@ -32,7 +32,7 @@ const pageCount = (file) => Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo',
 async function launch(file, options = {}) {
   const profile = options.profile ?? fs.mkdtempSync(path.join(out, 'profile-'));
   const app = await electron.launch({
-    args: ['--no-sandbox', root, ...(file ? [file] : [])],
+    args: ['--no-sandbox', ...(options.args ?? []), root, ...(file ? [file] : [])],
     cwd: root,
     env: {
       ...process.env,
@@ -1204,10 +1204,146 @@ async function uiLanguageTest() {
   await quit(app, win);
 }
 
+/**
+ * A stand-in AI server that speaks all three protocols (Anthropic messages,
+ * OpenAI chat completions, Perplexity's Agent API) and remembers what it was
+ * sent, so the tests check the real requests rather than a mock.
+ */
+async function fakeAiServer() {
+  const { createServer } = await import('node:http');
+  const seen = [];
+  const server = createServer((req, res) => {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      const body = raw ? JSON.parse(raw) : null;
+      seen.push({ method: req.method, url: req.url, headers: req.headers, body });
+      const send = (status, json) => {
+        res.writeHead(status, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(json));
+      };
+      const answer = 'Summary from the stand-in.\n\n- First key point\n- Second key point';
+      if (req.url.endsWith('/models')) return send(200, { data: [{ id: 'tiny-model' }, { id: 'nomic-embed-text' }, { id: 'big-model' }] });
+      if (body?.model === 'missing-model') return send(404, { error: { message: 'model not found' } });
+      if (req.url.endsWith('/chat/completions')) return send(200, { choices: [{ message: { content: `<think>thinking it over</think>\n${answer}` } }] });
+      if (req.url.endsWith('/messages')) return send(200, { content: [{ type: 'text', text: answer }] });
+      if (req.url.endsWith('/agent')) return send(200, { output: [{ type: 'search_results' }, { type: 'message', content: [{ type: 'output_text', text: answer }] }] });
+      send(404, { error: { message: 'unknown path' } });
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return { url: `http://127.0.0.1:${server.address().port}/v1`, seen, close: () => server.close() };
+}
+
+async function aiProvidersTest() {
+  console.log('\nAI providers (against a stand-in server)');
+  const fake = await fakeAiServer();
+  const { app, win, errors, profile } = await launch(path.join(fixtures, 'sample.pdf'), { env: { INKLEAF_AI_TEST_BASE: fake.url, INKLEAF_TEST_PLAIN_KEYS: '1' }, args: ['--password-store=basic'] });
+  await waitForPages(win);
+
+  const summarize = async () => {
+    await win.evaluate(() => { void window.__inkleaf.run('ai-summarize'); });
+    await win.waitForSelector('.modal:has-text("AI Summarizer")');
+    const note = await win.textContent('.modal .field-hint.warn');
+    await modalButton(win, 'Summarize');
+    await win.waitForSelector('.ai-summary li', { timeout: 30000 });
+    const summary = await win.textContent('.ai-summary');
+    await modalButton(win, 'Close');
+    await win.waitForTimeout(250);
+    return { note, summary };
+  };
+
+  // the first AI tool asks you to choose a service
+  await win.evaluate(() => { void window.__inkleaf.run('ai-settings'); });
+  await win.waitForSelector('.ai-grid');
+  check('settings offer Claude, ChatGPT, Gemini, Grok, Perplexity, local and other services',
+    (await win.locator('.ai-option').count()) === 7);
+
+  // a model on this computer: no key, models listed straight from the server
+  await win.click('.ai-option:has(input[value="local"])');
+  await win.fill('.modal input[type="url"]', fake.url);
+  await win.click('.modal button:has-text("Load models")');
+  await win.waitForFunction(() => /2 models/.test(document.querySelector('.modal')?.textContent ?? ''));
+  check('local server’s models load, without embedding models', await win.evaluate(() =>
+    [...document.querySelectorAll('#ai-model-list option')].map((o) => o.value).join(',') === 'big-model,tiny-model'));
+  check('key field is hidden for AI on this computer', await win.locator('.modal input[type="password"]').isHidden());
+  await win.fill('.modal input[list="ai-model-list"]', 'tiny-model');
+  await modalButton(win, 'Save');
+  await win.waitForTimeout(300);
+  let status = await win.evaluate(() => window.inkleaf.aiStatus());
+  check('local AI is saved and ready', status.ready && status.provider === 'local' && status.model === 'tiny-model', JSON.stringify(status));
+
+  let result = await summarize();
+  const local = fake.seen.findLast((r) => r.url.endsWith('/chat/completions'));
+  check('local AI: privacy note says nothing leaves the computer', /Nothing leaves your computer/.test(result.note), result.note);
+  check('local AI: summary comes back, with the model’s “thinking” removed', result.summary.includes('First key point') && !result.summary.includes('thinking it over'));
+  check('local AI: request is a chat completion for the chosen model, with no key sent',
+    local?.body.model === 'tiny-model' && local.body.messages[0].role === 'system' && !local.headers.authorization, JSON.stringify(local?.body).slice(0, 120));
+
+  // plain http to the open internet is refused (keys and documents would travel in the clear)
+  const refused = await win.evaluate(() => window.inkleaf.aiSave({ provider: 'custom', model: 'x', url: 'http://example.com/v1' }).then(() => 'saved', (e) => e.message));
+  check('plain http to a far-away server is refused', /https:\/\//.test(refused), refused);
+
+  // cloud providers, each through its own protocol (only if this machine can encrypt keys)
+  if (status.canEncrypt) {
+    const cases = [
+      { provider: 'anthropic', key: 'sk-ant-test-0123456789abcdefghij', model: 'claude-haiku-5-5', path: '/messages',
+        ok: (r) => r.headers['x-api-key'] === 'sk-ant-test-0123456789abcdefghij' && r.body.max_tokens > 0 && typeof r.body.system === 'string' },
+      { provider: 'openai', key: 'sk-test-openai', model: 'gpt-6-luna', path: '/chat/completions',
+        ok: (r) => r.headers.authorization === 'Bearer sk-test-openai' && r.body.max_completion_tokens > 0 && !('max_tokens' in r.body) },
+      { provider: 'xai', key: 'xai-test', model: 'grok-4.7', path: '/chat/completions',
+        ok: (r) => r.headers.authorization === 'Bearer xai-test' && r.body.model === 'grok-4.7' && r.body.max_tokens > 0 },
+      { provider: 'gemini', key: 'AIzaTest', model: 'gemini-flash-latest', path: '/chat/completions',
+        ok: (r) => r.headers.authorization === 'Bearer AIzaTest' && r.body.model === 'gemini-flash-latest' },
+      { provider: 'perplexity', key: 'pplx-test', model: 'fast', path: '/agent',
+        ok: (r) => r.headers.authorization === 'Bearer pplx-test' && r.body.effort === 'fast' && typeof r.body.instructions === 'string' && !r.body.tools },
+    ];
+    for (const c of cases) {
+      await win.evaluate(([provider, key, model]) => window.inkleaf.aiSave({ provider, key, model }), [c.provider, c.key, c.model]);
+      result = await summarize();
+      const request = fake.seen.findLast((r) => r.url.endsWith(c.path));
+      check(`${c.provider}: summary works and the request has the right shape`, result.summary.includes('First key point') && !!request && c.ok(request),
+        JSON.stringify({ headers: request?.headers, body: request?.body }).slice(0, 300));
+    }
+    check('cloud privacy note names the company', /Perplexity/.test(result.note), result.note);
+
+    const wrongKey = await win.evaluate(() => window.inkleaf.aiSave({ provider: 'xai', key: 'sk-not-grok', model: 'grok-4.7' }).then(() => 'saved', (e) => e.message));
+    check('a key from the wrong provider is caught', /xai-/.test(wrongKey), wrongKey);
+
+    await win.evaluate(() => window.inkleaf.aiSave({ provider: 'openai', model: 'missing-model' }));
+    const missing = await win.evaluate(() => window.inkleaf.aiAsk({ system: 's', prompt: 'p', maxTokens: 300 }).then(() => 'ok', (e) => e.message));
+    check('an unknown model gives a clear message', /doesn’t know that model/.test(missing), missing);
+
+    status = await win.evaluate(() => window.inkleaf.aiStatus());
+    check('each provider keeps its own key', ['anthropic', 'openai', 'xai', 'gemini', 'perplexity'].every((p) => status.hasKey[p]), JSON.stringify(status.hasKey));
+    await win.evaluate(() => window.inkleaf.aiRemoveKey('openai'));
+    status = await win.evaluate(() => window.inkleaf.aiStatus());
+    check('removing one key leaves the others', !status.hasKey.openai && status.hasKey.anthropic && !status.ready);
+  } else {
+    console.log('  – this machine can’t encrypt keys, so the cloud providers were skipped');
+  }
+
+  // keys are never written in plain text
+  const stored = fs.readFileSync(path.join(profile, 'ai.json'), 'utf8');
+  check('no key appears in plain text on disk', !/sk-ant-test|sk-test-openai|xai-test|pplx-test/.test(stored));
+
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+  fake.close();
+
+  // settings from 2.3 (one Anthropic key) carry over
+  const oldProfile = fs.mkdtempSync(path.join(out, 'profile-ai-old-'));
+  fs.writeFileSync(path.join(oldProfile, 'ai.json'), JSON.stringify({ key: 'not-really-encrypted', model: 'best' }));
+  const old = await launch(null, { profile: oldProfile });
+  status = await old.win.evaluate(() => window.inkleaf.aiStatus());
+  check('a 2.3 Anthropic key is kept after updating', status.provider === 'anthropic' && status.hasKey.anthropic && status.model === 'claude-sonnet-5-5', JSON.stringify(status));
+  await quit(old.app, old.win);
+}
+
 // ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

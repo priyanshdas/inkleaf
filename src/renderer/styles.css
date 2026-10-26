@@ -1806,3 +1806,13 @@ kbd {
 /* names, paths and sizes keep their own direction inside right-to-left text */
 :root[dir="rtl"] :is(.facts dd, .recent-name, .recent-sub, .tab-name, .bm-title, .note-meta, .thumb-label) { unicode-bidi: plaintext; }
 :root[dir="rtl"] .facts dd { text-align: end; }
+
+/* AI settings: pick a provider, then its key and model */
+.ai-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); max-height: none; overflow: visible; }
+.ai-option strong { display: flex; align-items: center; gap: 6px; }
+.badge { padding: 1px 6px; border-radius: 999px; font-size: 10.5px; font-style: normal; font-weight: 700; letter-spacing: 0.02em; }
+.badge.good { background: var(--accent-soft); color: var(--accent); }
+.field-row { display: flex; gap: 8px; align-items: center; }
+.field-row .field-input { flex: 1; min-width: 0; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-row .chip { height: 26px; padding: 0 10px; font-size: 12px; }

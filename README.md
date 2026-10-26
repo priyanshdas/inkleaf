@@ -82,12 +82,22 @@ anywhere, there are no accounts, and every tool is free. Built by EPD.
   automatically when a file won't open.
 - **Unlock PDF:** saves a copy of a protected file (with the password you
   know) without its password.
-- **AI Summarizer and Translate PDF** (optional). They use Claude, from
-  Anthropic, with your own API key (Tools › AI settings), and they're the
-  only tools that send anything off your computer: the document's text,
-  and only when you run them. Translation goes into any of 56 languages
-  and either lays the new words over a copy of the pages, keeping the
-  layout, or makes a Word document. The key is stored encrypted.
+- **AI Summarizer and Translate PDF** (optional). Pick the AI in Tools ›
+  AI settings:
+  - **Claude, ChatGPT, Gemini, Grok or Perplexity**, with your own API key.
+    You pay the provider directly, and each key is stored encrypted and
+    only ever sent to its own provider.
+  - **AI on this computer**, through [Ollama](https://ollama.com),
+    [LM Studio](https://lmstudio.ai), Jan or llama.cpp. Free, works
+    offline, and nothing leaves your computer.
+  - **Any other service** with an OpenAI-compatible API (OpenRouter, Groq,
+    Mistral, a server on your network…).
+
+  Inkleaf loads each provider's current list of models, so new models show
+  up without an update. Cloud AI is the only thing in Inkleaf that sends
+  your document anywhere, and only when you run it. Translation goes into
+  any of 56 languages and either lays the new words over a copy of the
+  pages, keeping the layout, or makes a Word document.
 - **All tools** (Ctrl+K or ⌘K): every tool on one searchable page, grouped
   as Organize, Optimize, Convert, Edit, Security and Intelligence.
 - Several PDFs open at once in tabs, a recent-files home screen, and a
@@ -158,21 +168,49 @@ Each platform's installer is best built on that platform:
 
 ```bash
 npm run dist:win     # on Windows: NSIS installer + portable .exe
-npm run dist:mac     # on macOS:   .dmg + .zip
-npm run dist:linux   # on Linux:   AppImage + .deb
+npm run dist:mac     # on macOS:   .dmg + .zip, for Apple Silicon and Intel
+npm run dist:linux   # on Linux:   AppImage + .deb (x64 and ARM) and .rpm (x64)
 ```
 
-Output lands in `dist/`. `dist:win` makes an installer (`Inkleaf Setup 2.3.0.exe`)
+Output lands in `dist/`. `dist:win` makes an installer (`Inkleaf Setup 2.4.0.exe`)
 and a portable `.exe` that runs without installing. It can also be built on
-Linux if Wine is installed.
+Linux if Wine is installed. The Linux `.rpm` needs `rpmbuild`
+(`sudo apt install rpm` on Ubuntu).
+
+Which Linux file to download:
+
+| You use | Download |
+| --- | --- |
+| Ubuntu, Debian, Mint, Pop!_OS | `.deb` (double-click to install) |
+| Fedora, openSUSE, RHEL | `.rpm` |
+| Anything else, or no install rights | `.AppImage` (make it executable, then run it) |
+
+### Signing
 
 Unsigned Windows builds trigger SmartScreen ("Windows protected your PC";
 people click **More info → Run anyway**). Signing with a code-signing
 certificate removes that warning and is worth doing before a public release.
-For a public macOS release you'll want to sign and
-notarise the app (set `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID` and friends as
-described in the electron-builder docs); unsigned builds run but macOS will
-warn on first launch. Windows builds can be signed the same way.
+
+On a Mac, apps from outside the App Store need to be signed with a
+"Developer ID Application" certificate and notarised by Apple, or macOS
+refuses to open them with a scary message. With an Apple Developer account:
+
+1. In Xcode › Settings › Accounts (or at developer.apple.com › Certificates),
+   create a **Developer ID Application** certificate.
+2. In Keychain Access, export it with its private key as a `.p12` file and
+   give it a password. Turn it into text with `base64 -i cert.p12 | pbcopy`.
+3. At account.apple.com › Sign-In and Security › App-Specific Passwords,
+   make a password for "Inkleaf notarisation".
+4. Add these secrets to the repository (Settings › Secrets and variables ›
+   Actions): `MAC_CERTIFICATE` (the base64 text), `MAC_CERTIFICATE_PASSWORD`,
+   `APPLE_ID` (your developer account email), `APPLE_APP_SPECIFIC_PASSWORD`
+   and `APPLE_TEAM_ID` (10 characters, shown at developer.apple.com ›
+   Membership).
+
+The release workflow then signs and notarises the Mac app automatically.
+Until those secrets exist it still builds one, ad-hoc signed: it runs, but
+people have to right-click › Open the first time, and it can't update
+itself.
 
 ## Publishing an update
 
@@ -189,11 +227,12 @@ files. GitHub Actions builds and publishes them for you:
    repository, and add it to this repository's secrets as `RELEASES_TOKEN`
    (once).
 3. For each release, raise `version` in `package.json` (for example to
-   `2.1.1`), commit, then tag and push:
+   `2.4.1`), commit, then tag and push. Use the same number as
+   `package.json`, with a `v` in front:
 
    ```bash
-   git tag v2.1.1
-   git push origin main v2.1.1
+   git tag v2.4.1
+   git push origin main v2.4.1
    ```
 
    `.github/workflows/release.yml` builds Windows, macOS and Linux installers
@@ -295,6 +334,10 @@ Things that keep it fast, worth preserving when changing the viewer:
 - **Translating over the page** replaces each line where it was. Longer
   translations are shrunk to fit the original line, so check the result;
   for long documents the Word option often reads better.
+- **Small local models** (a few billion parameters) summarize well but
+  can stumble on Translate PDF, which needs the answer back in a strict
+  line-by-line format. If a translation fails or comes out patchy, try a
+  larger model or a cloud provider.
 - **Language packs** (OCR models and the Chinese, Japanese and Korean fonts)
   need an internet connection the first time each one is used. They come
   from jsDelivr; your pages are never sent anywhere.

@@ -16,7 +16,7 @@ export function buildMenu(runWindowCommand: (command: WindowCommand, win: Browse
 
   const windowCommands = new Set<string>(['new-window', 'quit', 'fullscreen', 'devtools']);
   const item = (spec: MenuItemSpec): MenuItemConstructorOptions => ({
-    label: spec.label,
+    label: t(spec.label),
     accelerator: shortcutFor(spec, true)?.replace(/Mod/g, 'Cmd'),
     click: () => {
       const win = BrowserWindow.getFocusedWindow();
@@ -25,14 +25,15 @@ export function buildMenu(runWindowCommand: (command: WindowCommand, win: Browse
     },
   });
 
-  const sections: MenuItemConstructorOptions[] = MENU.map((section) => ({
-    label: section.label,
-    role: section.label === 'Help' ? 'help' : undefined,
-    submenu: section.items
+  const sections: MenuItemConstructorOptions[] = MENU.map((section) => {
+    const submenu: MenuItemConstructorOptions[] = section.items
       .filter((entry) => entry === 'separator' || !(entry.devOnly && app.isPackaged))
       .filter((entry) => entry === 'separator' || !['about', 'quit'].includes(entry.command))
-      .map((entry) => (entry === 'separator' ? { type: 'separator' as const } : item(entry))),
-  }));
+      .map((entry) => (entry === 'separator' ? { type: 'separator' as const } : item(entry)));
+    // Cmd+A only works in text boxes on macOS when the menu has Select All
+    if (section.label === 'Edit') submenu.push({ type: 'separator' }, { role: 'selectAll' });
+    return { label: t(section.label), role: section.label === 'Help' ? 'help' : undefined, submenu };
+  });
 
   const appMenu: MenuItemConstructorOptions = {
     label: app.name,

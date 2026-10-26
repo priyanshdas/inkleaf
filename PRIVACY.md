@@ -1,6 +1,6 @@
 # Inkleaf Privacy Policy
 
-Last updated: 24 October 2026
+Last updated: 26 October 2026
 
 Short version: Inkleaf doesn't collect anything about you. There's no
 account, no tracking, no analytics, no ads and no crash reports sent
@@ -25,11 +25,11 @@ nowhere else):
   of unsaved work;
 - fonts, signatures and stamps you add;
 - language packs you've downloaded;
-- your Anthropic API key, if you add one, encrypted with your operating
-  system's secure storage.
+- API keys for the AI service you choose, if you add any, encrypted with
+  your operating system's secure storage.
 
 You can delete any of this by removing a file from the recent list,
-clearing the backups folder, removing your API key in AI settings, or
+clearing the backups folder, removing your API keys in AI settings, or
 uninstalling Inkleaf and deleting its folder.
 
 ## When Inkleaf connects to the internet
@@ -38,7 +38,7 @@ Only in these cases, and never with your files unless you ask:
 
 | Feature | What is sent, and to whom | When |
 | --- | --- | --- |
-| AI Summarizer, Translate PDF | The document's text, and your API key, to Anthropic | Only when you run one of them |
+| AI Summarizer, Translate PDF | The document's text, and your API key, to the AI service you chose in AI settings (Anthropic, OpenAI, Google, xAI, Perplexity or a service you entered). With "AI on this computer", nothing leaves your computer | Only when you run one of them |
 | Web page to PDF | A normal page request to the website you typed | Only when you use it |
 | Language packs | A download request to jsDelivr | The first time you use a language that isn't built in |
 | Updates | A request to GitHub for the latest version | When Inkleaf checks for updates |
@@ -48,7 +48,12 @@ Like any website, these services can see your IP address and basic
 request details. What they do with it is covered by their own privacy
 policies:
 
-- Anthropic: https://www.anthropic.com/legal/privacy
+- Anthropic (Claude): https://www.anthropic.com/legal/privacy
+- OpenAI (ChatGPT): https://openai.com/policies/privacy-policy
+- Google (Gemini): https://policies.google.com/privacy
+- xAI (Grok): https://x.ai/legal/privacy-policy
+- Perplexity: https://www.perplexity.ai/hub/legal/privacy-policy
+- If you use "Other service", that service's own policy applies.
 - jsDelivr: https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net
 - GitHub: https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
 - Ko-fi: https://more.ko-fi.com/privacy

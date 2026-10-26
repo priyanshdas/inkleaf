@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { t } from '../shared/i18n';
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme, protocol, screen, session, shell } from 'electron';
+import { app, safeStorage, BrowserWindow, dialog, ipcMain, nativeTheme, protocol, screen, session, shell } from 'electron';
 import os from 'node:os';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { catalog, loadLocale } from './locale';
 import { CONVERTIBLE } from '../shared/api';
 import { findOffice, htmlToPdf, officeToPdf, urlToPdf } from './convert';
 import { ensurePacks, packPath, packStatus, removePacks } from './packs';
-import { aiStatus, ask, removeKey, setKey, setModel } from './ai';
+import { aiStatus, ask, listModels, removeKey, saveConfig } from './ai';
 import { checkForUpdates, installUpdate, startUpdates } from './updates';
 
 // Lets tests run with a clean profile. Ignored in packaged builds.
@@ -375,7 +375,7 @@ function runWindowCommand(command: WindowCommand, win: BrowserWindow | null) {
 // The Windows installer and the macOS disk image show the terms before
 // installing. The portable and Linux builds have no such page, so the app
 // asks once on first start instead. Bump this when the terms change.
-const TERMS_VERSION = '2026-10-24';
+const TERMS_VERSION = '2026-10-26';
 const legalFile = () => path.join(app.getPath('userData'), 'legal.json');
 
 function needsAgreement(): boolean {
@@ -461,9 +461,9 @@ function registerIpc() {
   ipcMain.handle('convert:url', (_event, address: string) => urlToPdf(String(address)));
 
   ipcMain.handle('ai:status', () => aiStatus());
-  ipcMain.handle('ai:set-key', (_event, key: string, model) => setKey(String(key), model));
-  ipcMain.handle('ai:set-model', (_event, model) => setModel(model));
-  ipcMain.handle('ai:remove-key', () => removeKey());
+  ipcMain.handle('ai:save', (_event, config) => saveConfig(config ?? {}));
+  ipcMain.handle('ai:models', (_event, config) => listModels(config ?? {}));
+  ipcMain.handle('ai:remove-key', (_event, provider) => removeKey(provider));
   ipcMain.handle('ai:ask', (_event, request) => ask(request));
 
   ipcMain.handle('file:pick-pdfs', async (event, title?: unknown) => {
@@ -750,6 +750,8 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    // tests on a Linux box without a keychain still need to store AI keys
+    if (!app.isPackaged && process.env.INKLEAF_TEST_PLAIN_KEYS && process.platform === 'linux') safeStorage.setUsePlainTextEncryption(true);
     protocol.handle('app', serveAppFile);
     // Our own pages may list the fonts installed on this computer (for the
     // font picker); nothing else gets a browser permission.

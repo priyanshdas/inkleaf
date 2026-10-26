@@ -2,6 +2,27 @@
 // The bridge between the sandboxed renderer and the main process.
 // preload.ts implements it; the renderer sees it as `window.inkleaf`.
 
+import type { AiProviderId } from './ai-providers';
+
+export interface AiStatus {
+  ready: boolean;
+  provider: AiProviderId;
+  model: string;
+  url: string;
+  hasKey: Partial<Record<AiProviderId, boolean>>;
+  models: Partial<Record<AiProviderId, string>>;
+  urls: Partial<Record<AiProviderId, string>>;
+  canEncrypt: boolean;
+}
+
+export interface AiConfig {
+  provider: AiProviderId;
+  /** leave empty to keep the key already saved */
+  key?: string;
+  model: string;
+  url?: string;
+}
+
 export interface OpenedFile {
   path: string | null;
   name: string;
@@ -121,11 +142,12 @@ export interface InkleafApi {
   htmlToPdf(html: string, page?: HtmlPage): Promise<Uint8Array>;
   /** Prints a web page (by address) to a PDF. */
   urlToPdf(address: string): Promise<{ pdf: Uint8Array; title: string }>;
-  /** Optional AI tools, with the person's own Anthropic API key. */
-  aiStatus(): Promise<{ ready: boolean; model: 'fast' | 'best'; canEncrypt: boolean }>;
-  aiSetKey(key: string, model: 'fast' | 'best'): Promise<void>;
-  aiSetModel(model: 'fast' | 'best'): Promise<void>;
-  aiRemoveKey(): Promise<void>;
+  /** Optional AI tools, with the provider and key the person chose. */
+  aiStatus(): Promise<AiStatus>;
+  aiSave(config: AiConfig): Promise<void>;
+  /** The models a provider offers right now. */
+  aiModels(config: Partial<AiConfig>): Promise<string[]>;
+  aiRemoveKey(provider: AiProviderId): Promise<void>;
   aiAsk(request: { system: string; prompt: string; maxTokens: number }): Promise<string>;
   /** Shows the system print dialog for the current page contents. */
   print(): Promise<{ ok: boolean; reason?: string }>;

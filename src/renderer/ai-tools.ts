@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // AI Summarizer and Translate PDF.
 //
-// These are the only tools that send anything off the computer, so they're
-// off until the person adds their own Anthropic API key, and each one says
-// plainly, before it runs, that the document's text will be sent.
+// These are the only tools that can send anything off the computer, so
+// they're off until the person picks an AI service (their own key for a
+// cloud one, or a model running on their own computer), and each tool says
+// plainly, before it runs, where the document's text will go.
 
 import { msg, t } from '../shared/i18n';
 import type { EditorDoc } from './document';
@@ -16,6 +17,7 @@ import type { PageStructure } from './pdf-structure';
 import { pageRuns, runBox, TextRun } from './text-finder';
 import type { ReplaceAnnot } from './types';
 import { h, icon, modal, toast } from './ui';
+import { AI_PROVIDERS, LOCAL_SERVERS, providerById } from '../shared/ai-providers';
 
 const api = () => window.inkleaf;
 
@@ -27,50 +29,132 @@ export interface AiHost {
 }
 
 
-const PRIVACY = msg('This sends the document’s text to Anthropic (the company behind Claude) using your API key. Nothing else leaves your computer.');
+/** Where the text goes, said plainly before a tool runs. */
+async function privacyNote(): Promise<string> {
+  const status = await api().aiStatus();
+  const provider = providerById(status.provider);
+  if (provider.onDevice) return t('This sends the document’s text to the AI running on this computer. Nothing leaves your computer.');
+  return t('This sends the document’s text to {company} using your API key. Nothing else leaves your computer.', { company: t(provider.company) });
+}
 
 // --- settings -----------------------------------------------------------------------
 
-/** Asks for (or changes) the API key. Resolves true if AI is ready afterwards. */
+const cleanError = (err: unknown) => String((err as Error)?.message ?? err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+
+/** Picks the AI service, its key and model. Resolves true if AI is ready afterwards. */
 export async function aiSettings(): Promise<boolean> {
   const status = await api().aiStatus();
-  const key = h('input', { class: 'field-input', type: 'password', placeholder: status.ready ? t('A key is saved. Paste a new one to replace it.') : 'sk-ant-…', autocomplete: 'off', spellcheck: 'false' });
-  const model = h('select', { class: 'field-input' }, new Option(t('Fast and cheap (Claude Haiku)'), 'fast'), new Option(t('Best quality (Claude Sonnet)'), 'best'));
-  model.value = status.model;
+  let chosen = providerById(status.provider);
+  const hasKey = { ...status.hasKey };
+
+  const key = h('input', { class: 'field-input', type: 'password', autocomplete: 'off', spellcheck: 'false' });
+  const keyHint = h('span', { class: 'field-hint' });
+  const keyField = h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('API key')), key, keyHint);
+  const forget = h('button', { class: 'link-button', type: 'button' }, t('Remove the saved key'));
+  forget.addEventListener('click', async () => {
+    await api().aiRemoveKey(chosen.id);
+    delete hasKey[chosen.id];
+    toast(t('The API key was removed from this computer.'));
+    show();
+  });
+
+  const url = h('input', { class: 'field-input', type: 'url', spellcheck: 'false', placeholder: 'http://localhost:11434/v1' });
+  const presets = h('div', { class: 'chip-row' }, ...LOCAL_SERVERS.map((server) => {
+    const chip = h('button', { class: 'chip', type: 'button' }, server.name);
+    chip.addEventListener('click', () => {
+      url.value = server.url;
+      void loadModels();
+    });
+    return chip;
+  }));
+  const urlField = h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Server address')), url, presets);
+
+  const model = h('input', { class: 'field-input', list: 'ai-model-list', spellcheck: 'false', autocomplete: 'off' });
+  const modelList = h('datalist', { id: 'ai-model-list' });
+  const load = h('button', { class: 'btn small', type: 'button' }, icon('refresh-cw'), h('span', {}, t('Load models')));
+  const modelNote = h('span', { class: 'field-hint' });
+  load.addEventListener('click', () => void loadModels());
+  const modelField = h('div', { class: 'field' }, h('span', { class: 'field-label' }, t('Model')),
+    h('div', { class: 'field-row' }, model, load), modelList, modelNote);
+
+  const localHelp = h('p', { class: 'field-hint' }, t('Install Ollama (ollama.com) or LM Studio (lmstudio.ai), download a model in it, then press Load models. Larger models give better translations but need a fast computer.'));
   const error = h('p', { class: 'field-error' });
-  const buttons = [
-    ...(status.ready ? [{ label: t('Remove key'), value: 'remove', danger: true }] : []),
-    { label: t('Cancel'), value: 'cancel' },
-    { label: t('Save'), value: 'ok', primary: true },
-  ];
+
+  const fillList = (names: string[]) => modelList.replaceChildren(...names.map((n) => new Option(n, n)));
+
+  let loading = 0;
+  async function loadModels() {
+    const ticket = ++loading;
+    modelNote.textContent = t('Loading models…');
+    error.textContent = '';
+    try {
+      const names = await api().aiModels({ provider: chosen.id, key: key.value, url: url.value });
+      if (ticket !== loading) return;
+      fillList(names.length ? names : chosen.models);
+      if (!model.value || (!names.includes(model.value) && names.length && chosen.onDevice)) model.value = names[0] ?? model.value;
+      modelNote.textContent = names.length ? t('{count, plural, one {# model available.} other {# models available.}}', { count: names.length }) : t('No models found. Download one in your AI app first.');
+    } catch (err) {
+      if (ticket !== loading) return;
+      modelNote.textContent = '';
+      error.textContent = cleanError(err);
+    }
+  }
+
+  // one card per provider
+  const cards = AI_PROVIDERS.map((provider) => {
+    const input = h('input', { type: 'radio', name: 'ai-provider', value: provider.id, checked: provider.id === chosen.id });
+    input.addEventListener('change', () => {
+      chosen = provider;
+      show();
+    });
+    const badge = provider.onDevice ? h('em', { class: 'badge good' }, t('Private')) : '';
+    return h('label', { class: 'lang-option ai-option' }, input,
+      h('span', {}, h('strong', {}, t(provider.name), badge), h('span', {}, t(provider.blurb))));
+  });
+
+  function show() {
+    const saved = !!hasKey[chosen.id];
+    keyField.hidden = chosen.onDevice === true;
+    key.value = '';
+    key.placeholder = saved ? t('A key is saved. Paste a new one to replace it.') : chosen.keyPrefix ? `${chosen.keyPrefix}…` : chosen.needsKey ? '' : t('Optional');
+    keyHint.replaceChildren(
+      chosen.keyUrl ? t('Get one at {site}. It’s stored encrypted on this computer and only ever sent to {company}.', { site: chosen.keyUrl, company: t(chosen.company) })
+        : t('It’s stored encrypted on this computer and only ever sent to {company}.', { company: t(chosen.company) }),
+      saved ? ' ' : '', saved ? forget : '');
+    urlField.hidden = chosen.id !== 'local' && chosen.id !== 'custom';
+    presets.hidden = chosen.id !== 'local';
+    url.value = status.urls[chosen.id] ?? chosen.baseUrl;
+    localHelp.hidden = !chosen.onDevice;
+    model.value = status.models[chosen.id] ?? chosen.models[0] ?? '';
+    model.placeholder = chosen.onDevice ? t('Press Load models') : '';
+    fillList(chosen.models);
+    modelNote.textContent = '';
+    error.textContent = '';
+    // a local server needs no key, so its list can load straight away
+    if (chosen.onDevice) void loadModels();
+  }
+  show();
+
   const choice = await modal({
     title: t('AI tools'),
+    wide: true,
     body: h('div', {},
-      h('p', { class: 'modal-text' }, t('The AI Summarizer and Translate PDF use Claude, from Anthropic, with your own API key. You pay Anthropic directly for what you use, usually a fraction of a rupee per page.')),
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Anthropic API key')), key,
-        h('span', { class: 'field-hint' }, t('Get one at console.anthropic.com. It’s stored encrypted on this computer and only ever sent to Anthropic.'))),
-      h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Model')), model),
-      error),
-    buttons,
+      h('p', { class: 'modal-text' }, t('Summarize and translate PDFs with the AI service you prefer. Cloud services use your own API key, and you pay them directly for what you use. AI on this computer is free and completely private.')),
+      h('div', { class: 'lang-grid ai-grid', role: 'radiogroup' }, ...cards),
+      urlField, keyField, modelField, localHelp, error),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Save'), value: 'ok', primary: true }],
     validate: async (value) => {
       if (value !== 'ok') return true;
       try {
-        if (key.value.trim()) await api().aiSetKey(key.value, model.value as 'fast' | 'best');
-        else if (status.ready) await api().aiSetModel(model.value as 'fast' | 'best');
-        else throw new Error(t('Paste your API key first.'));
+        await api().aiSave({ provider: chosen.id, key: key.value, model: model.value, url: url.value });
         return true;
       } catch (err) {
-        error.textContent = (err as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+        error.textContent = cleanError(err);
         return false;
       }
     },
   });
-  if (choice === 'remove') {
-    await api().aiRemoveKey();
-    toast(t('The API key was removed from this computer.'));
-    return false;
-  }
-  return choice === 'ok' || status.ready;
+  return choice === 'ok' || (await api().aiStatus()).ready;
 }
 
 async function ensureReady(): Promise<boolean> {
@@ -111,7 +195,7 @@ export async function summarize(doc: EditorDoc, host: AiHost) {
     body: h('div', {},
       h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Length')), length),
       h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Write it in')), language),
-      h('p', { class: 'field-hint warn' }, icon('info'), t(PRIVACY))),
+      h('p', { class: 'field-hint warn' }, icon('info'), await privacyNote())),
     buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Summarize'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;
@@ -256,7 +340,7 @@ export async function translate(doc: EditorDoc, host: AiHost) {
       h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Result')), how),
       h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Pages')), which),
       note,
-      h('p', { class: 'field-hint warn' }, icon('info'), t(PRIVACY))),
+      h('p', { class: 'field-hint warn' }, icon('info'), await privacyNote())),
     buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Translate'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;

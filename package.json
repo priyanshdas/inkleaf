@@ -1,7 +1,7 @@
 {
   "name": "inkleaf",
   "productName": "Inkleaf",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "A free, open-source, offline PDF editor: edit text, annotate, sign, fill and build forms, OCR, compress, compare and convert.",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/priyanshdas/inkleaf",
@@ -99,7 +99,6 @@
         "role": "Editor"
       }
     ],
-    
     "win": {
       "target": [
         "nsis",
@@ -113,7 +112,9 @@
       "identityName": "PriyanshDas.InkLeaf",
       "publisher": "CN=6862D623-F74B-49DF-80AE-FB42001FAFC6",
       "publisherDisplayName": "Priyansh Das",
-      "displayName": "Inkleaf"
+      "displayName": "Inkleaf",
+      "backgroundColor": "#111111",
+      "showNameOnTiles": false
     },
     "nsis": {
       "oneClick": false,
@@ -124,21 +125,66 @@
     },
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "category": "public.app-category.productivity",
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSCameraUsageDescription": "Inkleaf uses the camera only when you choose Scan to PDF, to photograph paper pages. The pictures stay on your Mac."
+      }
     },
     "linux": {
       "target": [
-        "AppImage",
-        "deb"
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "category": "Office",
       "icon": "build/icon.png",
+      "executableName": "inkleaf",
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
+      "synopsis": "Free, open-source PDF editor",
+      "description": "Edit, sign, fill, convert and organise PDFs. Everything happens on your computer.",
       "maintainer": "Priyansh Das <75964362+priyanshdas@users.noreply.github.com>",
-      "syncDesktopName": true
+      "syncDesktopName": true,
+      "mimeTypes": [
+        "application/pdf"
+      ]
     },
     "publish": [
       {
@@ -175,7 +221,17 @@
         "from": "PRIVACY.md",
         "to": "PRIVACY.md"
       }
-    ]
+    ],
+    "dmg": {
+      "sign": false,
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "deb": {
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+    },
+    "rpm": {
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+    }
   },
   "desktopName": "inkleaf.desktop",
   "dependencies": {

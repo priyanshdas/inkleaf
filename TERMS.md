@@ -1,6 +1,6 @@
 # Inkleaf Terms of Use
 
-Last updated: 24 October 2026
+Last updated: 26 October 2026
 
 Inkleaf is a free, open-source PDF editor made by Priyansh Das ("EPD",
 "I", "me"). These terms apply to anyone who downloads, installs or uses
@@ -93,9 +93,13 @@ Inkleaf works on your computer, but some optional features connect to
 other services. They are run by other companies under their own terms and
 privacy policies, and I'm not responsible for them:
 
-- **AI Summarizer and Translate PDF** send the document's text to
-  Anthropic using your own API key, under Anthropic's terms. AI output can
-  be wrong; check it before relying on it.
+- **AI Summarizer and Translate PDF** send the document's text to the AI
+  service you choose (such as Anthropic, OpenAI, Google, xAI or
+  Perplexity) using your own API key, under that service's terms. You're
+  responsible for your account with it and for what it charges you. If you
+  choose "AI on this computer", the text goes to software running on your
+  own computer, which you install and run yourself. AI output can be
+  wrong; check it before relying on it.
 - **Web page to PDF** loads the address you type from that website.
 - **Language packs** download from jsDelivr when you first use a language.
 - **Updates** are checked for and downloaded from GitHub.
