@@ -373,6 +373,30 @@ Things that keep it fast, worth preserving when changing the viewer:
   from another PDF keep their fields' appearance but not their fillability.
 - XFA forms (an old Adobe-only format) aren't supported.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io),
+certificate by [SignPath Foundation](https://signpath.org).
+
+Windows builds are signed in GitHub Actions straight from this repository's
+source, and only after a maintainer approves each release. Nothing built on
+anyone's own computer is signed.
+
+**Team roles**
+
+| Role | Who |
+| --- | --- |
+| Committers and reviewers | [Priyansh Das (@priyanshdas)](https://github.com/priyanshdas) |
+| Approvers | [Priyansh Das (@priyanshdas)](https://github.com/priyanshdas) |
+
+Pull requests from anyone else are reviewed by a committer before they're
+merged.
+
+**Privacy.** Inkleaf doesn't send any information to other networked
+systems unless you ask it to: when you use the AI tools, Web page to PDF,
+download a language pack or check for updates. See the
+[Privacy Policy](PRIVACY.md) for exactly what is sent, and to whom.
+
 ## Terms and privacy
 
 Using Inkleaf means agreeing to the [Terms of Use](TERMS.md) and

@@ -67,3 +67,19 @@ if (mobileMenuButton && mobileMenu) {
     });
   });
 }
+
+// Downloads: point out the one for this computer, and let the "portable
+// version" words inside the Windows card open their own file.
+(() => {
+  const ua = navigator.userAgent;
+  const os = /Windows/.test(ua) ? 'windows' : /Mac OS X|Macintosh/.test(ua) ? 'mac' : /Linux|X11/.test(ua) && !/Android/.test(ua) ? 'linux' : null;
+  if (os) document.querySelector(`.download-option[data-os="${os}"]`)?.classList.add('is-yours');
+
+  document.querySelectorAll('.inline-link[data-href]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.location.href = link.dataset.href;
+    });
+  });
+})();

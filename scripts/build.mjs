@@ -126,9 +126,11 @@ function writeLegal() {
     '',
   ].join('\r\n').replace(/\r?\n/g, '\r\n');
   // a byte-order mark tells the Windows installer the file is UTF-8
-  for (const name of ['installer-terms.txt', 'license_en.txt']) {
-    fs.writeFileSync(r('build', name), '\ufeff' + text);
-  }
+  fs.writeFileSync(r('build', 'installer-terms.txt'), '\ufeff' + text);
+  // electron-builder would put a build/license_en.txt on the Mac disk image
+  // too, and the disk-image tool can't read that byte-order mark, so make
+  // sure an old copy isn't lying around
+  fs.rmSync(r('build', 'license_en.txt'), { force: true });
 }
 
 // --- static files ----------------------------------------------------------

@@ -2428,3 +2428,69 @@ footer {
     transform: translateY(-7px) rotate(-45deg);
   }
 }
+
+/* ---------- Downloads for every system ---------- */
+.download-multi { cursor: default; }
+.download-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.download-links a,
+.inline-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.download-links a {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 14px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.download-links a:hover { border-color: var(--accent); background: rgba(183, 255, 74, 0.08); }
+.inline-link { cursor: pointer; text-decoration: underline; }
+.download-option.is-yours { border-color: var(--accent); }
+.download-note a { color: var(--accent); }
+
+/* ---------- Code signing policy ---------- */
+.signing-section {
+  max-width: 1100px;
+  margin: 0 auto 140px;
+  padding: 0 24px;
+}
+.signing-section h2 {
+  margin: 18px 0 12px;
+  font-size: clamp(34px, 4vw, 48px);
+  letter-spacing: -0.04em;
+}
+.signing-lead { color: var(--muted); font-size: 17px; line-height: 1.6; }
+.signing-section a { color: var(--accent); }
+.signing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 34px;
+}
+.signing-card {
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.signing-card h3 { margin: 0 0 12px; font-size: 18px; }
+.signing-card p { margin: 0; color: var(--muted); line-height: 1.65; font-size: 15px; }
+.signing-roles { margin: 0 0 14px; }
+.signing-roles dt { color: var(--subtle); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+.signing-roles dd { margin: 4px 0 12px; }
+@media (max-width: 900px) {
+  .signing-grid { grid-template-columns: 1fr; }
+}
+
+/* Keep the hero inside small screens: grid items otherwise refuse to
+   shrink below their widest word or the editor preview. */
+.hero > * { min-width: 0; }
+@media (max-width: 900px) {
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .hero h1 { overflow-wrap: anywhere; }
+}
+
+.download-soon { opacity: 0.6; cursor: default; }
+.download-soon a { color: var(--accent); }

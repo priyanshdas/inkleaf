@@ -1,24 +1,39 @@
-# Builds the installers for Windows, macOS and Linux and publishes them to
+# Builds the installers for Windows and Linux (macOS is paused, see below) and publishes them to
 # the public releases repository, which is where the installed app looks
 # for updates. Runs when you push a version tag:
 #
-#   git tag v2.1.1 && git push origin v2.1.1
+#   git tag v2.4.0 && git push origin v2.4.0
 #
-# Needs a repository secret called RELEASES_TOKEN: a GitHub token that can
-# create releases in priyanshdas/inkleaf-releases (a fine-grained token with
-# "Contents: read and write" on that repository is enough).
+# Secrets (Settings › Secrets and variables › Actions):
+#
+#   RELEASES_TOKEN               required. A GitHub token that can create
+#                                releases in priyanshdas/inkleaf-releases.
+#
+#   For a signed, notarised Mac app (without these, the Mac build is only
+#   ad-hoc signed and macOS warns people the first time they open it):
+#   MAC_CERTIFICATE              your "Developer ID Application" certificate,
+#                                exported as .p12 and base64-encoded
+#   MAC_CERTIFICATE_PASSWORD     the password you gave the .p12
+#   APPLE_ID                     the Apple ID email of your developer account
+#   APPLE_APP_SPECIFIC_PASSWORD  made at account.apple.com › App-Specific Passwords
+#   APPLE_TEAM_ID                the 10-character team ID from developer.apple.com
+#
+#   Optional, for a signed Windows installer:
+#   WIN_CERTIFICATE, WIN_CERTIFICATE_PASSWORD
 name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', 'V*']
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        # macOS is paused until the Apple Developer account and signing are
+        # ready; add macos-latest back to this list to build it again
+        os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +43,29 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Linux packaging tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
       - run: npm ci
 
       - name: Build and publish
-        run: npm run release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CERTIFICATE || secrets.WIN_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CERTIFICATE_PASSWORD || secrets.WIN_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$CSC_LINK" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          if [ "$RUNNER_OS" = "macOS" ] && [ -z "${CSC_LINK:-}" ]; then
+            # no certificate yet: ad-hoc sign so the app still opens on Apple Silicon
+            npm run release -- -c.mac.identity=- -c.mac.hardenedRuntime=false -c.mac.notarize=false
+          else
+            npm run release
+          fi

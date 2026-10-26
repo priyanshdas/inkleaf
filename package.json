@@ -1,7 +1,7 @@
 {
   "name": "inkleaf",
   "productName": "Inkleaf",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "A free, open-source, offline PDF editor: edit text, annotate, sign, fill and build forms, OCR, compress, compare and convert.",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/priyanshdas/inkleaf",
@@ -20,7 +20,6 @@
     "build:core": "node scripts/build.mjs --core",
     "start": "node scripts/build.mjs && electron .",
     "dev": "node scripts/build.mjs --watch",
-    "generate:icons": "node scripts/generate-icons.mjs",
     "typecheck": "tsc --noEmit -p .",
     "i18n": "node scripts/i18n.mjs",
     "test": "node scripts/build.mjs && node tests/smoke.mjs",
@@ -120,7 +119,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "artifactName": "${productName} Setup ${version}.${ext}",
+      "artifactName": "${productName}-Setup.${ext}",
       "license": "build/installer-terms.txt"
     },
     "mac": {
@@ -142,7 +141,7 @@
       ],
       "category": "public.app-category.productivity",
       "icon": "build/icon.png",
-      "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+      "artifactName": "${productName}-mac-${arch}.${ext}",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
@@ -177,7 +176,7 @@
       "category": "Office",
       "icon": "build/icon.png",
       "executableName": "inkleaf",
-      "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
+      "artifactName": "${productName}-linux-${arch}.${ext}",
       "synopsis": "Free, open-source PDF editor",
       "description": "Edit, sign, fill, convert and organise PDFs. Everything happens on your computer.",
       "maintainer": "Priyansh Das <75964362+priyanshdas@users.noreply.github.com>",
@@ -202,7 +201,7 @@
       "onlyLoadAppFromAsar": true
     },
     "portable": {
-      "artifactName": "${productName} ${version} Portable.${ext}"
+      "artifactName": "${productName}-Portable.${ext}"
     },
     "extraResources": [
       {
@@ -224,13 +223,16 @@
     ],
     "dmg": {
       "sign": false,
-      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+      "artifactName": "${productName}-mac-${arch}.${ext}"
     },
     "deb": {
-      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+      "artifactName": "${productName}-linux-${arch}.${ext}"
     },
     "rpm": {
-      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+      "artifactName": "${productName}-linux-${arch}.${ext}"
+    },
+    "releaseInfo": {
+      "releaseNotes": "Download the right file for your computer:\n\n- **Windows:** `Inkleaf-Setup.exe` (or `Inkleaf-Portable.exe`, no install needed)\n- **Mac:** coming soon\n- **Ubuntu, Debian, Mint:** `Inkleaf-linux-amd64.deb`\n- **Fedora, openSUSE:** `Inkleaf-linux-x86_64.rpm`\n- **Any other Linux:** `Inkleaf-linux-x86_64.AppImage` (ARM: the `arm64` files)\n\nWhat's new: https://github.com/priyanshdas/inkleaf#readme\n\n**Code signing policy:** https://priyanshdas.github.io/inkleaf/#code-signing"
     }
   },
   "desktopName": "inkleaf.desktop",
