@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Inkleaf talks to the user's own computer on the local network (the phone
+  link, and AI models running on that computer) over plain HTTP. The link's
+  messages are encrypted by Inkleaf itself. Everything on the internet still
+  has to use HTTPS: the app never sends a key or a document to a public
+  address over plain HTTP (see checkServerUrl in src/shared/ai-providers.ts).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

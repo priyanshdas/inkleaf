@@ -1,6 +1,7 @@
 node_modules/
-app/
-dist/
+# the desktop app's compiled files (only at the top level: mobile/android/app is source code)
+/app/
+/dist/
 core/target/
 src/renderer/generated/
 *.log
@@ -25,7 +26,6 @@ mobile/ios/DerivedData/
 
 # editor settings (Android Studio, IntelliJ, VS Code) stay on your own computer
 .idea/
-mobile/android/.idea/
 *.iml
 .vscode/
 mobile/android/.kotlin/

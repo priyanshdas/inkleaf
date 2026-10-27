@@ -1,0 +1,86 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+// One version for every Inkleaf: read it from package.json, so the phone app
+// always matches the desktop release it ships with. 3.0.0 -> versionCode 30000.
+def inkleafVersion = new groovy.json.JsonSlurper().parse(file('../../../package.json')).version
+def (major, minor, patch) = inkleafVersion.tokenize('.-')*.toInteger()
+
+// Release signing comes from the environment (the release workflow writes the
+// keystore from a secret). Without it, release builds are simply unsigned.
+def keystore = System.getenv('INKLEAF_KEYSTORE_FILE')
+
+android {
+    namespace = "io.github.priyanshdas.inkleaf"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "io.github.priyanshdas.inkleaf"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode major * 10000 + minor * 100 + patch
+        versionName inkleafVersion
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (keystore && file(keystore).exists()) {
+            release {
+                storeFile file(keystore)
+                storePassword System.getenv('INKLEAF_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('INKLEAF_KEY_ALIAS')
+                keyPassword System.getenv('INKLEAF_KEY_PASSWORD')
+            }
+        }
+    }
+    buildFeatures { compose = true }
+    testOptions { unitTests.includeAndroidResources = true }
+    buildTypes {
+        release {
+            if (keystore && file(keystore).exists()) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    // the phone screens (Kotlin + Compose), and the coroutines that talk to the editor engine
+    implementation project(':ui')
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
+    testImplementation "junit:junit:$junitVersion"
+    testImplementation 'org.robolectric:robolectric:4.17'
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+// compile for Java 21 with whichever JDK runs Gradle (Android Studio's own, or CI's), rather than
+// asking Gradle to find or download a separate one
+kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 } }
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
