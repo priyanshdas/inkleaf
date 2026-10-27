@@ -1345,7 +1345,11 @@ async function aiProvidersTest() {
 // checks the computer against the published protocol rather than against itself.
 async function linkTest() {
   console.log('Phone link (the test plays the phone)');
-  const { app, win, errors, profile } = await launch(path.join(fixtures, 'sample.pdf'), { env: { INKLEAF_TEST_LINK_HOSTS: '127.0.0.1' } });
+  // like the AI keys test: test machines have no keychain, so stand one in (see main.ts)
+  const { app, win, errors, profile } = await launch(path.join(fixtures, 'sample.pdf'), {
+    env: { INKLEAF_TEST_LINK_HOSTS: '127.0.0.1', INKLEAF_TEST_PLAIN_KEYS: '1' },
+    args: ['--password-store=basic'],
+  });
   await waitForPages(win);
   const { subtle } = globalThis.crypto;
   const fromB64 = (t) => new Uint8Array(Buffer.from(t.replace(/-/g, '+').replace(/_/g, '/'), 'base64'));
