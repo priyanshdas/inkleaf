@@ -1,8 +1,9 @@
 # Inkleaf
 
 A free, open-source PDF editor for Windows, macOS, Linux and Android that
-works entirely offline. Open a PDF, change it, save it. Nothing is uploaded
-anywhere, there are no accounts, and every tool is free. Built by EPD.
+works entirely offline. Open a PDF, change it, save it. Your files stay on
+your computer unless you choose to send one, there are no accounts, and
+every tool is free. Built by EPD.
 
 [![CI](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml/badge.svg)](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml)
 [![Licence: GPL-3.0-or-later](https://img.shields.io/badge/licence-GPL--3.0--or--later-2b7356)](LICENSE)
@@ -37,6 +38,9 @@ If one of them already does what you need, it's a fine choice.
 - **Annotate.** Pen, highlighter, rectangles, ellipses, lines, arrows, text
   boxes, white-out and images. Everything can be selected, moved, resized,
   restyled, copied and deleted.
+- **Select and copy text.** With the Select tool, drag across the PDF's own
+  words to select them and press Ctrl+C (⌘C) to copy. Double-click picks a
+  single word. Anything you've added on top still moves as usual.
 - **Sign.** Draw, type or upload a signature (with optional white-background
   removal for photos of paper signatures). Saved signatures can be reused.
   Signature fields in a PDF are clickable.
@@ -144,7 +148,6 @@ If one of them already does what you need, it's a fine choice.
   (Tools › Connect a Phone), then send PDFs either way with one tap. Files go
   straight between the two over your Wi-Fi, encrypted (AES-256-GCM); there's
   no cloud and no account.
-- Updates itself (installed version) when a new release is published.
 - **Share securely.** Lock a copy so only the right person can open it:
   with a strong generated code (it opens in any PDF app), or to one
   person's computer (it opens only in Inkleaf there, so there's no code to
@@ -160,6 +163,7 @@ If one of them already does what you need, it's a fine choice.
   Linux it's set straight away; Windows only lets you choose that yourself,
   so Inkleaf opens Settings on its own entry for you to confirm. The
   portable version and the AppImage aren't installed, so they don't offer it.
+- Updates itself (installed version) when a new release is published.
 - Unlimited undo, light and dark mode, keyboard shortcuts for every tool
   (press Ctrl+/ or ⌘/ to see them).
 
@@ -387,9 +391,11 @@ src/main/        Electron main process: windows, menus, file access, the phone l
 src/renderer/    the editor UI (TypeScript, no framework), shared by desktop and phone
 src/mobile/      the phone side: Capacitor bridge, phone end of the link
 mobile/android/ui/  the Android app's native screens (Kotlin + Compose)
-src/shared/      code both sides use: the API types, AI services, the link protocol
+src/shared/      code both sides use: the API types, AI services, the link protocol, locking and pickup codes
 mobile/android/  the Android project: the app around the screens and the engine, plus Java for saving, printing and opening files
 core/            Rust PDF core, compiled to WebAssembly
+relay/           the small Vercel service that holds pickup files until they're collected
+website/         the project website, including the browser download page for pickup codes (website/get)
 tests/           fixtures and the end-to-end test
 scripts/         build scripts
 ```
@@ -402,11 +408,31 @@ be replayed. The phone keeps one request open while Inkleaf is on screen, so
 files sent from the computer arrive straight away. See
 `src/shared/link-protocol.ts`.
 
+Share securely, in two parts (`src/shared/lock.ts` and `src/shared/pickup.ts`):
+
+- **Locking.** "Anyone with the code" makes a 20-character code (100 bits)
+  and uses it as the password of an ordinary AES-256 PDF, so any PDF app
+  can open it. "One person's device" gives each computer a key pair (X25519),
+  with the private half kept in the system keychain through Electron's
+  `safeStorage`. Its public half is the receive code. A file locked for that
+  code is sealed with AES-256-GCM under a key agreed with it, and wrapped in
+  a one-page PDF that explains what it is to other apps.
+- **Pickup codes.** A 24-character code: the first 7 characters name the
+  file, and the other 17 are the secret. The key, and a token for deleting
+  the file, are derived from that secret, so the relay only ever sees
+  encrypted bytes and never the code. While Inkleaf is open, the sender
+  also serves the file on the local network; the receiver looks for it
+  there first (UDP port 47733), then falls back to the relay. The relay
+  keeps a file until it's picked up or for 7 days at most, up to 100 MB.
+  `relay/README.md` covers deploying your own and pointing Inkleaf at it.
+
 The renderer never touches the file system. It asks the main process to open
 and save files through a small API (`src/shared/api.ts`), and the main process
 only lets a window overwrite files that window opened or picked in Save As.
 
-Rendering uses [pdf.js](https://mozilla.github.io/pdf.js/). Saving uses
+Rendering uses [pdf.js](https://mozilla.github.io/pdf.js/), and its text
+layer lies invisibly over each page so the Select tool can select the PDF's
+own words (`src/renderer/text-select.ts`). Saving uses
 [pdf-lib](https://pdf-lib.js.org) to draw annotations, fill forms and rearrange
 pages. The Rust core (built on [lopdf](https://github.com/J-F-Liu/lopdf)) does
 the parts pdf-lib can't:
@@ -474,6 +500,14 @@ Things that keep it fast, worth preserving when changing the viewer:
   first; after that Find, copy and Edit text work on them. Edited words on a
   scan are covered and retyped; the picture underneath isn't changed, and
   Redact on a scan covers the area rather than removing pixels.
+- **Share securely** is in the desktop app only for now; the phone app
+  can't lock, send or receive files this way yet. Files sent through the
+  relay can be up to 100 MB and wait 7 days at most. A file locked to one
+  person's computer won't open after that computer is reset or replaced, so
+  they'll need a new copy.
+- **Selecting text** works on the words in the PDF. Pictures and drawings
+  that were already in the file can't be selected or moved, only things
+  you've added.
 - **Compare** works on the words. Pictures, colours and layout changes aren't
   reported.
 - **PDF to Word, Markdown and HTML** rebuild paragraphs and headings from
@@ -544,7 +578,8 @@ merged.
 
 **Privacy.** Inkleaf doesn't send any information to other networked
 systems unless you ask it to: when you use the AI tools, Web page to PDF,
-download a language pack or check for updates. See the
+send or receive a file with a pickup code, download a language pack or
+check for updates. See the
 [Privacy Policy](PRIVACY.md) for exactly what is sent, and to whom.
 
 ## Terms and privacy
