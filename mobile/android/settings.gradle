@@ -1,0 +1,7 @@
+include ':app'
+// the native phone screens (Kotlin + Jetpack Compose), kept apart so they can be previewed and tested on their own
+include ':ui'
+include ':capacitor-cordova-android-plugins'
+project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
+
+apply from: 'capacitor.settings.gradle'

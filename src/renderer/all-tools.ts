@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // "All tools": every tool in one place, grouped by what you're trying to do.
 
+import { isMobile, supports } from '../shared/platform';
 import { t, msg } from '../shared/i18n';
 import { h, icon, modal } from './ui';
 
@@ -11,6 +12,8 @@ export interface HubTool {
   command: string;
   /** Works without a document open (it opens or makes one itself). */
   standalone?: boolean;
+  /** A different name in the phone apps. */
+  mobileTitle?: string;
   /** Uses the internet (shown with a small badge). */
   online?: boolean;
 }
@@ -24,6 +27,7 @@ export const HUB: { group: string; tools: HubTool[] }[] = [
       { title: msg('Remove pages'), detail: msg('Delete the pages you’ve selected.'), icon: 'file-minus', command: 'delete-pages' },
       { title: msg('Extract pages'), detail: msg('Save some pages as a new PDF.'), icon: 'file-output', command: 'extract' },
       { title: msg('Organize PDF'), detail: msg('Drag pages into a new order.'), icon: 'layout-grid', command: 'organize' },
+      { title: msg('Send to phone'), mobileTitle: msg('Send to computer'), detail: msg('Over your Wi-Fi, encrypted. No cloud.'), icon: 'smartphone', command: 'link-send' },
       { title: msg('Scan to PDF'), detail: msg('Use your camera or phone photos.'), icon: 'scan-line', command: 'scan-to-pdf', standalone: true },
     ],
   },
@@ -33,6 +37,7 @@ export const HUB: { group: string; tools: HubTool[] }[] = [
       { title: msg('Compress PDF'), detail: msg('Make the file smaller.'), icon: 'file-archive', command: 'compress' },
       { title: msg('Repair PDF'), detail: msg('Rescue a damaged file.'), icon: 'wrench', command: 'repair', standalone: true },
       { title: msg('OCR PDF'), detail: msg('Make scanned text searchable.'), icon: 'scan-text', command: 'ocr' },
+      { title: msg('Enhance PDF'), detail: msg('Sharper, clearer scans and faded pages.'), icon: 'contrast', command: 'enhance' },
     ],
   },
   {
@@ -92,9 +97,9 @@ export async function allTools(hasDoc: boolean): Promise<HubTool | null> {
   let close: () => void = () => {};
   const search = h('input', { class: 'field-input hub-search', type: 'search', placeholder: t('Find a tool…'), autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
   const groups = HUB.map(({ group, tools }) => {
-    const cards = tools.map((tool) => {
+    const cards = tools.filter((tool) => supports(tool.command)).map((tool) => {
       const needsDoc = !tool.standalone && !hasDoc;
-      const title = t(tool.title), detail = t(tool.detail);
+      const title = t(isMobile() && tool.mobileTitle ? tool.mobileTitle : tool.title), detail = t(tool.detail);
       const card = h('button', { class: 'hub-tool', 'data-hub': tool.command, title: needsDoc ? t('{detail} (opens a PDF first)', { detail }) : detail },
         h('span', { class: 'hub-icon' }, icon(tool.icon)),
         h('span', { class: 'hub-text' }, h('strong', {}, title), h('span', {}, detail)),

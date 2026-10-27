@@ -1340,10 +1340,188 @@ async function aiProvidersTest() {
   await quit(old.app, old.win);
 }
 
+// --- phone ↔ computer link ---------------------------------------------------------------------
+// Plays the phone's part with its own copy of the protocol (HKDF-SHA256 → AES-256-GCM), so this
+// checks the computer against the published protocol rather than against itself.
+async function linkTest() {
+  console.log('Phone link (the test plays the phone)');
+  const { app, win, errors, profile } = await launch(path.join(fixtures, 'sample.pdf'), { env: { INKLEAF_TEST_LINK_HOSTS: '127.0.0.1' } });
+  await waitForPages(win);
+  const { subtle } = globalThis.crypto;
+  const fromB64 = (t) => new Uint8Array(Buffer.from(t.replace(/-/g, '+').replace(/_/g, '/'), 'base64'));
+  const toB64 = (b) => Buffer.from(b).toString('base64');
+
+  const pairing = await win.evaluate(() => window.inkleaf.linkPair());
+  const code = JSON.parse(Buffer.from(/^inkleaf-link:1:(.+)$/.exec(pairing.code)[1], 'base64url').toString());
+  check('the QR code carries the computer’s address, port and a 256-bit key', code.h.includes('127.0.0.1') && code.p === pairing.port && fromB64(code.k).length === 32);
+
+  const key = await subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: new TextEncoder().encode('inkleaf-link'), info: new TextEncoder().encode('v1') },
+    await subtle.importKey('raw', fromB64(code.k), 'HKDF', false, ['deriveKey']),
+    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  const seal = async (message) => {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plain = new TextEncoder().encode(JSON.stringify({ ...message, at: Date.now(), nonce: toB64(crypto.getRandomValues(new Uint8Array(12))) }));
+    return { iv: toB64(iv), data: toB64(new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv }, key, plain))) };
+  };
+  const unseal = async (env) => JSON.parse(new TextDecoder().decode(await subtle.decrypt({ name: 'AES-GCM', iv: fromB64(env.iv) }, key, fromB64(env.data))));
+  const url = `http://127.0.0.1:${code.p}/inkleaf-link/v1`;
+  const post = (body) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const phoneId = 'test-phone-1';
+
+  const paired = await post(await seal({ type: 'pair', id: phoneId, name: 'Test Phone' }));
+  const pairReply = paired.status === 200 ? await unseal(await paired.json()) : null;
+  check('pairing with the code works, and the reply is encrypted with the same key', pairReply?.ok === true);
+  const status = await win.evaluate(() => window.inkleaf.linkStatus());
+  check('the computer lists the phone', status.devices.some((d) => d.id === phoneId && d.name === 'Test Phone' && d.online));
+
+  // things an eavesdropper on the same Wi-Fi might try
+  const envelope = await seal({ type: 'hello', id: phoneId });
+  check('a normal message is accepted', (await post({ ...envelope, from: phoneId })).status === 200);
+  check('the same message sent again (a replay) is refused', (await post({ ...envelope, from: phoneId })).status === 403);
+  const tampered = await seal({ type: 'hello', id: phoneId });
+  const bytes = fromB64(tampered.data); bytes[3] ^= 1;
+  check('a changed message is refused', (await post({ iv: tampered.iv, data: toB64(bytes), from: phoneId })).status === 403);
+  check('a message from an unpaired device is refused', (await post({ ...(await seal({ type: 'hello', id: 'stranger' })), from: 'stranger' })).status === 403);
+  const old = new TextEncoder().encode(JSON.stringify({ type: 'hello', id: phoneId, at: Date.now() - 10 * 60 * 1000, nonce: 'old-one' }));
+  const oldIv = crypto.getRandomValues(new Uint8Array(12));
+  const stale = { iv: toB64(oldIv), data: toB64(new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv: oldIv }, key, old))) };
+  check('a message from ten minutes ago is refused', (await post({ ...stale, from: phoneId })).status === 403);
+  check('the pairing code can’t be used a second time', (await post(await seal({ type: 'pair', id: 'second-phone', name: 'Another' }))).status === 403);
+
+  // phone → computer
+  const pdf = fs.readFileSync(path.join(fixtures, 'sample.pdf'));
+  const tabsBefore = await win.evaluate(() => window.__inkleaf.allDocs().length);
+  const sent = await post({ ...(await seal({ type: 'send', id: phoneId, name: 'From phone.pdf', data: toB64(pdf) })), from: phoneId });
+  check('a PDF sent from the phone is accepted', sent.status === 200 && (await unseal(await sent.json())).ok === true);
+  await win.waitForFunction((n) => window.__inkleaf.allDocs().length > n, tabsBefore, { timeout: 10000 }).catch(() => {});
+  const names = await win.evaluate(() => window.__inkleaf.allDocs().map((d) => d.name));
+  check('it opens in a new tab on the computer', names.includes('From phone.pdf'), names.join(', '));
+
+  // computer → phone, through the phone's waiting request
+  const waiting = post({ ...(await seal({ type: 'poll', id: phoneId })), from: phoneId });
+  await win.waitForTimeout(300);
+  await win.evaluate(([id, data]) => window.inkleaf.linkSend(id, 'For the phone.pdf', new Uint8Array(data)), [phoneId, [...pdf]]);
+  const polled = await waiting;
+  const delivered = polled.status === 200 ? await unseal(await polled.json()) : null;
+  const file = delivered?.files?.[0];
+  check('a PDF sent from the computer arrives on the waiting phone at once', file?.name === 'For the phone.pdf' && Buffer.from(fromB64(file.data)).equals(pdf));
+
+  // nothing secret lies around in plain text
+  const stored = fs.readFileSync(path.join(profile, 'link.json'), 'utf8');
+  check('the pairing key isn’t stored in plain text', !stored.includes(code.k));
+
+  // removing the phone on the computer
+  const pending = post({ ...(await seal({ type: 'poll', id: phoneId })), from: phoneId });
+  await win.waitForTimeout(300);
+  await win.evaluate((id) => window.inkleaf.linkForget(id), phoneId);
+  check('a removed phone is told so straight away', (await pending).status === 403);
+  await win.waitForTimeout(1500);
+  check('…and the computer stops listening on the network', await post({}).then(() => false, () => true));
+
+  check('no errors in the renderer', errors.length === 0, errors.join(' | '));
+  await quit(app, win);
+}
+
+// --- enhance pages ---------------------------------------------------------------------------------
+async function enhanceTest() {
+  console.log('Enhance pages');
+  const { app, win, errors } = await launch(path.join(fixtures, 'faded.pdf'));
+  await waitForPages(win);
+  // paper and ink tones of a picture: the median brightness and the darkest 0.2%
+  const tones = (file) => JSON.parse(py(`
+import sys, json
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('L')
+px = sorted(im.get_flattened_data() if hasattr(im, 'get_flattened_data') else im.getdata())
+print(json.dumps({'paper': px[len(px) // 2], 'ink': px[len(px) // 500]}))`, file));
+  const shoot = async (name) => {
+    const file = path.join(out, name);
+    await (await win.$('.page')).screenshot({ path: file });
+    return tones(file);
+  };
+
+  const before = await shoot('enhance-before.png');
+  await win.evaluate(() => window.__inkleaf.run('enhance'));
+  await win.waitForSelector('.enhance-panel');
+  check('the Enhance panel opens', true);
+  // Auto is on as soon as it opens; pick the Scan preset
+  await win.click('.enhance-presets .chip:nth-child(2)');
+  await win.waitForTimeout(600);
+  const filter = await win.evaluate(() => getComputedStyle(document.querySelector('.page-base, .page-preview')).filter);
+  check('pages get a filter', filter.includes('url('), filter);
+  const marksFilter = await win.evaluate(() => getComputedStyle(document.querySelector('.page-marks')).filter);
+  check('marks on top are left alone', marksFilter === 'none', marksFilter);
+  const after = await shoot('enhance-after.png');
+  check('the paper turns (nearly) white on screen', after.paper >= 245 && before.paper < 215, `${before.paper} → ${after.paper}`);
+  check('the text gets darker against it', after.paper - after.ink > (before.paper - before.ink) + 60, `ink ${before.ink} → ${after.ink}`);
+  check('the toolbar button shows it’s on', await win.evaluate(() => document.getElementById('enhance-toggle').getAttribute('aria-pressed')) === 'true');
+  check('the document itself is unchanged', await win.evaluate(() => !window.__inkleaf.getDoc().dirty));
+
+  // night reading: dark page, light text
+  await win.click('.enhance-presets .chip:nth-child(5)');
+  await win.waitForTimeout(600);
+  const night = await shoot('enhance-night.png');
+  check('night reading darkens the page', night.paper < 40, `paper ${night.paper}`);
+
+  // turning it off brings the page back
+  await win.click('.enhance-foot .btn:not(.primary)');
+  await win.waitForTimeout(600);
+  const reset = await shoot('enhance-reset.png');
+  check('Reset shows the page as it was', Math.abs(reset.paper - before.paper) <= 3, `${before.paper} vs ${reset.paper}`);
+
+  // an enhanced copy, in a new tab; the original keeps its pages as they were
+  await win.click('.enhance-presets .chip:nth-child(2)');
+  await win.waitForTimeout(300);
+  await win.click('.enhance-foot .btn.primary');
+  await win.waitForSelector('.modal-backdrop.show', { timeout: 60000 });
+  check('it offers to recognise the text afterwards', /Recognise/i.test(await win.textContent('.modal-backdrop.show')));
+  await win.click('.modal-backdrop.show .modal-actions button:not(.primary)');
+  await win.waitForTimeout(400);
+  const docs = await win.evaluate(() => window.__inkleaf.allDocs().map((d) => ({ name: d.name, pages: d.pages.length })));
+  check('the copy opens in a new tab', docs.length === 2 && docs[1].name === 'faded (enhanced).pdf', JSON.stringify(docs));
+  check('with every page', docs[1]?.pages === 2);
+  const copy = path.join(out, 'faded-enhanced.pdf');
+  fs.writeFileSync(copy, Buffer.from(await win.evaluate(async () => [...(await window.__inkleaf.exportPdf(window.__inkleaf.getDoc())).bytes])));
+  execFileSync('pdftoppm', ['-r', '100', '-png', '-f', '1', '-l', '1', copy, path.join(out, 'copy')]);
+  const saved = tones(path.join(out, fs.readdirSync(out).find((f) => f.startsWith('copy') && f.endsWith('.png'))));
+  check('the saved copy has white paper and dark text', saved.paper >= 240 && saved.ink < 80, JSON.stringify(saved));
+  check('same page size as the original', py(`
+import sys
+from pypdf import PdfReader
+a, b = PdfReader(sys.argv[1]).pages[0].mediabox, PdfReader(sys.argv[2]).pages[0].mediabox
+print(abs(float(a.width) - float(b.width)) < 0.5 and abs(float(a.height) - float(b.height)) < 0.5)`, path.join(fixtures, 'faded.pdf'), copy) === 'True');
+
+  // each tab has its own setting: the original still shows enhanced, the copy doesn't
+  check('the new tab starts without the filter', await win.evaluate(() => !document.documentElement.classList.contains('enhanced')));
+  check('no errors in the renderer', errors.length === 0, errors.join(' | '));
+  await quit(app, win);
+
+  // a clean, born-digital PDF: Auto shouldn't wash it out or change its colours
+  const clean = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(clean.win);
+  const plain = path.join(out, 'clean-before.png');
+  await (await clean.win.$('.page')).screenshot({ path: plain });
+  await clean.win.evaluate(() => window.__inkleaf.run('enhance'));
+  await clean.win.waitForSelector('.enhance-panel');
+  await clean.win.waitForTimeout(600);
+  const auto = path.join(out, 'clean-auto.png');
+  await (await clean.win.$('.page')).screenshot({ path: auto });
+  const diff = py(`
+import sys
+from PIL import Image, ImageChops
+a, b = Image.open(sys.argv[1]).convert('RGB'), Image.open(sys.argv[2]).convert('RGB')
+d = ImageChops.difference(a, b).convert('L')
+px = sorted(d.get_flattened_data() if hasattr(d, 'get_flattened_data') else d.getdata())
+print(px[len(px) // 2])`, plain, auto);
+  check('Auto leaves a clean page’s paper and colours alone', Number(diff) <= 2, `median change ${diff}`);
+  await quit(clean.app, clean.win);
+}
+
 // ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

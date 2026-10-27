@@ -9,3 +9,24 @@ keys/
 tests/bench/big.pdf
 build/installer-terms.txt
 build/license_en.txt
+
+# phone apps: generated web files and native build output
+mobile/www/
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/local.properties
+mobile/android/app/src/main/assets/public/
+mobile/ios/App/build/
+mobile/ios/App/App/public/
+mobile/ios/DerivedData/
+*.keystore
+*.jks
+
+# editor settings (Android Studio, IntelliJ, VS Code) stay on your own computer
+.idea/
+mobile/android/.idea/
+*.iml
+.vscode/
+mobile/android/.kotlin/
+mobile/android/ui/build/

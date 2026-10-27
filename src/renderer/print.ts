@@ -15,6 +15,11 @@ const MAX_SIDE = 4200;
 export async function printDocument(doc: EditorDoc, progress: (done: number, total: number) => void): Promise<void> {
   const { exportPdf } = await import('./exporter');
   const { bytes } = await exportPdf(doc);
+  // phones print the PDF itself, which is sharper and lighter than pictures of the pages
+  if (window.inkleaf.printPdf) {
+    progress(1, 1);
+    return window.inkleaf.printPdf(doc.name, bytes);
+  }
   const pdf = await loadPdf(bytes);
   const root = document.createElement('div');
   root.id = 'print-root';

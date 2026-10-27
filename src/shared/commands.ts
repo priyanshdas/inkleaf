@@ -4,6 +4,7 @@
 // page itself handles the shortcuts (there's no native menu bar there).
 
 import { msg } from './i18n';
+import { isMobile } from './platform';
 import type { MenuCommand } from './api';
 
 export type WindowCommand = 'new-window' | 'quit' | 'fullscreen' | 'devtools';
@@ -11,6 +12,8 @@ export type AppCommand = MenuCommand | WindowCommand;
 
 export interface MenuItemSpec {
   label: string;
+  /** A different label in the phone apps. */
+  mobileLabel?: string;
   command: AppCommand;
   /** Shortcut, written with Mod for Cmd on macOS and Ctrl elsewhere. */
   key?: string;
@@ -38,6 +41,10 @@ export const MENU: MenuSection[] = [
       { label: msg('Save'), command: 'save', key: 'Mod+S' },
       { label: msg('Save As…'), command: 'save-as', key: 'Mod+Shift+S' },
       { label: msg('Print…'), command: 'print', key: 'Mod+P' },
+      { label: msg('Share…'), command: 'share' },
+      'separator',
+      { label: msg('Send to Phone…'), mobileLabel: msg('Send to Computer…'), command: 'link-send' },
+      { label: msg('Connect a Phone…'), mobileLabel: msg('Connect to a Computer…'), command: 'link-pair' },
       'separator',
       { label: msg('Auto Save'), command: 'toggle-autosave' },
       { label: msg('Open Backups Folder'), command: 'open-backups' },
@@ -75,6 +82,8 @@ export const MENU: MenuSection[] = [
       { label: msg('Continuous Scroll'), command: 'mode-continuous' },
       { label: msg('Two Pages Side by Side'), command: 'mode-spread' },
       { label: msg('One Page at a Time'), command: 'mode-single' },
+      'separator',
+      { label: msg('Enhance Pages…'), command: 'enhance', key: 'Mod+Shift+E' },
       'separator',
       { label: msg('Show or Hide Pages'), command: 'toggle-sidebar', key: 'Mod+B' },
       { label: msg('Show Bookmarks'), command: 'show-bookmarks' },
@@ -156,6 +165,8 @@ export function shortcutFor(item: MenuItemSpec, mac: boolean): string | undefine
 
 /** "Mod+Shift+S" → "Ctrl+Shift+S" or "⌘⇧S", for showing in menus. */
 export function displayShortcut(key: string, mac: boolean): string {
+  // phones have no keyboard shortcuts to show
+  if (isMobile()) return '';
   if (!mac) return key.replace(/Mod/g, 'Ctrl');
   const symbols: Record<string, string> = { Mod: '⌘', Ctrl: '⌃', Shift: '⇧', Alt: '⌥', Tab: '⇥' };
   return key.split('+').map((part) => symbols[part] ?? part).join('');

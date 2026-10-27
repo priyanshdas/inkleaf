@@ -13,6 +13,7 @@ import { CONVERTIBLE } from '../shared/api';
 import { findOffice, htmlToPdf, officeToPdf, urlToPdf } from './convert';
 import { ensurePacks, packPath, packStatus, removePacks } from './packs';
 import { aiStatus, ask, listModels, removeKey, saveConfig } from './ai';
+import { forget as forgetDevice, linkStatus, sendToDevice, startLink, startPairing } from './link';
 import { checkForUpdates, installUpdate, startUpdates } from './updates';
 
 // Lets tests run with a clean profile. Ignored in packaged builds.
@@ -288,6 +289,18 @@ async function readPdf(filePath: string): Promise<OpenedFile> {
   return { path: resolved, name: path.basename(resolved), data: new Uint8Array(data) };
 }
 
+/** A file sent from a paired phone: opens as a new, unsaved tab in the last window used. */
+function openFromPhone(file: OpenedFile) {
+  const focused = BrowserWindow.getFocusedWindow();
+  const target = (focused && windows.get(focused.webContents.id)) ?? [...windows.values()].find((c) => !c.win.isDestroyed());
+  if (target) {
+    deliver(target, file);
+    target.win.flashFrame(!target.win.isFocused());
+  } else {
+    createWindow(file);
+  }
+}
+
 /** Opens a file from the OS (double-click, command line, dock). */
 async function openFromSystem(filePath: string) {
   let file: OpenedFile;
@@ -460,6 +473,13 @@ function registerIpc() {
   ipcMain.handle('convert:html', (_event, html: string, page) => htmlToPdf(String(html), page ?? {}));
   ipcMain.handle('convert:url', (_event, address: string) => urlToPdf(String(address)));
 
+  ipcMain.handle('link:status', () => linkStatus());
+  ipcMain.handle('link:pair', () => startPairing());
+  ipcMain.handle('link:send', (_event, id: unknown, name: unknown, data: unknown) => {
+    if (typeof id !== 'string' || typeof name !== 'string' || !(data instanceof Uint8Array)) throw new Error(t('Bad request.'));
+    sendToDevice(id, name, data);
+  });
+  ipcMain.handle('link:forget', (_event, id: unknown) => forgetDevice(String(id)));
   ipcMain.handle('ai:status', () => aiStatus());
   ipcMain.handle('ai:save', (_event, config) => saveConfig(config ?? {}));
   ipcMain.handle('ai:models', (_event, config) => listModels(config ?? {}));
@@ -768,6 +788,13 @@ if (!app.requestSingleInstanceLock()) {
     nativeTheme.on('updated', () => applyTheme(nativeTheme.themeSource as ThemeSetting));
     registerIpc();
     buildMenu((command, win) => runWindowCommand(command, win));
+
+    startLink({
+      onEvent: (event) => {
+        for (const ctx of windows.values()) if (!ctx.win.isDestroyed()) ctx.win.webContents.send('link:event', event);
+      },
+      onFile: (file) => openFromPhone({ path: null, name: file.name, data: file.data }),
+    });
 
     startUpdates((state) => {
       for (const ctx of windows.values()) if (!ctx.win.isDestroyed()) ctx.win.webContents.send('update', state);

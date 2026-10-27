@@ -10,6 +10,7 @@ import { printDocument } from './print';
 import { compressDialog, decorDialog, imagesToPdf, pdfToImages, protectDialog, ToolHost } from './tools';
 import { NO_DECOR } from './document';
 import { DONATE_URL, ISSUES_URL, REPO_URL } from '../shared/config';
+import { isMobile, supports } from '../shared/platform';
 import { AutoSave, SaveState } from './autosave';
 import type { Box } from './types';
 import type { ReadingMode } from './viewer';
@@ -27,7 +28,8 @@ import {
 import { chooseSignature, signMenu } from './signature';
 import { Thumbnails } from './thumbnails';
 import type { ImageAnnot, Tool } from './types';
-import { confirmDialog, h, hydrateIcons, icon, localizeStatic, isModalOpen, liveStatus, modal, pickImage, richText, toast } from './ui';
+import { confirmDialog, h, hydrateIcons, icon, localizeStatic, isModalOpen, liveStatus, modal, pickImage, richText, toast, toastHook } from './ui';
+import { EnhancedView, NEUTRAL, enhancePanel, enhancedCopy, isNeutral, type Enhance } from './enhance';
 import { Viewer } from './viewer';
 
 const api = window.inkleaf;
@@ -90,9 +92,13 @@ onFontsChanged(() => {
 
 // --- busy indicator -------------------------------------------------------------
 
+/** Engine mode (Android): told about changes so the native screens can follow. */
+let engine: typeof import('./engine') | null = null;
+
 let busyTimer = 0;
 function busy(message: string | false) {
   clearTimeout(busyTimer);
+  engine?.setBusy(message || null);
   const el = $('#busy');
   if (message === false) {
     el.hidden = true;
@@ -115,6 +121,7 @@ async function withBusy<T>(message: string, work: () => Promise<T>): Promise<T> 
 /** Updates the busy indicator's message while long work runs. */
 function progress(message: string) {
   $('#busy-text').textContent = message;
+  engine?.setBusy(message);
 }
 
 // --- auto-save ------------------------------------------------------------------
@@ -151,7 +158,7 @@ function updateSaveState() {
   const [iconName, label] = SAVE_LABELS[state];
   el.dataset.state = state;
   el.title = state === 'error' ? t('Auto-save failed: {message}', { message: autosave.error(doc) ?? '' })
-    : state === 'new' ? t('Save this document once (Ctrl+S) and Inkleaf will keep saving it for you')
+    : state === 'new' ? (isMobile() ? t('Save this document once and Inkleaf will keep saving it for you') : t('Save this document once (Ctrl+S) and Inkleaf will keep saving it for you'))
       : doc.wasProtected && autosave.enabled ? t('Auto-save is paused for protected PDFs: saving would remove the protection')
         : autosave.enabled ? t('Changes are saved automatically') : t('Auto-save is off');
   el.replaceChildren(icon(iconName), h('span', {}, t(label)));
@@ -257,6 +264,7 @@ function updateChrome() {
     dirtyCount: dirtyTabs.length,
     dirtyName: dirtyTabs[0]?.doc.name ?? '',
   });
+  engine?.notify();
 }
 
 function updatePager() {
@@ -315,6 +323,10 @@ function activate(tab: Tab | null) {
 
   activeTab = tab;
   doc = tab?.doc ?? null;
+  // each document has its own enhancement (or none)
+  closeEnhance();
+  enhanced.reset((doc && enhanceFor.get(doc)) ?? NEUTRAL);
+  updateEnhanceButton();
   // show the viewer before laying pages out, so positions can be measured
   $('#app').classList.toggle('no-doc', !doc);
   forms.reset();
@@ -509,9 +521,66 @@ async function saveAllBeforeClose(): Promise<boolean> {
 
 // --- signatures & images ---------------------------------------------------------
 
+// --- enhancing pages ---------------------------------------------------------------------------
+
+const enhanced = new EnhancedView(viewer);
+/** Each open document keeps its own enhancement. */
+const enhanceFor = new WeakMap<EditorDoc, Enhance>();
+let enhanceOpen: HTMLElement | null = null;
+
+function updateEnhanceButton() {
+  const button = document.getElementById('enhance-toggle');
+  button?.setAttribute('aria-pressed', String(enhanced.active || !!enhanceOpen));
+}
+
+function closeEnhance() {
+  enhanceOpen?.remove();
+  enhanceOpen = null;
+  updateEnhanceButton();
+}
+
+function toggleEnhance() {
+  if (enhanceOpen) return closeEnhance();
+  const target = doc!;
+  enhanceOpen = enhancePanel({
+    view: enhanced,
+    remember: (s) => {
+      if (isNeutral(s)) enhanceFor.delete(target);
+      else enhanceFor.set(target, s);
+      updateEnhanceButton();
+    },
+    saveCopy: (s) => void saveEnhancedCopy(target, s),
+    close: closeEnhance,
+  });
+  $('#workspace').append(enhanceOpen);
+  updateEnhanceButton();
+  enhanceOpen.querySelector<HTMLElement>('.chip')?.focus();
+}
+
+/** Bakes the enhancement into a new PDF, in a new tab; the original stays as it was. */
+async function saveEnhancedCopy(source: EditorDoc, s: Enhance) {
+  await tool(t('Couldn’t enhance this PDF'), async () => {
+    const bytes = await withBusy(t('Enhancing pages…'), async () => {
+      const { bytes: current } = await exportPdf(source);
+      return enhancedCopy(current, s, (done, total) => progress(t('Enhancing page {page} of {total}…', { page: Math.min(done + 1, total), total })));
+    });
+    const name = `${source.name.replace(/\.pdf$/i, '')} (enhanced).pdf`;
+    const opened = await EditorDoc.open(bytes, name, null);
+    opened.markUnsaved();
+    closeEnhance();
+    addTab(opened);
+    const ocr = await confirmDialog(
+      t('Enhanced copy ready'),
+      t('Its pages are now pictures, so their text can’t be searched or copied yet. Recognise the text now?'),
+      t('Recognise text'),
+    );
+    if (ocr) await tool(t('Text recognition didn’t work'), () => runOcr(opened));
+  });
+}
+
 async function startSign() {
   editor.setTool('select');
-  const picked = await signMenu($('#rail [data-tool="sign"]'));
+  const picked = await signMenu(api.engine ? engineAnchor() : $('#rail [data-tool="sign"]'));
   if (!picked || !doc) return;
   const asset = await doc.addAsset(picked.dataUrl);
   editor.startPlacement({ assetId: asset.id, width: picked.kind === 'initials' ? 60 : 150, then: 'sign' });
@@ -564,11 +633,11 @@ async function deletePages(ids: string[]) {
     toast(t('A PDF needs at least one page.'), 'error');
     return;
   }
-  if (ids.length > 1 && !(await confirmDialog(t('{count, plural, one {Delete # page?} other {Delete # pages?}}', { count: ids.length }), t('You can undo this with Ctrl+Z.'), t('Delete'), true))) return;
+  if (ids.length > 1 && !(await confirmDialog(t('{count, plural, one {Delete # page?} other {Delete # pages?}}', { count: ids.length }), isMobile() ? t('You can undo this.') : t('You can undo this with Ctrl+Z.'), t('Delete'), true))) return;
   const first = doc.pageIndex(ids[0]) + 1;
   doc.deletePages(ids);
   thumbs.selected.clear();
-  toast(ids.length === 1 ? t('Deleted page {page}. Press Ctrl+Z to undo.', { page: first }) : t('{count, plural, one {Deleted # page.} other {Deleted # pages.}}', { count: ids.length }));
+  toast(ids.length === 1 ? (isMobile() ? t('Deleted page {page}. Tap Undo to bring it back.', { page: first }) : t('Deleted page {page}. Press Ctrl+Z to undo.', { page: first })) : t('{count, plural, one {Deleted # page.} other {Deleted # pages.}}', { count: ids.length }));
 }
 
 thumbs.addEventListener('delete', (e) => deletePages((e as CustomEvent<string[]>).detail));
@@ -601,7 +670,7 @@ type Command = AppCommand | 'prev-page' | 'next-page';
 const NO_DOC_NEEDED = new Set<Command>([
   'new', 'open', 'about', 'shortcuts', 'close', 'close-tab', 'new-window', 'quit', 'fullscreen', 'devtools',
   'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
-  'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'language', 'terms', 'privacy',
+  'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'language', 'terms', 'privacy', 'link-pair',
 ]);
 
 /** Runs one of the bigger tools, turning failures into a readable dialog. */
@@ -616,6 +685,7 @@ async function tool(title: string, work: () => Promise<unknown>) {
 
 async function run(command: Command) {
   closeMenu();
+  if (!supports(command)) return;
   if (isModalOpen() && !['undo', 'redo', 'copy', 'cut', 'paste'].includes(command)) return;
   if (!NO_DOC_NEEDED.has(command) && !doc) return;
 
@@ -676,7 +746,12 @@ async function run(command: Command) {
     case 'toggle-inspector': {
       const cls = command === 'toggle-sidebar' ? 'sidebar-hidden' : 'inspector-hidden';
       const hidden = $('#app').classList.toggle(cls);
-      try { localStorage.setItem(`inkleaf.${cls}`, hidden ? '1' : ''); } catch { /* fine */ }
+      if (isMobile()) {
+        // on a phone the panels are drawers over the page: one at a time
+        if (!hidden) $('#app').classList.add(cls === 'sidebar-hidden' ? 'inspector-hidden' : 'sidebar-hidden');
+      } else {
+        try { localStorage.setItem(`inkleaf.${cls}`, hidden ? '1' : ''); } catch { /* fine */ }
+      }
       updatePanelButtons();
       viewer.layout();
       return;
@@ -718,6 +793,7 @@ async function run(command: Command) {
       }
       return;
     }
+    case 'enhance': return toggleEnhance();
     case 'compress': return tool(t('Couldn’t compress this PDF'), () => compressDialog(doc!, toolHost));
     case 'protect': return tool(t('Couldn’t protect this PDF'), () => protectDialog(doc!, toolHost));
     case 'decor': return tool(t('Couldn’t add that'), () => decorDialog(doc!));
@@ -738,6 +814,21 @@ async function run(command: Command) {
     case 'ai-summarize': return tool(t('Couldn’t summarize this PDF'), async () => (await aiTools()).summarize(doc!, aiHost));
     case 'ai-translate': return tool(t('Couldn’t translate this PDF'), async () => (await aiTools()).translate(doc!, aiHost));
     case 'all-tools': return tool(t('Something went wrong'), openAllTools);
+    case 'link-pair': return tool(t('Couldn’t connect'), async () => (await import('./link-ui')).linkDialog());
+    case 'link-send': {
+      const current = doc!;
+      if (editor.text.active) editor.text.finish();
+      return tool(isMobile() ? t('Couldn’t send it to the computer') : t('Couldn’t send it to the phone'), async () =>
+        (await import('./link-ui')).sendToDevice(current.name, async () => (await withBusy(t('Making PDF…'), () => exportPdf(current))).bytes));
+    }
+    case 'share': {
+      const current = doc!;
+      if (editor.text.active) editor.text.finish();
+      return tool(t('Couldn’t share it'), async () => {
+        const { bytes } = await withBusy(t('Making PDF…'), () => exportPdf(current));
+        await api.shareFile?.(bytes, current.name);
+      });
+    }
     case 'language': return tool(t('Couldn’t change the language'), chooseLanguage);
     case 'terms': return tool(t('Couldn’t show the terms'), () => showLegal('terms'));
     case 'privacy': return tool(t('Couldn’t show the privacy policy'), () => showLegal('privacy'));
@@ -761,7 +852,7 @@ async function run(command: Command) {
     }
     case 'toggle-autosave':
       autosave.setEnabled(!autosave.enabled);
-      toast(autosave.enabled ? t('Auto-save is on. Documents you’ve saved before are kept saved as you work.') : t('Auto-save is off. Save with Ctrl+S.'), 'info', 4500);
+      toast(autosave.enabled ? t('Auto-save is on. Documents you’ve saved before are kept saved as you work.') : (isMobile() ? t('Auto-save is off. Save with the save button.') : t('Auto-save is off. Save with Ctrl+S.')), 'info', 4500);
       return;
     case 'open-backups': return api.openBackups();
     case 'open-github': return api.openExternal(REPO_URL);
@@ -1053,7 +1144,12 @@ async function openAllTools() {
     await run('open');
     if (!doc) return;
   }
-  switch (picked.command) {
+  return runHubTool(picked.command);
+}
+
+/** Runs one tool from the All tools list (also used by the phone app's Tools tab). */
+async function runHubTool(command: string) {
+  switch (command) {
     case 'organize':
       showSide('pages');
       thumbs.selectAll();
@@ -1068,7 +1164,7 @@ async function openAllTools() {
       editor.setTool('redact');
       return toast(t('Drag over anything private. It’s removed for good when you save.'), 'info');
     case 'sign': return startSign();
-    default: return run(picked.command as Command);
+    default: return run(command as Command);
   }
 }
 
@@ -1158,6 +1254,7 @@ function showSide(pane: SidePane) {
   const app = $('#app');
   if (app.classList.contains('sidebar-hidden')) {
     app.classList.remove('sidebar-hidden');
+    if (isMobile()) app.classList.add('inspector-hidden');
     updatePanelButtons();
     viewer.layout();
   }
@@ -1242,6 +1339,8 @@ function nextZoom(direction: 1 | -1) {
 
 interface MenuItem {
   label: string;
+  /** The command it runs, so menus can leave out what this device can't do. */
+  command?: string;
   icon?: string;
   hint?: string;
   action?: () => void;
@@ -1259,9 +1358,15 @@ function closeMenu(level = 0) {
   }
 }
 
+/** Leaves out what this device can't do, and the separators that leaves dangling. */
+function available(items: (MenuItem | 'separator')[]): (MenuItem | 'separator')[] {
+  const kept = items.filter((item) => item === 'separator' || !item.command || supports(item.command));
+  return kept.filter((item, i) => item !== 'separator' || (i > 0 && i < kept.length - 1 && kept[i - 1] !== 'separator'));
+}
+
 function buildMenu(items: (MenuItem | 'separator')[], level: number): HTMLElement {
   const menu = h('div', { class: 'menu', role: 'menu' });
-  for (const item of items) {
+  for (const item of available(items)) {
     if (item === 'separator') {
       menu.append(h('div', { class: 'menu-separator' }));
       continue;
@@ -1336,12 +1441,13 @@ function menuFromTable(entries: MenuEntry[]): (MenuItem | 'separator')[] {
       if (entry === 'separator') return 'separator' as const;
       const key = shortcutFor(entry, isMac);
       return {
-        label: t(entry.label),
+        label: t(isMobile() && entry.mobileLabel ? entry.mobileLabel : entry.label),
         icon: THEME_ICONS[entry.command],
         hint: key ? displayShortcut(key, isMac) : undefined,
         checked: entry.command.startsWith('theme-') ? entry.command === `theme-${currentTheme}`
           : entry.command === 'toggle-autosave' ? autosave.enabled : undefined,
         disabled: !doc && !NO_DOC_NEEDED.has(entry.command),
+        command: entry.command,
         action: () => run(entry.command),
       };
     });
@@ -1349,50 +1455,53 @@ function menuFromTable(entries: MenuEntry[]): (MenuItem | 'separator')[] {
 
 const menus: Record<string, () => (MenuItem | 'separator')[]> = {
   autosave: () => [
-    { label: t('Auto-save'), icon: 'refresh-cw', checked: autosave.enabled, action: () => run('toggle-autosave') },
-    { label: t('Save now'), icon: 'save', hint: displayShortcut('Mod+S', isMac), action: () => run('save') },
+    { label: t('Auto-save'), icon: 'refresh-cw', checked: autosave.enabled, command: 'toggle-autosave', action: () => run('toggle-autosave') },
+    { label: t('Save now'), icon: 'save', hint: displayShortcut('Mod+S', isMac), command: 'save', action: () => run('save') },
     'separator',
-    { label: t('Open backups folder'), icon: 'folder-open', action: () => run('open-backups') },
+    { label: t('Open backups folder'), icon: 'folder-open', command: 'open-backups', action: () => run('open-backups') },
   ],
   app: () => MENU.map((section) => ({ label: section.label, submenu: () => menuFromTable(section.items) })),
   tools: () => [
-    { label: t('Recognise text (OCR)…'), icon: 'scan-text', action: () => run('ocr') },
-    { label: t('Compress…'), icon: 'file-archive', action: () => run('compress') },
-    { label: t('Password protect…'), icon: 'shield-check', action: () => run('protect') },
-    { label: t('Watermark, page numbers & headers…'), icon: 'droplets', action: () => run('decor') },
-    { label: t('Add form fields'), icon: 'text-cursor', action: () => run('form-builder') },
-    { label: t('Compare with another PDF…'), icon: 'git-compare', action: () => run('compare') },
+    { label: t('Recognise text (OCR)…'), icon: 'scan-text', command: 'ocr', action: () => run('ocr') },
+    { label: t('Compress…'), icon: 'file-archive', command: 'compress', action: () => run('compress') },
+    { label: t('Password protect…'), icon: 'shield-check', command: 'protect', action: () => run('protect') },
+    { label: t('Watermark, page numbers & headers…'), icon: 'droplets', command: 'decor', action: () => run('decor') },
+    { label: t('Add form fields'), icon: 'text-cursor', command: 'form-builder', action: () => run('form-builder') },
+    { label: t('Compare with another PDF…'), icon: 'git-compare', command: 'compare', action: () => run('compare') },
     'separator',
-    { label: t('Convert to PDF…'), icon: 'file-input', hint: t('Word, Excel, PowerPoint…'), action: () => run('convert-to-pdf') },
-    { label: t('Convert PDF to…'), icon: 'file-output', hint: t('Word, Excel, PowerPoint…'), action: () => run('convert-from-pdf') },
-    { label: t('Web page to PDF…'), icon: 'globe', action: () => run('web-to-pdf') },
-    { label: t('Scan to PDF…'), icon: 'scan-line', action: () => run('scan-to-pdf') },
-    { label: t('Combine pictures into one PDF…'), icon: 'images', action: () => run('images-to-pdf') },
-    { label: t('Save as PDF/A…'), icon: 'archive', hint: t('For archiving'), action: () => run('pdf-to-pdfa') },
-    { label: t('Repair a damaged PDF…'), icon: 'wrench', action: () => run('repair') },
+    { label: t('Convert to PDF…'), icon: 'file-input', hint: t('Word, Excel, PowerPoint…'), command: 'convert-to-pdf', action: () => run('convert-to-pdf') },
+    { label: t('Convert PDF to…'), icon: 'file-output', hint: t('Word, Excel, PowerPoint…'), command: 'convert-from-pdf', action: () => run('convert-from-pdf') },
+    { label: t('Web page to PDF…'), icon: 'globe', command: 'web-to-pdf', action: () => run('web-to-pdf') },
+    { label: t('Scan to PDF…'), icon: 'scan-line', command: 'scan-to-pdf', action: () => run('scan-to-pdf') },
+    { label: t('Combine pictures into one PDF…'), icon: 'images', command: 'images-to-pdf', action: () => run('images-to-pdf') },
+    { label: t('Save as PDF/A…'), icon: 'archive', hint: t('For archiving'), command: 'pdf-to-pdfa', action: () => run('pdf-to-pdfa') },
+    { label: t('Repair a damaged PDF…'), icon: 'wrench', command: 'repair', action: () => run('repair') },
     'separator',
-    { label: t('AI Summarizer…'), icon: 'sparkles', action: () => run('ai-summarize') },
-    { label: t('Translate PDF…'), icon: 'languages', action: () => run('ai-translate') },
-    { label: t('AI settings…'), icon: 'wrench', action: () => run('ai-settings') },
+    { label: t('AI Summarizer…'), icon: 'sparkles', command: 'ai-summarize', action: () => run('ai-summarize') },
+    { label: t('Translate PDF…'), icon: 'languages', command: 'ai-translate', action: () => run('ai-translate') },
+    { label: t('AI settings…'), icon: 'wrench', command: 'ai-settings', action: () => run('ai-settings') },
     'separator',
-    { label: t('All tools'), icon: 'layout-grid', hint: displayShortcut('Mod+K', isMac), action: () => run('all-tools') },
+    { label: isMobile() ? t('Send to Computer…') : t('Send to Phone…'), icon: isMobile() ? 'monitor' : 'smartphone', command: 'link-send', action: () => run('link-send') },
+    { label: isMobile() ? t('Connect to a Computer…') : t('Connect a Phone…'), icon: 'qr-code', command: 'link-pair', action: () => run('link-pair') },
+    'separator',
+    { label: t('All tools'), icon: 'layout-grid', hint: displayShortcut('Mod+K', isMac), command: 'all-tools', action: () => run('all-tools') },
   ],
   pages: () => {
     const count = thumbs.chosenPages().length;
     const several = thumbs.selected.size > 1;
     return [
-      { label: t('Merge another PDF…'), icon: 'file-plus', action: () => run('insert-pdf') },
-      { label: t('Insert blank page'), icon: 'file-plus-2', action: () => run('insert-blank') },
+      { label: t('Merge another PDF…'), icon: 'file-plus', command: 'insert-pdf', action: () => run('insert-pdf') },
+      { label: t('Insert blank page'), icon: 'file-plus-2', command: 'insert-blank', action: () => run('insert-blank') },
       'separator',
-      { label: several ? t('Rotate {count} selected pages left', { count }) : t('Rotate current page left'), icon: 'rotate-ccw', action: () => run('rotate-left') },
-      { label: several ? t('Rotate {count} selected pages right', { count }) : t('Rotate current page right'), icon: 'rotate-cw', action: () => run('rotate-right') },
-      { label: several ? t('Delete {count} selected pages', { count }) : t('Delete current page'), icon: 'trash-2', action: () => run('delete-pages') },
+      { label: several ? t('Rotate {count} selected pages left', { count }) : t('Rotate current page left'), icon: 'rotate-ccw', command: 'rotate-left', action: () => run('rotate-left') },
+      { label: several ? t('Rotate {count} selected pages right', { count }) : t('Rotate current page right'), icon: 'rotate-cw', command: 'rotate-right', action: () => run('rotate-right') },
+      { label: several ? t('Delete {count} selected pages', { count }) : t('Delete current page'), icon: 'trash-2', command: 'delete-pages', action: () => run('delete-pages') },
       'separator',
-      { label: t('Extract pages…'), icon: 'file-output', action: () => run('extract') },
-      { label: t('Split document…'), icon: 'scissors', action: () => run('split') },
+      { label: t('Extract pages…'), icon: 'file-output', command: 'extract', action: () => run('extract') },
+      { label: t('Split document…'), icon: 'scissors', command: 'split', action: () => run('split') },
       'separator',
-      { label: t('Crop pages'), icon: 'crop', action: () => run('crop') },
-      { label: t('Remove crop from all pages'), icon: 'maximize-2', disabled: !doc?.pages.some((p) => p.crop), action: () => run('uncrop-all') },
+      { label: t('Crop pages'), icon: 'crop', command: 'crop', action: () => run('crop') },
+      { label: t('Remove crop from all pages'), icon: 'maximize-2', disabled: !doc?.pages.some((p) => p.crop), command: 'uncrop-all', action: () => run('uncrop-all') },
     ];
   },
   zoom: () => [
@@ -1403,9 +1512,9 @@ const menus: Record<string, () => (MenuItem | 'separator')[]> = {
     { label: t('Fit width'), icon: 'maximize-2', hint: displayShortcut('Mod+1', isMac), action: () => viewer.fitWidth() },
     { label: t('Fit page'), icon: 'file-text', hint: displayShortcut('Mod+2', isMac), action: () => viewer.fitPage() },
     'separator' as const,
-    { label: t('Continuous scroll'), icon: 'rectangle-vertical', checked: viewer.mode === 'continuous', action: () => run('mode-continuous') },
-    { label: t('Two pages side by side'), icon: 'columns-2', checked: viewer.mode === 'spread', action: () => run('mode-spread') },
-    { label: t('One page at a time'), icon: 'book-open', checked: viewer.mode === 'single', action: () => run('mode-single') },
+    { label: t('Continuous scroll'), icon: 'rectangle-vertical', checked: viewer.mode === 'continuous', command: 'mode-continuous', action: () => run('mode-continuous') },
+    { label: t('Two pages side by side'), icon: 'columns-2', checked: viewer.mode === 'spread', command: 'mode-spread', action: () => run('mode-spread') },
+    { label: t('One page at a time'), icon: 'book-open', checked: viewer.mode === 'single', command: 'mode-single', action: () => run('mode-single') },
   ],
 };
 
@@ -1564,17 +1673,21 @@ async function renderWelcome() {
       h('span', { class: 'start-text' }, h('strong', {}, title), h('span', {}, sub)),
     );
 
+  const phone = isMobile();
   root.replaceChildren(
     h('div', { class: 'home' },
       h('div', { class: 'home-intro' },
         h('h1', {}, t('Open a PDF to get started')),
-        h('p', {}, t('Edit, sign, fill and organise PDFs. Everything stays on this computer.')),
+        h('p', {}, phone
+          ? t('Edit, sign, fill and organise PDFs. Everything stays on this phone.')
+          : t('Edit, sign, fill and organise PDFs. Everything stays on this computer.')),
       ),
       h('div', { class: 'start-actions' },
-        action('folder-open', t('Open file'), displayShortcut('Mod+O', isMac), 'open', true),
-        action('file-text', t('New blank PDF'), displayShortcut('Mod+N', isMac), 'new'),
+        action('folder-open', t('Open file'), phone ? t('From your phone or cloud storage') : displayShortcut('Mod+O', isMac), 'open', true),
+        action('file-text', t('New blank PDF'), phone ? t('Start from an empty page') : displayShortcut('Mod+N', isMac), 'new'),
         action('file-input', t('Convert to PDF'), t('Word, Excel, PowerPoint, pictures…'), 'convert-to-pdf'),
         action('layout-grid', t('All tools'), t('Merge, scan, compress, translate…'), 'all-tools'),
+        phone ? action('monitor', t('Connect to a computer'), t('Send PDFs back and forth over your Wi-Fi'), 'link-pair') : null,
       ),
       h('section', { class: 'recent' },
         h('h2', {}, t('Recent files')),
@@ -1582,7 +1695,9 @@ async function renderWelcome() {
           ? h('div', { class: 'recent-grid' }, ...recent.map(card))
           : h('div', { class: 'recent-empty' },
               icon('clock'),
-              h('p', {}, t('Files you open will show up here. You can also drop a PDF (or a Word file, spreadsheet, slides or picture to convert) anywhere in this window.'))),
+              h('p', {}, phone
+                ? t('Files you open will show up here, along with PDFs you share to Inkleaf from other apps or send from your computer.')
+                : t('Files you open will show up here. You can also drop a PDF (or a Word file, spreadsheet, slides or picture to convert) anywhere in this window.'))),
       ),
       h('footer', { class: 'home-foot' },
         h('span', {}, ...richText(t('Built by {name} · Free and open source'), { name: h('strong', {}, 'EPD') })),
@@ -1682,7 +1797,9 @@ async function showAbout() {
     title: 'Inkleaf',
     body: h('div', { class: 'about' },
       h('p', {}, t('Version {version}', { version: info.version })),
-      h('p', {}, t('A free, open-source PDF editor. Everything happens on this computer; no files are uploaded anywhere.')),
+      h('p', {}, isMobile()
+        ? t('A free, open-source PDF editor. Everything happens on this phone; no files are uploaded anywhere.')
+        : t('A free, open-source PDF editor. Everything happens on this computer; no files are uploaded anywhere.')),
       h('p', { class: 'muted' }, t('Built by EPD (Priyansh Das). Licensed under the GNU GPL, version 3 or later: you’re free to use, study, share and change it.')),
       h('p', { class: 'muted small' },
         t('Built with pdf.js (Apache 2.0), pdf-lib (MIT), lopdf (MIT), Tesseract OCR (Apache 2.0), docx (MIT), Instrument Sans and DejaVu fonts (OFL / Bitstream Vera), Lucide icons (ISC). '),
@@ -1720,12 +1837,52 @@ function showShortcuts() {
 
 // --- start up ------------------------------------------------------------------------------------
 
+/** On a phone the page list and properties are drawers that start closed. */
+function setUpPhoneLayout() {
+  document.documentElement.classList.add('mobile');
+  const app = $('#app');
+  app.classList.add('sidebar-hidden', 'inspector-hidden');
+  const closeDrawers = () => {
+    if (app.classList.contains('sidebar-hidden') && app.classList.contains('inspector-hidden')) return;
+    app.classList.add('sidebar-hidden', 'inspector-hidden');
+    updatePanelButtons();
+  };
+  const scrim = h('div', { class: 'scrim', 'aria-hidden': 'true' });
+  scrim.addEventListener('click', closeDrawers);
+  $('#workspace').append(scrim);
+  // picking a page, bookmark or comment takes you there, so get the drawer out of the way
+  $('#sidebar').addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('.thumb, .bm-title, .comment-item')) {
+      setTimeout(closeDrawers, 120);
+    }
+  });
+  // the phone's back button closes a drawer before anything else
+  window.addEventListener('inkleaf-back', (e) => {
+    if (!app.classList.contains('sidebar-hidden') || !app.classList.contains('inspector-hidden')) {
+      closeDrawers();
+      e.preventDefault();
+    }
+  });
+}
+
 async function start() {
   localizeStatic();
+  // buttons for things this device can't do (on a phone: new windows, updates…)
+  document.querySelectorAll<HTMLElement>('[data-command]').forEach((el) => {
+    if (!supports(el.dataset.command!)) el.hidden = true;
+  });
+  if (isMobile()) setUpPhoneLayout();
+  if (isMobile()) {
+    // on a phone, the paired device is a computer
+    const send = $('#send-to-device');
+    send.title = t('Send to computer');
+    send.querySelector('[data-icon]')?.setAttribute('data-icon', 'monitor');
+  }
   hydrateIcons();
   try {
-    if (localStorage.getItem('inkleaf.sidebar-hidden')) $('#app').classList.add('sidebar-hidden');
-    if (localStorage.getItem('inkleaf.inspector-hidden')) $('#app').classList.add('inspector-hidden');
+    if (!isMobile() && localStorage.getItem('inkleaf.sidebar-hidden')) $('#app').classList.add('sidebar-hidden');
+    if (!isMobile() && localStorage.getItem('inkleaf.inspector-hidden')) $('#app').classList.add('inspector-hidden');
   } catch {
     // ignore
   }
@@ -1742,6 +1899,7 @@ async function start() {
     // storage unavailable: defaults are fine
   }
   api.onUpdate(onUpdate);
+  void import('./link-ui').then((m) => m.watchLink());
   // language packs download in the background the first time they're needed
   api.onPackProgress(({ received, total }) => {
     if (!total) return;
@@ -1753,7 +1911,8 @@ async function start() {
   updatePanelButtons();
   updateChrome();
   renderWelcome();
-  if (info.needsAgreement) await askForAgreement();
+  // in engine mode the phone app asks itself, on its own welcome screen
+  if (info.needsAgreement && !api.engine) await askForAgreement();
 
   // exact font widths and the PDF writer aren't needed until you edit, so
   // fetch them once the window is showing
@@ -1769,12 +1928,54 @@ async function start() {
   api.onOpenFile((file) => openFile(file));
   offerRecovery();
 
+  if (api.engine) await startEngineMode();
+
   // for automated tests only: exposes internals without touching the UI
   (window as unknown as { __inkleaf: unknown }).__inkleaf = {
     getDoc, viewer, editor, exportPdf, autosave, t, tabCount: () => tabs.length, run: (c: Command) => run(c),
     allDocs: () => tabs.map((t) => t.doc),
     exportBatch: async (d: EditorDoc, groups: string[][]) => (await import('./exporter')).exportBatch(d, groups),
   };
+}
+
+/** In engine mode there's no rail button to open menus from: they open from the bottom middle. */
+function engineAnchor(): HTMLElement {
+  let el = document.getElementById('engine-anchor');
+  if (!el) {
+    el = h('div', { id: 'engine-anchor', style: 'position:fixed;left:50%;bottom:12px;width:1px;height:1px' });
+    document.body.append(el);
+  }
+  return el;
+}
+
+/** Hands the editor to the native Android screens (see engine.ts). */
+async function startEngineMode() {
+  engine = await import('./engine');
+  toastHook.send = engine.sendToast;
+  engine.startEngine({
+    docs: () => tabs.map((tab) => ({ id: tab.id, doc: tab.doc })),
+    active: () => (activeTab ? { id: activeTab.id, doc: activeTab.doc } : null),
+    activate: (id) => {
+      const tab = tabs.find((t) => t.id === id);
+      if (tab) activate(tab);
+    },
+    close: async (id, discard) => {
+      const tab = tabs.find((t) => t.id === id);
+      if (!tab) return true;
+      // the app has already asked about unsaved changes
+      if (discard) tab.doc.markSaved(tab.doc.name, tab.doc.path);
+      return closeTab(tab);
+    },
+    openPath: async (path) => openFile(await api.openRecent(path)),
+    run: (command) => run(command as Command),
+    startSign: () => startSign(),
+    hubTool: (command) => runHubTool(command),
+    startImage: () => startImage(),
+    save: () => save(),
+    autosave,
+    editor,
+    viewer,
+  });
 }
 
 start();

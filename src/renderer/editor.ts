@@ -314,7 +314,15 @@ export class Editor extends EventTarget {
 
   private attach() {
     const root = this.viewer.container;
-    root.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+    root.addEventListener('pointerdown', (e) => {
+      if (this.touchDown(e)) return;
+      this.onPointerDown(e);
+    });
+    // a pinch takes over from whatever the first finger started
+    root.addEventListener('pointermove', (e) => this.touchMove(e));
+    const lift = (e: PointerEvent) => this.touchUp(e);
+    root.addEventListener('pointerup', lift);
+    root.addEventListener('pointercancel', lift);
     // Clicking the page shouldn't move keyboard focus (or start a text
     // selection); otherwise a text box we just opened would lose focus at once.
     root.addEventListener('mousedown', (e) => {
@@ -338,6 +346,59 @@ export class Editor extends EventTarget {
 
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
+  }
+
+  // --- touch: two fingers zoom and scroll, whatever tool is picked ---------------------------------
+
+  private touches = new Map<number, { x: number; y: number }>();
+  private pinch: { distance: number; scale: number; mid: { x: number; y: number }; frame: number } | null = null;
+
+  private fingers() {
+    const [a, b] = [...this.touches.values()];
+    return { distance: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  }
+
+  /** Returns true when the touch belongs to a pinch, so the tools should leave it alone. */
+  private touchDown(e: PointerEvent): boolean {
+    if (e.pointerType !== 'touch') return false;
+    this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.touches.size < 2) return this.pinch !== null;
+    if (!this.pinch) {
+      // undo whatever the first finger began (a stroke, a move) and switch to zooming
+      this.cancelDrag();
+      const { distance, mid } = this.fingers();
+      this.pinch = { distance, scale: this.viewer.scale, mid, frame: 0 };
+    }
+    return true;
+  }
+
+  private touchMove(e: PointerEvent) {
+    if (e.pointerType !== 'touch' || !this.touches.has(e.pointerId)) return;
+    this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pinch = this.pinch;
+    if (!pinch || this.touches.size < 2) return;
+    e.stopImmediatePropagation();
+    if (pinch.frame) return;
+    pinch.frame = requestAnimationFrame(() => {
+      pinch.frame = 0;
+      if (this.pinch !== pinch || this.touches.size < 2) return;
+      const { distance, mid } = this.fingers();
+      this.viewer.setScale(pinch.scale * (distance / pinch.distance), { clientX: mid.x, clientY: mid.y });
+      const c = this.viewer.container;
+      c.scrollLeft -= mid.x - pinch.mid.x;
+      c.scrollTop -= mid.y - pinch.mid.y;
+      pinch.mid = mid;
+    });
+  }
+
+  private touchUp(e: PointerEvent) {
+    if (e.pointerType !== 'touch') return;
+    this.touches.delete(e.pointerId);
+    // the pinch ends once every finger is off the screen
+    if (!this.touches.size && this.pinch) {
+      cancelAnimationFrame(this.pinch.frame);
+      this.pinch = null;
+    }
   }
 
   private tolerance() {
@@ -381,7 +442,7 @@ export class Editor extends EventTarget {
 
     if (!view?.viewport) {
       this.select(null);
-      if (this.tool === 'hand') this.startPan(e);
+      if (this.tool === 'hand' || e.pointerType === 'touch') this.startPan(e);
       return;
     }
 
@@ -409,6 +470,8 @@ export class Editor extends EventTarget {
           capture();
         } else {
           this.select(null);
+          // on a touch screen, dragging an empty spot scrolls the page
+          if (e.pointerType === 'touch') this.startPan(e);
         }
         return;
       }

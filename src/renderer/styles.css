@@ -71,8 +71,9 @@
   color-scheme: light;
 }
 
+/* dark: follows the system, unless a theme is picked in the app (phones set data-theme) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --frame: #0d241d;
     --frame-hi: #163429;
     --frame-line: rgba(255, 255, 255, 0.06);
@@ -104,6 +105,38 @@
     --pop-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 14px 40px rgba(0, 0, 0, 0.55);
     color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --frame: #0d241d;
+  --frame-hi: #163429;
+  --frame-line: rgba(255, 255, 255, 0.06);
+  --frame-ink: #dcebe4;
+  --frame-ink-2: #8fae9f;
+  --frame-active: rgba(255, 255, 255, 0.10);
+  --leaf: #7fdcb2;
+
+  --desk: #111614;
+  --panel: #1a201d;
+  --panel-2: #222926;
+  --panel-3: #2a322e;
+  --line: #2a322e;
+  --line-strong: #3a4540;
+  --ink: #e6ece9;
+  --ink-2: #aab6b0;
+  --ink-3: #7d8a84;
+  --accent: #5cc49a;
+  --accent-soft: #1d3a2f;
+  --accent-ink: #082116;
+  --danger: #ff7a8f;
+  --danger-soft: #3a1f26;
+  --gold: #e2b23d;
+  --gold-soft: #352b14;
+  --gold-ink: #f2d27e;
+
+  --focus: 0 0 0 2px var(--panel), 0 0 0 4px #5cc49a99;
+  --page-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 12px 36px rgba(0, 0, 0, 0.45);
+  --pop-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 14px 40px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -1816,3 +1849,244 @@ kbd {
 .field-row .field-input { flex: 1; min-width: 0; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-row .chip { height: 26px; padding: 0 10px; font-size: 12px; }
+
+/* Phone ↔ computer link */
+.link-pair { display: grid; grid-template-columns: auto 1fr; gap: 6px 22px; align-items: start; }
+.link-qr-wrap { grid-row: span 3; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.link-qr { width: 220px; height: 220px; padding: 8px; border-radius: var(--radius); background: #fff; }
+.link-qr svg { width: 100%; height: 100%; display: block; }
+.link-steps { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }
+.link-pair .field-hint { display: flex; gap: 6px; align-items: flex-start; }
+.link-pair .field-hint .icon { width: 14px; height: 14px; flex: none; margin-top: 1px; }
+.link-devices { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.link-device { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); }
+.link-device-name { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.link-state { color: var(--ink-3); font-size: 12px; }
+.link-state.online { color: var(--accent); }
+.link-scan { display: flex; flex-direction: column; gap: 10px; }
+.link-camera { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius); background: #000; }
+@media (max-width: 640px) {
+  .link-pair { grid-template-columns: 1fr; }
+  .link-qr-wrap { grid-row: auto; }
+}
+
+/* --- phones ----------------------------------------------------------------------------------
+   The phone apps get the same editor in a one-handed layout: the tools sit in a bar along the
+   bottom, the page list slides in from the side and properties rise from the bottom. */
+
+html.mobile {
+  --titlebar: calc(48px + env(safe-area-inset-top, 0px));
+  --rail-h: calc(62px + env(safe-area-inset-bottom, 0px));
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+html.mobile body { overscroll-behavior: none; }
+html.mobile #app { height: 100dvh; }
+
+html.mobile .titlebar {
+  align-items: center;
+  padding: env(safe-area-inset-top, 0px) 6px 0 4px;
+  -webkit-app-region: no-drag;
+}
+html.mobile .brand { height: 40px; padding: 0 8px; }
+html.mobile .brand-name, html.mobile .coffee-chip, html.mobile .titlebar-drag { display: none; }
+html.mobile .tabs { flex: 1; overflow-x: auto; scrollbar-width: none; align-self: stretch; align-items: flex-end; }
+html.mobile .tabs::-webkit-scrollbar { display: none; }
+html.mobile .tab-add { width: 40px; height: 40px; }
+
+html.mobile .commandbar {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 4px;
+  height: 50px;
+  padding: 0 4px;
+}
+html.mobile .cmd { min-width: 40px; height: 40px; }
+html.mobile .cmd-text span, html.mobile .cmd-text .icon:last-child { display: none; }
+html.mobile .cmd-sep,
+html.mobile .zoom,
+html.mobile .save-state,
+html.mobile .commandbar [data-command="print"],
+html.mobile .commandbar [data-command="redo"],
+html.mobile .commandbar [data-command="find"],
+html.mobile .pager [data-command] { display: none; }
+html.mobile .cmd-center { gap: 4px; }
+html.mobile .page-input { width: 40px; height: 34px; font-size: 15px; }
+html.mobile .page-count { white-space: nowrap; }
+html.mobile #toggle-inspector { display: inline-flex; }
+
+/* the workspace: the page fills the screen, tools along the bottom */
+html.mobile #workspace,
+html.mobile .sidebar-hidden #workspace,
+html.mobile .inspector-hidden #workspace,
+html.mobile .sidebar-hidden.inspector-hidden #workspace {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--rail-h);
+  grid-template-areas: "viewport" "rail";
+  overflow: hidden;
+}
+html.mobile .no-doc #workspace { grid-template-rows: minmax(0, 1fr); grid-template-areas: "viewport"; }
+html.mobile .viewport { touch-action: none; }
+
+html.mobile .rail {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 5px 8px env(safe-area-inset-bottom, 0px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  border-top: 0;
+  box-shadow: 0 -1px 0 var(--frame-line);
+}
+html.mobile .rail-tool { width: 64px; height: 52px; }
+html.mobile .rail-tool[aria-pressed="true"]::before {
+  inset-inline-start: 16px;
+  inset-inline-end: 16px;
+  top: -5px;
+  bottom: auto;
+  width: auto;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+}
+html.mobile .rail-sep { width: 1px; height: 32px; margin: 10px 4px; }
+
+/* pages, bookmarks and comments slide in from the side */
+html.mobile #sidebar {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  bottom: var(--rail-h);
+  inset-inline-start: 0;
+  width: min(300px, 84vw);
+  box-shadow: var(--pop-shadow);
+  transition: transform 0.22s ease, visibility 0.22s;
+}
+html.mobile .sidebar-hidden #sidebar { transform: translateX(-105%); }
+html.mobile[dir="rtl"] .sidebar-hidden #sidebar { transform: translateX(105%); }
+
+/* properties rise from the bottom */
+html.mobile #inspector,
+html.mobile .inspector {
+  position: absolute;
+  z-index: 30;
+  inset-inline: 0;
+  bottom: var(--rail-h);
+  max-height: 58%;
+  visibility: visible;
+  border: 0;
+  border-radius: 16px 16px 0 0;
+  box-shadow: var(--pop-shadow);
+  transition: transform 0.22s ease, visibility 0.22s;
+}
+html.mobile .inspector-hidden #inspector { visibility: hidden; transform: translateY(110%); }
+html.mobile #inspector::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 0;
+  border-radius: 2px;
+  background: var(--line-strong, var(--line));
+}
+
+/* a dimmed backdrop behind an open drawer; tapping it closes the drawer */
+.scrim { display: none; }
+html.mobile .scrim {
+  position: absolute;
+  z-index: 25;
+  inset: 0 0 var(--rail-h) 0;
+  display: block;
+  background: rgba(10, 20, 16, 0.32);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+html.mobile #app:not(.sidebar-hidden) .scrim,
+html.mobile #app:not(.inspector-hidden) .scrim { opacity: 1; pointer-events: auto; }
+
+/* menus and dialogs fit the screen */
+html.mobile .menu { max-width: calc(100vw - 16px); max-height: calc(100dvh - var(--titlebar) - 16px); overflow-y: auto; }
+html.mobile .menu-item { min-height: 42px; }
+html.mobile .modal { width: calc(100vw - 20px); max-width: none; max-height: calc(100dvh - var(--titlebar) - 20px); }
+html.mobile .toasts { bottom: calc(var(--rail-h) + 10px); inset-inline: 10px; }
+html.mobile .thumb { width: 100%; }
+
+/* --- engine mode (Android) ---------------------------------------------------------------------
+   The native app draws the bars, sheets and menus; this page only shows the PDF. Dialogs the
+   editor still owns (the advanced tools' options) appear full screen, over the native screens. */
+
+html.engine {
+  --rail-h: 0px;
+  --reader-bg: #e5e1d7;
+}
+html.engine #titlebar,
+html.engine #commandbar,
+html.engine #rail,
+html.engine #sidebar,
+html.engine #inspector,
+html.engine #welcome,
+html.engine #busy,
+html.engine #toasts,
+html.engine .scrim,
+html.engine .drop-overlay { display: none !important; }
+html.engine #app,
+html.engine #app.no-doc {
+  grid-template-rows: minmax(0, 1fr);
+  /* only the space the app's reader leaves between its top bar and its bottom sheet */
+  position: fixed;
+  inset: var(--engine-top, 0px) 0 var(--engine-bottom, 0px) 0;
+  height: auto;
+}
+html.engine #workspace,
+html.engine .sidebar-hidden #workspace,
+html.engine .inspector-hidden #workspace,
+html.engine .sidebar-hidden.inspector-hidden #workspace {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "viewport";
+}
+html.engine body,
+html.engine .viewport { background: var(--reader-bg); }
+html.engine .modal-backdrop { padding: max(16px, env(safe-area-inset-top)) 12px 16px; place-items: end stretch; }
+html.engine .modal { width: 100%; border-radius: 22px 22px 18px 18px; }
+@media (prefers-color-scheme: dark) {
+  html.engine:not([data-theme="light"]) { --reader-bg: #0b1814; }
+}
+html.engine[data-theme="dark"] { --reader-bg: #0b1814; }
+
+/* --- enhance pages --------------------------------------------------------------------------
+   Each page's picture gets its own filter (see enhance.ts); your marks on top stay as they are. */
+
+.page-base, .page-preview { filter: var(--enhance, none); }
+
+.enhance-panel {
+  position: absolute;
+  z-index: 20;
+  top: 12px;
+  inset-inline-end: 16px;
+  width: 300px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  padding: 14px 16px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--pop-shadow);
+}
+.inspector-hidden .enhance-panel { inset-inline-end: 16px; }
+#app:not(.inspector-hidden) .enhance-panel { inset-inline-end: 280px; }
+.enhance-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.enhance-head .icon { width: 18px; height: 18px; color: var(--accent); }
+.enhance-head h2 { flex: 1; margin: 0; font-size: 15px; font-weight: 650; }
+.enhance-close { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-2); }
+.enhance-close:hover { background: var(--hover, rgba(0, 0, 0, 0.05)); color: var(--ink); }
+.enhance-presets { flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.enhance-row { display: grid; grid-template-columns: 82px minmax(0, 1fr) 40px; align-items: center; gap: 8px; margin: 6px 0; }
+.enhance-row input[type="range"] { width: 100%; accent-color: var(--accent); }
+.enhance-label { font-size: 13px; color: var(--ink-2); }
+.enhance-value { font-size: 12px; text-align: end; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.enhance-toggles { display: grid; gap: 6px; margin: 12px 0 8px; }
+.enhance-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.enhance-toggle input { accent-color: var(--accent); }
+.enhance-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.enhance-foot .spacer { flex: 1; }
+#enhance-toggle[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }

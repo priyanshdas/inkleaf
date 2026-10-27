@@ -1,10 +1,10 @@
 # Inkleaf Terms of Use
 
-Last updated: 26 October 2026
+Last updated: 27 October 2026
 
 Inkleaf is a free, open-source PDF editor made by Priyansh Das ("EPD",
 "I", "me"). These terms apply to anyone who downloads, installs or uses
-Inkleaf ("you"). By installing or using Inkleaf you agree to them. If you
+Inkleaf, on a computer or on a phone ("you"). By installing or using Inkleaf you agree to them. If you
 don't agree, please don't install or use it.
 
 ## 1. The licence comes first
@@ -37,7 +37,11 @@ In particular, I don't promise that:
   archive or authority;
 - signatures added with Inkleaf (drawn, typed or pictures of a signature)
   are legally valid for any purpose. They are not certified digital
-  signatures.
+  signatures;
+- files sent between a paired phone and computer will always arrive, or
+  that the link will work on every network. Some networks (such as public,
+  office or hotel Wi-Fi) stop devices from reaching each other. Keep the
+  original until you've checked the copy arrived.
 
 ## 3. Your responsibility
 
@@ -51,6 +55,8 @@ responsible for:
 - not using Inkleaf to forge, falsify or alter documents to deceive anyone,
   to remove passwords from files you aren't entitled to open, or for any
   other unlawful or harmful purpose;
+- only pairing Inkleaf with your own devices, or devices you're allowed
+  to send the files to, and removing a paired device you no longer use;
 - checking the results before relying on them, and keeping backups of
   anything important. Inkleaf makes backups when it auto-saves, but you
   should not rely on them alone.
@@ -89,7 +95,7 @@ breach of these terms or of any law.
 
 ## 6. Third-party services
 
-Inkleaf works on your computer, but some optional features connect to
+Inkleaf works on your own devices, but some optional features connect to
 other services. They are run by other companies under their own terms and
 privacy policies, and I'm not responsible for them:
 
@@ -114,6 +120,11 @@ support, features or any promise from me.
 I may update these terms in a later version of Inkleaf; the date at the
 top will change. Using a newer version means you accept its terms. You
 can stop using Inkleaf at any time by uninstalling it.
+
+The phone apps may also be offered through app stores (such as Google Play
+or the App Store). Those stores' own terms apply to how you get the app
+from them; they aren't responsible for Inkleaf itself, and these terms
+still apply to your use of it.
 
 ## 8. Law
 

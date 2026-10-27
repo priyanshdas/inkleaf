@@ -7,6 +7,7 @@
 // plainly, before it runs, where the document's text will go.
 
 import { msg, t } from '../shared/i18n';
+import { isMobile } from '../shared/platform';
 import type { EditorDoc } from './document';
 import { BASELINE, lineWidth, prepareFonts } from './fonts';
 import { setHanScript } from './script-fonts';
@@ -33,6 +34,10 @@ export interface AiHost {
 async function privacyNote(): Promise<string> {
   const status = await api().aiStatus();
   const provider = providerById(status.provider);
+  if (isMobile()) {
+    if (provider.onDevice) return t('This sends the document’s text to the AI running on your computer, over your Wi-Fi. Nothing goes through the internet.');
+    return t('This sends the document’s text to {company} using your API key. Nothing else leaves your phone.', { company: t(provider.company) });
+  }
   if (provider.onDevice) return t('This sends the document’s text to the AI running on this computer. Nothing leaves your computer.');
   return t('This sends the document’s text to {company} using your API key. Nothing else leaves your computer.', { company: t(provider.company) });
 }
@@ -54,11 +59,11 @@ export async function aiSettings(): Promise<boolean> {
   forget.addEventListener('click', async () => {
     await api().aiRemoveKey(chosen.id);
     delete hasKey[chosen.id];
-    toast(t('The API key was removed from this computer.'));
+    toast(isMobile() ? t('The API key was removed from this phone.') : t('The API key was removed from this computer.'));
     show();
   });
 
-  const url = h('input', { class: 'field-input', type: 'url', spellcheck: 'false', placeholder: 'http://localhost:11434/v1' });
+  const url = h('input', { class: 'field-input', type: 'url', spellcheck: 'false', placeholder: isMobile() ? 'http://192.168.1.20:11434/v1' : 'http://localhost:11434/v1' });
   const presets = h('div', { class: 'chip-row' }, ...LOCAL_SERVERS.map((server) => {
     const chip = h('button', { class: 'chip', type: 'button' }, server.name);
     chip.addEventListener('click', () => {
@@ -77,7 +82,9 @@ export async function aiSettings(): Promise<boolean> {
   const modelField = h('div', { class: 'field' }, h('span', { class: 'field-label' }, t('Model')),
     h('div', { class: 'field-row' }, model, load), modelList, modelNote);
 
-  const localHelp = h('p', { class: 'field-hint' }, t('Install Ollama (ollama.com) or LM Studio (lmstudio.ai), download a model in it, then press Load models. Larger models give better translations but need a fast computer.'));
+  const localHelp = h('p', { class: 'field-hint' }, isMobile()
+    ? t('Run Ollama or LM Studio on your computer and let it accept connections from your network (in Ollama, set OLLAMA_HOST to 0.0.0.0; in LM Studio, turn on “Serve on local network”). Then type your computer’s address here, with the phone on the same Wi-Fi, and press Load models.')
+    : t('Install Ollama (ollama.com) or LM Studio (lmstudio.ai), download a model in it, then press Load models. Larger models give better translations but need a fast computer.'));
   const error = h('p', { class: 'field-error' });
 
   const fillList = (names: string[]) => modelList.replaceChildren(...names.map((n) => new Option(n, n)));
@@ -118,11 +125,15 @@ export async function aiSettings(): Promise<boolean> {
     key.value = '';
     key.placeholder = saved ? t('A key is saved. Paste a new one to replace it.') : chosen.keyPrefix ? `${chosen.keyPrefix}…` : chosen.needsKey ? '' : t('Optional');
     keyHint.replaceChildren(
-      chosen.keyUrl ? t('Get one at {site}. It’s stored encrypted on this computer and only ever sent to {company}.', { site: chosen.keyUrl, company: t(chosen.company) })
-        : t('It’s stored encrypted on this computer and only ever sent to {company}.', { company: t(chosen.company) }),
+      isMobile()
+        ? (chosen.keyUrl ? t('Get one at {site}. It’s stored encrypted on this phone and only ever sent to {company}.', { site: chosen.keyUrl, company: t(chosen.company) })
+          : t('It’s stored encrypted on this phone and only ever sent to {company}.', { company: t(chosen.company) }))
+        : chosen.keyUrl ? t('Get one at {site}. It’s stored encrypted on this computer and only ever sent to {company}.', { site: chosen.keyUrl, company: t(chosen.company) })
+          : t('It’s stored encrypted on this computer and only ever sent to {company}.', { company: t(chosen.company) }),
       saved ? ' ' : '', saved ? forget : '');
     urlField.hidden = chosen.id !== 'local' && chosen.id !== 'custom';
-    presets.hidden = chosen.id !== 'local';
+    // on a phone, "local" means the AI app on your computer, reached over Wi-Fi
+    presets.hidden = chosen.id !== 'local' || isMobile();
     url.value = status.urls[chosen.id] ?? chosen.baseUrl;
     localHelp.hidden = !chosen.onDevice;
     model.value = status.models[chosen.id] ?? chosen.models[0] ?? '';

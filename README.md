@@ -1,7 +1,7 @@
 # Inkleaf
 
-A free, open-source PDF editor for Windows, macOS and Linux that works
-entirely offline. Open a PDF, change it, save it. Nothing is uploaded
+A free, open-source PDF editor for Windows, macOS, Linux and Android that
+works entirely offline. Open a PDF, change it, save it. Nothing is uploaded
 anywhere, there are no accounts, and every tool is free. Built by EPD.
 
 [![CI](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml/badge.svg)](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml)
@@ -61,6 +61,14 @@ anywhere, there are no accounts, and every tool is free. Built by EPD.
   edit restrictions), **watermarks, page numbers, headers and footers**,
   **form builder** (text boxes, paragraphs, checkboxes, dropdowns), and
   **compare two PDFs** word by word.
+- **Enhance pages** (View › Enhance Pages, or the half-circle button): makes
+  faded scans, grey photocopies and photos of documents easier to read, with
+  contrast, brightness, sharpness, whitened paper, greyscale and a night
+  reading mode, plus presets (Auto, Scan, Faded, Darker text, Night). Each
+  page is measured on its own, so yellowed or blue-grey paper comes out
+  neutral white. It only changes your view; the file isn't touched.
+  **Save enhanced copy** bakes it into a new PDF instead, and offers to run
+  OCR on it so the text can be searched again.
 - **Convert to PDF:** Word, Excel, PowerPoint, OpenDocument, CSV, text,
   Markdown, web pages and pictures. Just open or drop the file. If
   [LibreOffice](https://www.libreoffice.org) is installed, office files go
@@ -110,6 +118,16 @@ anywhere, there are no accounts, and every tool is free. Built by EPD.
   protection without asking.
 - **Crash recovery.** Unsaved work, including brand-new documents, is copied
   somewhere safe every minute and offered back if Inkleaf closes unexpectedly.
+- **On your phone.** The Android app has its own native screens: your files
+  first, a Tools tab and a Computer tab. Documents open for reading; tap the
+  pencil for an edit sheet with annotate, text, sign and page tools. Pinch to
+  zoom. Open PDFs from your files or cloud storage, or share them to Inkleaf
+  from any app. Editing is done by the same engine as the desktop app, so
+  everything behaves the same.
+- **Phone ↔ computer.** Pair a phone with your computer by scanning a QR code
+  (Tools › Connect a Phone), then send PDFs either way with one tap. Files go
+  straight between the two over your Wi-Fi, encrypted (AES-256-GCM); there's
+  no cloud and no account.
 - Updates itself (installed version) when a new release is published.
 - Unlimited undo, light and dark mode, keyboard shortcuts for every tool
   (press Ctrl+/ or ⌘/ to see them).
@@ -242,15 +260,98 @@ files. GitHub Actions builds and publishes them for you:
 To publish from your own computer instead, set `GH_TOKEN` and run
 `npm run release:win` (or `npm run release` on each platform).
 
+## The phone app
+
+The Android app's screens are native, written in Kotlin with Jetpack Compose
+(`mobile/android/ui`). The PDF itself is shown and edited by the same editor
+as the desktop app, running underneath in a web view
+([Capacitor](https://capacitorjs.com)) with its own buttons hidden: the
+reader leaves its middle clear, and the page shows through there.
+
+- `src/renderer/engine.ts` is the editor's side: the commands the native
+  screens send it, and the state it reports back.
+- `mobile/android/app/.../Engine.kt` is the native side, and
+  `MainActivity.kt` puts the two together.
+- `src/mobile/bridge.ts` gives the editor the phone's versions of the file,
+  settings and link functions the desktop app gets from Electron.
+
+The native screens use the same translations as everything else: `tr("…")`
+and `msg("…")` in the Kotlin files are picked up by `scripts/i18n.mjs`.
+
+In Android Studio, open the `mobile/android` folder. Run `npm run build:mobile`
+first (and again after changing anything outside `mobile/android`), then
+press Run.
+
+Tests that need no phone:
+
+```bash
+cd mobile/android
+./gradlew :ui:testDebugUnitTest :app:testDebugUnitTest
+# pictures of every screen, in ui/build/shots/:
+./gradlew :ui:testDebugUnitTest -Droborazzi.test.record=true
+```
+
+You need the Android SDK (Android Studio installs it) and JDK 21:
+
+```bash
+npm run android:apk                  # a debug APK to install on your own phone
+npm run android:release              # the release APK and the Play Store bundle (.aab)
+npm run build:mobile                 # or just update the app's pages, then
+npx cap open android                 # open it in Android Studio to run on a phone or emulator
+```
+
+The app's version always matches `version` in `package.json`.
+
+### Signing the Android app
+
+Phones only install signed apps, and every update must be signed with the
+same key, so make one key and keep it safe (a password manager and an
+offline backup). Losing it means people would have to uninstall and
+reinstall to get updates.
+
+```bash
+keytool -genkeypair -v -keystore inkleaf-upload.jks -alias inkleaf \
+  -keyalg RSA -keysize 4096 -validity 10000
+base64 -w0 inkleaf-upload.jks          # on macOS: base64 -i inkleaf-upload.jks
+```
+
+Add these repository secrets: `ANDROID_KEYSTORE` (the base64 text),
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`inkleaf` above) and
+`ANDROID_KEY_PASSWORD`. Never commit the `.jks` file; `.gitignore` already
+keeps it out.
+
+The release workflow then attaches `Inkleaf-Android.apk` (to install
+directly) and `Inkleaf-Android.aab` (for Google Play) to each release. For
+Google Play, turn on Play App Signing and upload the `.aab`; the key above
+becomes your upload key.
+
+### iPhone
+
+The iPhone app uses the same code. It needs a Mac with Xcode to build
+(`npx cap add ios`, then `npx cap open ios`) and an Apple Developer account
+to put on the App Store. It's planned but not released yet.
+
 ## How it's put together
 
 ```
-src/main/        Electron main process: windows, menus, file access
-src/renderer/    the editor UI (TypeScript, no framework)
+src/main/        Electron main process: windows, menus, file access, the phone link server
+src/renderer/    the editor UI (TypeScript, no framework), shared by desktop and phone
+src/mobile/      the phone side: Capacitor bridge, phone end of the link
+mobile/android/ui/  the Android app's native screens (Kotlin + Compose)
+src/shared/      code both sides use: the API types, AI services, the link protocol
+mobile/android/  the Android project: the app around the screens and the engine, plus Java for saving, printing and opening files
 core/            Rust PDF core, compiled to WebAssembly
 tests/           fixtures and the end-to-end test
-scripts/         build script and icon generator
+scripts/         build scripts
 ```
+
+The phone link: the computer runs a small server on your local network
+(port 47731) only while a phone is paired. Pairing shares a random key
+through the QR code; every message after that is sealed with AES-256-GCM
+using a key derived from it, and carries a timestamp and nonce so it can't
+be replayed. The phone keeps one request open while Inkleaf is on screen, so
+files sent from the computer arrive straight away. See
+`src/shared/link-protocol.ts`.
 
 The renderer never touches the file system. It asks the main process to open
 and save files through a small API (`src/shared/api.ts`), and the main process

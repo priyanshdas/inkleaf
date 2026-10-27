@@ -75,7 +75,11 @@ export function hydrateIcons(root: ParentNode = document) {
 
 // --- toasts ----------------------------------------------------------------
 
+/** Set in engine mode, where the phone app shows messages itself. */
+export const toastHook: { send: ((message: string, kind: string) => void) | null } = { send: null };
+
 export function toast(message: string, kind: 'info' | 'error' | 'success' = 'info', ms = 4200) {
+  if (toastHook.send) return toastHook.send(message, kind);
   const root = document.getElementById('toasts')!;
   const el = h('div', { class: `toast toast-${kind}`, role: kind === 'error' ? 'alert' : 'status' }, message);
   root.append(el);
@@ -139,6 +143,8 @@ export interface ModalOptions {
   wide?: boolean;
   /** Runs before closing with a non-dismiss value; return false to stay open. */
   validate?: (value: string) => boolean | Promise<boolean>;
+  /** Called once the dialog is showing, with a way to close it from code. */
+  onOpen?: (close: (value: string) => void) => void;
 }
 
 let openModals = 0;
@@ -208,6 +214,7 @@ export function modal(options: ModalOptions): Promise<string> {
     openModals++;
     modalStack.push(self);
     document.addEventListener('keydown', onKey, true);
+    options.onOpen?.((value) => void close(value));
     requestAnimationFrame(() => {
       backdrop.classList.add('show');
       const focusable = dialog.querySelector<HTMLElement>('input, select, textarea') ??

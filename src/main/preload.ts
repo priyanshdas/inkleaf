@@ -72,6 +72,18 @@ const api: InkleafApi = {
   onMenu: (handler) => {
     ipcRenderer.on('menu', (_event, command: MenuCommand) => handler(command));
   },
+  // the system share sheet is a phone thing
+  unsupported: ['share'],
+  linkStatus: () => ipcRenderer.invoke('link:status'),
+  linkPair: () => ipcRenderer.invoke('link:pair'),
+  linkJoin: async () => {
+    throw new Error('Only the phone app scans a pairing code.');
+  },
+  linkSend: (id, name, data) => ipcRenderer.invoke('link:send', id, name, data),
+  linkForget: (id) => ipcRenderer.invoke('link:forget', id),
+  onLinkEvent: (handler) => {
+    ipcRenderer.on('link:event', (_event, e) => handler(e));
+  },
   onOpenFile: (handler) => {
     ipcRenderer.on('open-file', (_event, file: OpenedFile) => handler(file));
     // Main holds on to files from the command line or Finder until the page

@@ -72,7 +72,11 @@ if (mobileMenuButton && mobileMenu) {
 // version" words inside the Windows card open their own file.
 (() => {
   const ua = navigator.userAgent;
-  const os = /Windows/.test(ua) ? 'windows' : /Mac OS X|Macintosh/.test(ua) ? 'mac' : /Linux|X11/.test(ua) && !/Android/.test(ua) ? 'linux' : null;
+  const os = /Android/.test(ua) ? 'android'
+    : /iPhone|iPad/.test(ua) ? 'ios'
+      : /Windows/.test(ua) ? 'windows'
+        : /Mac OS X|Macintosh/.test(ua) ? 'mac'
+          : /Linux|X11/.test(ua) ? 'linux' : null;
   if (os) document.querySelector(`.download-option[data-os="${os}"]`)?.classList.add('is-yours');
 
   document.querySelectorAll('.inline-link[data-href]').forEach((link) => {

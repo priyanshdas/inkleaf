@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { t, msg } from '../shared/i18n';
+import { isMobile } from '../shared/platform';
 import { getFamily } from './custom-fonts';
 import type { EditorDoc } from './document';
 import { Editor, styleGroupFor } from './editor';
@@ -374,7 +375,7 @@ export class Inspector {
         doc.bringToFront(editor.selection.pageId, a.id);
         doc.commit();
       }),
-      this.actionButton('copy', msg('Duplicate'), () => editor.duplicateSelected(), { hint: t('Ctrl+D') }),
+      this.actionButton('copy', msg('Duplicate'), () => editor.duplicateSelected(), { hint: isMobile() ? undefined : t('Ctrl+D') }),
       this.actionButton('trash-2', msg('Delete'), () => editor.deleteSelected(), { danger: true, hint: t('Del') }),
     );
     return list;

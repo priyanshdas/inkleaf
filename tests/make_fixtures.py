@@ -175,11 +175,44 @@ def table_pdf(path):
     c.save()
 
 
+def faded(path):
+    """A poor photocopy: yellowed grey paper, washed-out grey text and a little blur, for Enhance."""
+    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+    import random
+    random.seed(7)
+    dpi = 150
+    w, h = int(8.27 * dpi), int(11.69 * dpi)
+    img = Image.new("RGB", (w, h), (196, 188, 168))
+    d = ImageDraw.Draw(img)
+    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 30)
+    lines = ["Faded memo, page one", "Kitchen order for Friday",
+             "Twelve kilos of basmati rice", "Saffron, cardamom and ghee"]
+    for i, line in enumerate(lines):
+        d.text((140, 180 + i * 80), line, fill=(120, 114, 102), font=font)
+    # paper grain
+    px = img.load()
+    for _ in range(w * h // 40):
+        x, y = random.randrange(w), random.randrange(h)
+        r, g, b = px[x, y]
+        n = random.randint(-14, 14)
+        px[x, y] = (r + n, g + n, b + n)
+    img = img.filter(ImageFilter.GaussianBlur(1.1))
+    tmp = out / "_faded.jpg"
+    img.save(tmp, quality=85)
+    c = canvas.Canvas(str(path), pagesize=A4)
+    for _ in range(2):
+        c.drawImage(str(tmp), 0, 0, width=A4[0], height=A4[1])
+        c.showPage()
+    c.save()
+    tmp.unlink()
+
+
 sample(out / "sample.pdf")
 office(out)
 table_pdf(out / "table.pdf")
 photo(out / "photo.pdf")
 scan(out / "scan.pdf")
+faded(out / "faded.pdf")
 form(out / "form.pdf")
 subprocess.run(["qpdf", "--encrypt", "", "owner-secret", "256", "--modify=none", "--",
                 str(out / "sample.pdf"), str(out / "owner-locked.pdf")], check=True)

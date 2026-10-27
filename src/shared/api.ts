@@ -3,6 +3,7 @@
 // preload.ts implements it; the renderer sees it as `window.inkleaf`.
 
 import type { AiProviderId } from './ai-providers';
+import type { LinkEvent, LinkStatus } from './link-protocol';
 
 export interface AiStatus {
   ready: boolean;
@@ -41,12 +42,13 @@ export type MenuCommand =
   | 'insert-pdf' | 'insert-blank' | 'extract' | 'split' | 'rotate-left' | 'rotate-right' | 'delete-pages'
   | 'shortcuts' | 'about' | 'next-tab' | 'prev-tab' | 'close-tab'
   | 'theme-system' | 'theme-light' | 'theme-dark' | 'toggle-inspector'
-  | 'find' | 'print' | 'compress' | 'protect' | 'ocr' | 'compare' | 'decor' | 'remove-decor'
+  | 'find' | 'print' | 'enhance' | 'compress' | 'protect' | 'ocr' | 'compare' | 'decor' | 'remove-decor'
   | 'images-to-pdf' | 'pdf-to-images' | 'pdf-to-word' | 'crop' | 'uncrop-page' | 'uncrop-all' | 'form-builder'
   | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'check-updates' | 'show-comments' | 'show-bookmarks'
   | 'toggle-autosave' | 'open-backups' | 'open-github' | 'report-problem' | 'donate'
   | 'convert-to-pdf' | 'convert-from-pdf' | 'web-to-pdf' | 'scan-to-pdf' | 'repair' | 'pdf-to-pdfa'
-  | 'ai-summarize' | 'ai-translate' | 'ai-settings' | 'all-tools' | 'unlock' | 'language' | 'terms' | 'privacy';
+  | 'ai-summarize' | 'ai-translate' | 'ai-settings' | 'all-tools' | 'unlock' | 'language' | 'terms' | 'privacy'
+  | 'link-pair' | 'link-send' | 'share';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
@@ -100,6 +102,15 @@ export interface RecoveredFile {
 }
 
 export interface InkleafApi {
+  /** Set by the phone apps' bridge; the desktop app leaves these out. */
+  mobile?: boolean;
+  /** Android: native screens drive the editor, which only shows the page (src/renderer/engine.ts). */
+  engine?: boolean;
+  /** Commands this device can't do, hidden from menus and tool lists. */
+  unsupported?: string[];
+  /** Where downloaded language packs are served from, when not ./packs/. */
+  packBase?: string;
+
   info(): Promise<AppInfo>;
   /** Records that the person agreed to the terms and privacy policy. */
   agreeToTerms(): Promise<void>;
@@ -151,6 +162,8 @@ export interface InkleafApi {
   aiAsk(request: { system: string; prompt: string; maxTokens: number }): Promise<string>;
   /** Shows the system print dialog for the current page contents. */
   print(): Promise<{ ok: boolean; reason?: string }>;
+  /** Phones: hands the finished PDF straight to the system's print service. */
+  printPdf?(name: string, data: Uint8Array): Promise<void>;
   /** Copies a file into the backups folder before it's first auto-saved over. */
   backupOriginal(path: string): Promise<void>;
   openBackups(): void;
@@ -191,6 +204,19 @@ export interface InkleafApi {
   setTheme(theme: ThemeSetting): void;
   /** Window-level actions for the in-app menu on Windows and Linux. */
   windowCommand(command: 'new-window' | 'devtools' | 'fullscreen' | 'quit'): void;
+
+  /**
+   * Phone ↔ computer link. On a computer, linkPair shows a QR code for a
+   * phone to scan; on a phone, linkJoin takes what was scanned.
+   */
+  linkStatus(): Promise<LinkStatus>;
+  linkPair(): Promise<{ code: string; addresses: string[]; port: number }>;
+  linkJoin(code: string): Promise<{ name: string }>;
+  linkSend(deviceId: string, name: string, data: Uint8Array): Promise<void>;
+  linkForget(deviceId: string): Promise<void>;
+  onLinkEvent(handler: (event: LinkEvent) => void): void;
+  /** Phones only: hands a file to other apps through the system share sheet. */
+  shareFile?(data: Uint8Array, name: string): Promise<void>;
 
   onMenu(handler: (command: MenuCommand) => void): void;
   onOpenFile(handler: (file: OpenedFile) => void): void;

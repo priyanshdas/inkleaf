@@ -6,6 +6,7 @@
 // That layer is laid over the original page, so the scan looks exactly the
 // same but its words can now be found, selected, copied and edited.
 
+import { isMobile, packUrl } from '../shared/platform';
 import { t } from '../shared/i18n';
 import { createWorker, OEM } from 'tesseract.js';
 import type { EditorDoc } from './document';
@@ -25,7 +26,7 @@ const MAX_SIDE = 5000;
 
 const base = new URL('./vendor/tesseract/', location.href).href;
 // models that ship with the app and downloaded ones are served from one place
-const langPath = new URL('./packs/ocr', location.href).href;
+const langPath = new URL(packUrl('ocr'), location.href).href;
 
 interface Choice {
   langs: string[];
@@ -69,8 +70,8 @@ async function ask(doc: EditorDoc, currentPageId: string | null): Promise<Choice
       new Option(ready(l.code) ? l.label : t('{language} (download {size})', { language: l.label, size: sizeOf(l.code) }), l.code)));
     const downloads = [...chosen].filter((c) => !ready(c));
     note.textContent = downloads.length
-      ? t('Languages marked ↓ are downloaded once from jsDelivr, then work offline. Your pages never leave this computer.')
-      : t('Everything happens on this computer.');
+      ? (isMobile() ? t('Languages marked ↓ are downloaded once from jsDelivr, then work offline. Your pages never leave this phone.') : t('Languages marked ↓ are downloaded once from jsDelivr, then work offline. Your pages never leave this computer.'))
+      : isMobile() ? t('Everything happens on this phone.') : t('Everything happens on this computer.');
   };
   add.addEventListener('change', () => {
     if (add.value) chosen.add(add.value);

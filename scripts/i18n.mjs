@@ -31,10 +31,12 @@ function sources(folder) {
   });
 }
 
-/** Every string literal passed straight to t( or msg( in a source file. */
-function calls(src) {
+/** Every string literal passed straight to t(, msg( or (on phones) inkleafT( in a source file. */
+function calls(src, kotlin = false) {
   const found = [];
-  for (const m of src.matchAll(/(?<![\w$.])(?:t|msg)\(\s*(['"`])/g)) {
+  // the Android screens (Kotlin) translate with tr("…") and mark list labels with msg("…")
+  const pattern = kotlin ? /(?<![\w$.])(?:tr|msg)\(\s*(")/g : /(?:(?<![\w$.])(?:t|msg)|\binkleafT)\(\s*(['"`])/g;
+  for (const m of src.matchAll(pattern)) {
     // usage examples in comments aren't real calls
     const line = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index).trimStart();
     if (line.startsWith('//') || line.startsWith('*')) continue;
@@ -56,6 +58,12 @@ function calls(src) {
 const strings = new Map();
 for (const file of sources(path.join(root, 'src'))) {
   for (const text of calls(fs.readFileSync(file, 'utf8'))) strings.set(key(text), text);
+}
+const androidScreens = path.join(root, 'mobile', 'android', 'ui', 'src', 'main', 'java');
+if (fs.existsSync(androidScreens)) {
+  for (const file of fs.readdirSync(androidScreens, { recursive: true }).filter((f) => f.endsWith('.kt'))) {
+    for (const text of calls(fs.readFileSync(path.join(androidScreens, file), 'utf8'), true)) strings.set(key(text), text);
+  }
 }
 
 // the window's static text (translated at start-up by localizeStatic() in ui.ts)

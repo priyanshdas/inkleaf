@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { t, msg } from '../shared/i18n';
+import { isMobile } from '../shared/platform';
 import { tracePath } from './render';
 import { h, icon, imageFileToDataUrl, modal } from './ui';
 
@@ -285,7 +286,9 @@ export async function chooseSignature(kind: SignKind = 'signature'): Promise<str
       savedRow,
       tabs,
       body,
-      h('label', { class: 'check' }, keepIt, kind === 'initials' ? t(' Remember these initials on this computer') : t(' Remember this signature on this computer')),
+      h('label', { class: 'check' }, keepIt, kind === 'initials'
+        ? (isMobile() ? t(' Remember these initials on this phone') : t(' Remember these initials on this computer'))
+        : (isMobile() ? t(' Remember this signature on this phone') : t(' Remember this signature on this computer'))),
     ),
     buttons: [
       { label: t('Cancel'), value: 'cancel' },

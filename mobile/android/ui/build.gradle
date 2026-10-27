@@ -1,0 +1,45 @@
+// The phone app's screens: Kotlin and Jetpack Compose, in Inkleaf's own look.
+// They only show state and report taps; the app module does the work.
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+android {
+    namespace = 'io.github.priyanshdas.inkleaf.ui'
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+    }
+    buildFeatures { compose = true }
+    testOptions { unitTests.includeAndroidResources = true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+}
+
+// compile for Java 21 with whichever JDK runs Gradle (Android Studio's own, or CI's), rather than
+// asking Gradle to find or download a separate one
+kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 } }
+
+dependencies {
+    def bom = platform("androidx.compose:compose-bom:$composeBomVersion")
+    api bom
+    api 'androidx.compose.material3:material3'
+    api 'androidx.compose.ui:ui'
+    api 'androidx.compose.ui:ui-tooling-preview'
+    api 'androidx.compose.foundation:foundation'
+    api "androidx.activity:activity-compose:$androidxActivityVersion"
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    testImplementation "junit:junit:$junitVersion"
+    // screenshots of the screens without a phone: ./gradlew :ui:testDebugUnitTest -Droborazzi.test.record=true
+    testImplementation 'org.robolectric:robolectric:4.17'
+    testImplementation 'io.github.takahirom.roborazzi:roborazzi-compose:1.77.0'
+    testImplementation 'androidx.compose.ui:ui-test-junit4'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+}
+
+tasks.withType(Test).configureEach {
+    systemProperties['roborazzi.test.record'] = System.getProperty('roborazzi.test.record', 'false')
+    systemProperties['robolectric.pixelCopyRenderMode'] = 'hardware'
+}

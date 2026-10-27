@@ -1,0 +1,15 @@
+{
+  "appId": "io.github.priyanshdas.inkleaf",
+  "appName": "Inkleaf",
+  "webDir": "mobile/www",
+  "android": {
+    "path": "mobile/android"
+  },
+  "ios": {
+    "path": "mobile/ios"
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": false },
+    "Keyboard": { "resize": "native" }
+  }
+}

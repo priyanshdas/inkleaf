@@ -13,6 +13,7 @@
 
 // fontkit's shapers for Indic and South-East Asian scripts were compiled
 // expecting this helper to exist globally
+import { packUrl } from '../shared/platform';
 import 'regenerator-runtime/runtime';
 import { DOWNLOADED_SCRIPTS, type Script } from '../shared/languages';
 import { Face, Family, loadFace, registerFamily } from './custom-fonts';
@@ -138,7 +139,7 @@ export function scriptFamily(script: FontScript): Family {
       if (isDownloaded(script)) {
         const file = `fonts/${base}-${bold ? 'Bold' : 'Regular'}.ttf`;
         await window.inkleaf.ensurePacks([file]);
-        return fetchBytes(`./packs/${file}`);
+        return fetchBytes(packUrl(file));
       }
       return fetchBytes(`./assets/fonts/noto/${base}-${style}.ttf`);
     },
