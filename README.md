@@ -8,8 +8,10 @@ anywhere, there are no accounts, and every tool is free. Built by EPD.
 [![Licence: GPL-3.0-or-later](https://img.shields.io/badge/licence-GPL--3.0--or--later-2b7356)](LICENSE)
 [![Support on Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/inkleaf)
 
-**Download:** the latest installers are on the
-[releases page](https://github.com/priyanshdas/inkleaf/releases).
+**Download:**
+[Microsoft Store](https://apps.microsoft.com/detail/9NKC5ZQ6P2JR) (Windows) ·
+[releases page](https://github.com/priyanshdas/inkleaf/releases) (Windows,
+macOS, Linux and the Android APK).
 
 ## What it does
 
@@ -185,12 +187,13 @@ so you don't need Rust unless you change it.
 Each platform's installer is best built on that platform:
 
 ```bash
-npm run dist:win     # on Windows: NSIS installer + portable .exe
-npm run dist:mac     # on macOS:   .dmg + .zip, for Apple Silicon and Intel
-npm run dist:linux   # on Linux:   AppImage + .deb (x64 and ARM) and .rpm (x64)
+npm run dist:win         # on Windows: NSIS installer + portable .exe
+npm run dist:win:store   # on Windows: the Microsoft Store package (.appx)
+npm run dist:mac         # on macOS:   .dmg + .zip, for Apple Silicon and Intel
+npm run dist:linux       # on Linux:   AppImage + .deb (x64 and ARM) and .rpm (x64)
 ```
 
-Output lands in `dist/`. `dist:win` makes an installer (`Inkleaf Setup 2.4.0.exe`)
+Output lands in `dist/`. `dist:win` makes an installer (`Inkleaf-Setup.exe`)
 and a portable `.exe` that runs without installing. It can also be built on
 Linux if Wine is installed. The Linux `.rpm` needs `rpmbuild`
 (`sudo apt install rpm` on Ubuntu).
@@ -259,6 +262,23 @@ files. GitHub Actions builds and publishes them for you:
 
 To publish from your own computer instead, set `GH_TOKEN` and run
 `npm run release:win` (or `npm run release` on each platform).
+
+### Microsoft Store
+
+The Store version doesn't update itself; Microsoft Store does that, and
+"Check for updates" says so. Each release also needs a new Store submission:
+
+1. The release workflow builds the Store package. Open the run on the
+   **Actions** tab and download **Inkleaf-Microsoft-Store** from the bottom
+   of its summary page (or build it yourself with `npm run dist:win:store`).
+2. In [Partner Center](https://partner.microsoft.com/dashboard), open Inkleaf,
+   choose **Start update**, then **Packages**. Remove the old package, upload
+   the new `.appx`, and submit.
+3. Certification takes from a few hours to a few days. Store users then get
+   the update automatically.
+
+The Store only accepts a package with a higher version number than the last
+one, so the version in `package.json` must always go up.
 
 ## The phone app
 

@@ -2,7 +2,10 @@
 # the public releases repository, which is where the installed app looks
 # for updates. Runs when you push a version tag:
 #
-#   git tag v2.4.0 && git push origin v2.4.0
+#   git tag v3.0.0 && git push origin v3.0.0
+#
+# It also builds the Microsoft Store package (.appx), kept with the run
+# rather than published, for you to upload in Partner Center.
 #
 # Secrets (Settings › Secrets and variables › Actions):
 #
@@ -76,6 +79,24 @@ jobs:
           else
             npm run release
           fi
+
+      # The Microsoft Store package. It isn't put on the releases page (the
+      # Store signs it, so on its own it won't install); download it from
+      # this run's summary page and upload it in Partner Center.
+      - name: Store package
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --win appx --x64 --publish never
+
+      - name: Keep the Store package
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Inkleaf-Microsoft-Store
+          path: dist/*.appx
+          if-no-files-found: error
 
   # The Android app: an APK people can install straight from the releases page,
   # and an app bundle (.aab) for the Play Store. Runs after the desktop builds,
