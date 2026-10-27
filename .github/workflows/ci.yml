@@ -26,9 +26,38 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
 
+      # the phone app's pages build from the same code, so make sure they still do
+      - name: Phone build
+        run: node scripts/build-mobile.mjs
+
       - name: Rust core
         working-directory: core
         run: cargo test --release
 
       - name: End-to-end tests
         run: xvfb-run -a npm test
+
+  # the Android app's screens and native code, tested without a phone
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+
+      - name: Build the phone app
+        run: node scripts/android.mjs
+
+      - name: Screens, touches and the engine connection
+        working-directory: mobile/android
+        run: ./gradlew :ui:testDebugUnitTest :app:testDebugUnitTest --no-daemon

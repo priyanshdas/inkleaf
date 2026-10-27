@@ -20,6 +20,13 @@
 #
 #   Optional, for a signed Windows installer:
 #   WIN_CERTIFICATE, WIN_CERTIFICATE_PASSWORD
+#
+#   For the Android app (without these, only an unsigned build is attached,
+#   which phones refuse to install, so set them before your first 3.x release):
+#   ANDROID_KEYSTORE             your upload keystore (.jks), base64-encoded
+#   ANDROID_KEYSTORE_PASSWORD    the keystore's password
+#   ANDROID_KEY_ALIAS            the key's alias inside it
+#   ANDROID_KEY_PASSWORD         the key's password (often the same)
 name: Release
 
 on:
@@ -69,3 +76,59 @@ jobs:
           else
             npm run release
           fi
+
+  # The Android app: an APK people can install straight from the releases page,
+  # and an app bundle (.aab) for the Play Store. Runs after the desktop builds,
+  # which create the release this attaches to.
+  android:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+
+      - name: Build the phone app's pages
+        run: |
+          node scripts/build-mobile.mjs
+          npx cap sync android
+
+      - name: Build and sign
+        shell: bash
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          INKLEAF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          INKLEAF_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          INKLEAF_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+            export INKLEAF_KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
+          fi
+          cd mobile/android
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease --no-daemon
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          if [ -n "$KEYSTORE" ]; then
+            cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/out/Inkleaf-Android.apk"
+          else
+            cp app/build/outputs/apk/release/app-release-unsigned.apk "$GITHUB_WORKSPACE/out/Inkleaf-Android-unsigned.apk"
+          fi
+          cp app/build/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/out/Inkleaf-Android.aab"
+          rm -f "$RUNNER_TEMP/upload.jks"
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        # the desktop builds name the release after package.json's version
+        run: gh release upload "v$(node -p "require('./package.json').version")" out/* --repo priyanshdas/inkleaf-releases --clobber
