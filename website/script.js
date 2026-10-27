@@ -1,75 +1,65 @@
-// Inkleaf website
-// Small interactions and smooth navigation.
+// Inkleaf website: three small things.
 
-document.addEventListener("DOMContentLoaded", () => {
-  // Smooth scrolling for internal links
-  document.querySelectorAll('a[href^="#"]').forEach((link) => {
-    link.addEventListener("click", (event) => {
-      const targetId = link.getAttribute("href");
+// 1. The menu line at the top fixes its own typo once, the way you'd fix it
+//    in Inkleaf: the word shows misspelt, then gets retyped.
+(() => {
+  const word = document.querySelector('.demo-word');
+  if (!word) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-      if (!targetId || targetId === "#") return;
+  const from = word.dataset.from;
+  const to = word.dataset.to;
+  word.textContent = from;
+  word.classList.add('typing');
 
-      const target = document.querySelector(targetId);
-
-      if (!target) return;
-
-      event.preventDefault();
-
-      target.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
-  });
-
-
-  // Reveal sections as they enter the viewport
-  const revealItems = document.querySelectorAll(
-    ".feature-card, .privacy-section, .opensource-card, .download-container"
-  );
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-
-        entry.target.classList.add("visible");
-        observer.unobserve(entry.target);
-      });
-    },
-    {
-      threshold: 0.12,
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  (async () => {
+    await wait(1100);
+    // back up to where the two spellings differ, then type the rest
+    let same = 0;
+    while (same < from.length && from[same] === to[same]) same++;
+    for (let i = from.length; i > same; i--) {
+      word.textContent = from.slice(0, i - 1);
+      await wait(110);
     }
-  );
+    await wait(250);
+    for (let i = same + 1; i <= to.length; i++) {
+      word.textContent = to.slice(0, i);
+      await wait(130);
+    }
+    await wait(900);
+    word.classList.remove('typing');
+  })();
+})();
 
-  revealItems.forEach((item) => {
-    item.classList.add("reveal");
-    observer.observe(item);
+// 2. Before and after slider for the cleaned-up scan.
+(() => {
+  const range = document.getElementById('compare-range');
+  const frame = document.querySelector('.compare-frame');
+  if (!range || !frame) return;
+  const show = () => frame.style.setProperty('--pos', `${range.value}%`);
+  range.addEventListener('input', show);
+  show();
+
+  // dragging on the picture itself moves it too
+  let dragging = false;
+  const moveTo = (event) => {
+    const box = frame.getBoundingClientRect();
+    const percent = ((event.clientX - box.left) / box.width) * 100;
+    range.value = String(Math.min(100, Math.max(0, Math.round(percent))));
+    show();
+  };
+  frame.addEventListener('pointerdown', (event) => {
+    dragging = true;
+    frame.setPointerCapture(event.pointerId);
+    moveTo(event);
   });
-});
+  frame.addEventListener('pointermove', (event) => dragging && moveTo(event));
+  frame.addEventListener('pointerup', () => { dragging = false; });
+  frame.addEventListener('pointercancel', () => { dragging = false; });
+})();
 
-const mobileMenuButton = document.querySelector(".mobile-menu-button");
-const mobileMenu = document.querySelector(".mobile-menu");
-
-if (mobileMenuButton && mobileMenu) {
-  mobileMenuButton.addEventListener("click", () => {
-    const isOpen = mobileMenu.classList.toggle("open");
-
-    mobileMenuButton.classList.toggle("active", isOpen);
-    mobileMenuButton.setAttribute("aria-expanded", String(isOpen));
-  });
-
-  mobileMenu.querySelectorAll("a").forEach((link) => {
-    link.addEventListener("click", () => {
-      mobileMenu.classList.remove("open");
-      mobileMenuButton.classList.remove("active");
-      mobileMenuButton.setAttribute("aria-expanded", "false");
-    });
-  });
-}
-
-// Downloads: point out the one for this computer, and let the "portable
-// version" words inside the Windows card open their own file.
+// 3. Point out the download for this device, and name it on the top button.
 (() => {
   const ua = navigator.userAgent;
   const os = /Android/.test(ua) ? 'android'
@@ -77,13 +67,13 @@ if (mobileMenuButton && mobileMenu) {
       : /Windows/.test(ua) ? 'windows'
         : /Mac OS X|Macintosh/.test(ua) ? 'mac'
           : /Linux|X11/.test(ua) ? 'linux' : null;
-  if (os) document.querySelector(`.download-option[data-os="${os}"]`)?.classList.add('is-yours');
+  if (!os) return;
+  document.querySelector(`.downloads tr[data-os="${os}"]`)?.classList.add('yours');
 
-  document.querySelectorAll('.inline-link[data-href]').forEach((link) => {
-    link.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      window.location.href = link.dataset.href;
-    });
-  });
+  // the Microsoft Store link only means something on Windows
+  if (os !== 'windows') document.querySelector('.get .quiet-link')?.remove();
+
+  const names = { windows: 'Windows', linux: 'Linux', android: 'Android' };
+  const button = document.getElementById('get-button');
+  if (button && names[os]) button.textContent = `Download for ${names[os]}`;
 })();

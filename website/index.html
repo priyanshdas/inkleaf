@@ -1,704 +1,265 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <meta name="description" content="Inkleaf is a free, open-source PDF editor for Windows, Linux and Android. Edit, annotate, sign, OCR, compress, convert, compare, and manage PDFs privately with an offline-first desktop app.">
-
-<meta name="keywords" content="Inkleaf, PDF editor, free PDF editor, open source PDF editor, Windows PDF editor, Linux PDF editor, Android PDF editor, PDF annotation, PDF OCR, PDF forms, PDF signing">
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inkleaf: free PDF editor that edits the actual text</title>
+<meta name="description" content="Inkleaf is a free, open-source PDF editor for Windows, Linux and Android. Change the words in a PDF, redact, sign, fill forms, clean up scans and more, all on your own device.">
 <meta name="author" content="Priyansh Das">
-
-<meta property="og:title" content="Inkleaf — Free, Open-Source PDF Editor">
-<meta property="og:description" content="Edit, annotate, sign, OCR, compress, convert, and compare PDFs privately with Inkleaf. Free, open source, for Windows, Linux and Android.">
+<meta property="og:title" content="Inkleaf, a free PDF editor that edits the actual text">
+<meta property="og:description" content="Open source, works offline, no account. Windows, Linux and Android.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://priyanshdas.github.io/inkleaf/">
-<meta property="og:image" content="https://priyanshdas.github.io/inkleaf/icon-512.png">
-
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Inkleaf — Free, Open-Source PDF Editor">
-<meta name="twitter:description" content="A free, open-source PDF editor for Windows, Linux and Android.">
-<meta name="twitter:image" content="https://priyanshdas.github.io/inkleaf/icon-512.png">
-
-<meta name="theme-color" content="#0b0d10">
-
-  <title>Inkleaf — The Open PDF Editor</title>
-
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+<meta property="og:image" content="https://priyanshdas.github.io/inkleaf/edit.webp">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Inkleaf, a free PDF editor that edits the actual text">
+<meta name="twitter:description" content="Open source, works offline, no account. Windows, Linux and Android.">
+<meta name="twitter:image" content="https://priyanshdas.github.io/inkleaf/edit.webp">
+<meta name="theme-color" content="#123b2f">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
-
-<meta name="theme-color" content="#0b0d10">
-
-  <link rel="stylesheet" href="style.css" /> 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wdth,wght@0,75..100,400..700;1,75..100,400..700&display=swap">
+<link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-  <!-- Navigation -->
-<header class="navbar">
-  <div class="nav-container">
-
-    <a href="#" class="brand">
-      <img src="icon-48.png" alt="Inkleaf" class="brand-icon">
-      <span>Inkleaf</span>
-    </a>
-
-   <button class="mobile-menu-toggle" aria-label="Open navigation" aria-expanded="false">
-  <span></span>
-  <span></span>
-  <span></span>
-</button>
-
-<nav class="nav-links">
-  <a href="#features">Features</a>
-  <a href="#privacy">Privacy</a>
-  <a href="#opensource">Open Source</a>
-  <a
-    href="https://github.com/priyanshdas/inkleaf"
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    GitHub
+<header class="bar">
+  <a class="brand" href="#top">
+    <img src="icon-48.png" alt="" width="24" height="24">
+    Inkleaf
   </a>
-</nav>
-
-    <a class="nav-download" href="#download">
-      Download
-    </a>
-
-    <button class="mobile-menu-button" aria-label="Open menu" aria-expanded="false">
-      <span></span>
-      <span></span>
-      <span></span>
-    </button>
-
-  </div>
-
-  <div class="mobile-menu">
-    <a href="#features">Features</a>
-    <a href="#privacy">Privacy</a>
-    <a href="#opensource">Open Source</a>
-    <a href="https://github.com/priyanshdas/inkleaf" target="_blank" rel="noopener noreferrer">
-      GitHub
-    </a>
-    <a href="#download" class="mobile-download">Download</a>
-  </div>
+  <nav aria-label="Main">
+    <a href="#what-it-does" class="wide-only">What it does</a>
+    <a href="#privacy" class="wide-only">Privacy</a>
+    <a href="https://github.com/priyanshdas/inkleaf">Source code</a>
+    <a href="#download" class="bar-download">Download</a>
+  </nav>
 </header>
 
+<main id="top">
 
-  <!-- Hero -->
-  <main>
+  <!-- Sheet 1 -->
+  <article class="sheet hero">
+    <h1>A PDF editor that changes the words, not just covers them up.</h1>
 
-    <section class="hero">
-  <div class="hero-content">
-    <div class="eyebrow">OPEN-SOURCE PDF EDITOR</div>
+    <div class="demo" aria-hidden="true">
+      <span class="demo-line">Wild mushroom <span class="demo-word" data-from="risoto" data-to="risotto">risotto</span>, aged parmesan</span>
+      <span class="demo-price">760</span>
+    </div>
 
-    <h1>The PDF editor<br><span>that puts you in control.</span></h1>
-
-    <p class="hero-description">
-      Edit, annotate, sign, OCR, compress, convert, and compare PDFs —
-      privately, locally, and without subscriptions.
+    <p class="lead">
+      Click any line in a PDF and retype it. When you save, the old text is
+      gone from the file, so nobody can copy it back out. Inkleaf is free,
+      open source and works without the internet.
     </p>
 
-    <div class="hero-actions">
-      <a
-        href="#download"
-        class="btn btn-primary"
-      >
-        Download Inkleaf
-        <span>→</span>
-      </a>
-
-      <a
-        href="https://github.com/priyanshdas/inkleaf"
-        class="btn btn-secondary"
-        target="_blank"
-        rel="noopener"
-      >
-        View on GitHub
-      </a>
+    <div class="get">
+      <a class="button" href="#download" id="get-button">Download Inkleaf</a>
+      <a class="quiet-link" href="https://apps.microsoft.com/detail/9NKC5ZQ6P2JR">Or get it from the Microsoft Store</a>
     </div>
 
-    <div class="hero-meta">
-      <span>✓ Free &amp; open source</span>
-      <span>✓ Windows, Linux &amp; Android</span>
-      <span>✓ Offline-first</span>
-      <span>✓ On Microsoft Store</span>
-    </div>
-  </div>
+    <figure class="shot">
+      <img src="edit.webp" width="1360" height="860" alt="Inkleaf on Windows with a restaurant menu open. One line is selected for editing, and the misspelled word risoto has been corrected to risotto.">
+    </figure>
 
-  <div class="hero-preview">
-  <div class="editor-window">
+    <p class="folio">1</p>
+  </article>
 
-    <div class="editor-topbar">
-      <div class="window-controls">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
+  <!-- Sheet 2 -->
+  <article class="sheet" id="what-it-does">
+    <h2>What it does</h2>
 
-      <div class="editor-title">
-        <img src="icon-32.png" alt="">
-        <span>Inkleaf</span>
-      </div>
+    <dl class="tools">
+      <dt>Change the text</dt>
+      <dd>Retype existing lines, add new text anywhere, or redact. Hindi, Arabic, Tamil and other scripts are typed and saved properly. Redacted text is deleted from the file, not hidden behind a black box.</dd>
 
-      <div class="editor-actions">
-        <span>−</span>
-        <span>□</span>
-        <span>×</span>
-      </div>
-    </div>
+      <dt>Fill and sign</dt>
+      <dd>Fill in forms, then draw, type or upload a signature. Photos of a paper signature lose their white background, and saved signatures are there next time.</dd>
 
-    <div class="editor-toolbar">
-      <span>↶</span>
-      <span>↷</span>
-      <span class="toolbar-divider"></span>
-      <span class="active">▣</span>
-      <span>✎</span>
-      <span>T</span>
-      <span>▱</span>
-      <span>✓</span>
-      <span class="toolbar-divider"></span>
-      <span>⌕</span>
-    </div>
+      <dt>Mark it up</dt>
+      <dd>Pen, highlighter, shapes, arrows, comments, stamps and images. Everything you add can be moved, resized, restyled or deleted later.</dd>
 
-    <div class="editor-body">
+      <dt>Fix bad scans</dt>
+      <dd>
+        Recognise the text in scanned pages, in 56 languages, so you can search and copy it.
+        Faded, grey photocopies can be cleaned up too: whiter paper, darker
+        text, sharper letters. Drag across the scan below to compare.
+      </dd>
 
-      <aside class="page-sidebar">
-        <div class="page-label">Pages</div>
+      <dt>Pages and files</dt>
+      <dd>Merge, split, reorder, rotate and extract pages. Make files smaller, turn Word, Excel and PowerPoint files into PDFs and back, add a password, and compare two versions word by word.</dd>
 
-        <div class="page-thumb active">
-          <div class="mini-page">
-            <div class="mini-line wide"></div>
-            <div class="mini-line"></div>
-            <div class="mini-line"></div>
-            <div class="mini-box"></div>
-            <div class="mini-line"></div>
-          </div>
-          <small>1</small>
+      <dt>Phone and computer</dt>
+      <dd>The Android app has its own phone layout, built for reading first. Pair it with your computer once and send PDFs both ways over your home Wi-Fi.</dd>
+    </dl>
+
+    <figure class="compare" id="compare">
+      <div class="compare-frame">
+        <img src="scan-after.jpg" width="780" height="440" alt="The same memo after cleaning up: white paper and crisp black text.">
+        <div class="compare-before">
+          <img src="scan-before.jpg" width="780" height="440" alt="A faded memo scan with grey-brown paper and pale text.">
         </div>
+        <span class="compare-handle" aria-hidden="true"></span>
+      </div>
+      <label class="compare-label">
+        <span class="visually-hidden">Show more of the original or the cleaned-up scan</span>
+        <input type="range" min="0" max="100" value="50" id="compare-range">
+      </label>
+      <figcaption>Left: the scan as it came. Right: after Enhance Pages, using the Scan preset.</figcaption>
+    </figure>
 
-        <div class="page-thumb">
-          <div class="mini-page">
-            <div class="mini-line wide"></div>
-            <div class="mini-line"></div>
-            <div class="mini-box"></div>
-            <div class="mini-line"></div>
-          </div>
-          <small>2</small>
-        </div>
-      </aside>
+    <p class="folio">2</p>
+  </article>
 
-      <main class="document-area">
-        <div class="pdf-page">
-          <div class="pdf-header">
-            <div class="pdf-logo">INKLEAF</div>
-            <div class="pdf-number">DOCUMENT</div>
-          </div>
-
-          <div class="pdf-title">Project Overview</div>
-
-          <div class="pdf-line long"></div>
-          <div class="pdf-line medium"></div>
-
-          <div class="pdf-highlight">
-            <div class="pdf-line short"></div>
-            <div class="pdf-line medium"></div>
-            <div class="pdf-line short"></div>
-          </div>
-
-          <div class="pdf-section-title">Overview</div>
-
-          <div class="pdf-line long"></div>
-          <div class="pdf-line long"></div>
-          <div class="pdf-line medium"></div>
-
-          <div class="pdf-columns">
-            <div>
-              <div class="pdf-line medium"></div>
-              <div class="pdf-line long"></div>
-              <div class="pdf-line short"></div>
-            </div>
-
-            <div>
-              <div class="pdf-line medium"></div>
-              <div class="pdf-line long"></div>
-              <div class="pdf-line short"></div>
-            </div>
-          </div>
-
-          <div class="signature">
-            <span>✓</span>
-            Digitally signed
-          </div>
-        </div>
-      </main>
-
-    </div>
-
-    <div class="editor-statusbar">
-      <span>Page 1 of 2</span>
-      <span>100%</span>
-      <span>Ready</span>
-    </div>
-
-  </div>
-</div>
-</section>
-<section class="trust-strip">
-  <div class="trust-item">
-    <strong>Free forever</strong>
-    <span>No subscriptions</span>
-  </div>
-
-  <div class="trust-item">
-    <strong>Open source</strong>
-    <span>Built in public</span>
-  </div>
-
-  <div class="trust-item">
-    <strong>Offline-first</strong>
-    <span>Your files stay local</span>
-  </div>
-
-  <div class="trust-item">
-    <strong>Computer &amp; phone</strong>
-    <span>Windows, Linux and Android</span>
-  </div>
-</section>
-
-    <!-- Features -->
-    <section class="features" id="features">
-  <div class="section-heading">
-    <div class="eyebrow">EVERYTHING YOU NEED</div>
-
-    <h2>Everything you need<br>to work with PDFs.</h2>
-
-    <p>
-      Powerful tools. Simple workflow. No subscription required.
-    </p>
-  </div>
-
-  <div class="feature-grid">
-
-    <article class="feature-card">
-      <div class="feature-number">01</div>
-      <div class="feature-icon">✎</div>
-      <h3>Edit &amp; Annotate</h3>
-      <p>
-        Modify PDF content, highlight important information,
-        add notes, and mark up documents with ease.
-      </p>
-      <span class="feature-link">Edit documents →</span>
-    </article>
-
-    <article class="feature-card">
-      <div class="feature-number">02</div>
-      <div class="feature-icon">✓</div>
-      <h3>Sign &amp; Fill</h3>
-      <p>
-        Fill forms and add signatures without printing,
-        scanning, or leaving your desktop.
-      </p>
-      <span class="feature-link">Sign documents →</span>
-    </article>
-
-    <article class="feature-card">
-      <div class="feature-number">03</div>
-      <div class="feature-icon">⌕</div>
-      <h3>OCR</h3>
-      <p>
-        Turn scanned documents and images into searchable,
-        usable text.
-      </p>
-      <span class="feature-link">Recognize text →</span>
-    </article>
-
-    <article class="feature-card">
-      <div class="feature-number">04</div>
-      <div class="feature-icon">↘</div>
-      <h3>Compress</h3>
-      <p>
-        Reduce PDF file sizes while keeping your documents
-        practical and readable.
-      </p>
-      <span class="feature-link">Optimize files →</span>
-    </article>
-
-    <article class="feature-card">
-      <div class="feature-number">05</div>
-      <div class="feature-icon">⇄</div>
-      <h3>Convert</h3>
-      <p>
-        Convert documents into useful formats and keep your
-        workflow in one place.
-      </p>
-      <span class="feature-link">Convert files →</span>
-    </article>
-
-    <article class="feature-card">
-      <div class="feature-number">06</div>
-      <div class="feature-icon">◫</div>
-      <h3>Compare</h3>
-      <p>
-        Compare PDF documents and quickly identify what
-        changed between versions.
-      </p>
-      <span class="feature-link">Compare PDFs →</span>
-    </article>
-
-  </div>
-</section>
-
-
-    <!-- Privacy -->
-<section class="privacy-section" id="privacy">
-  <div class="privacy-content">
-    <div class="eyebrow">PRIVACY BY DESIGN</div>
-
-    <h2>Your documents<br><span>stay yours.</span></h2>
-
-    <p class="privacy-intro">
-      Inkleaf is built around an offline-first approach. Your PDFs stay
-      on your computer instead of being sent to a cloud service just to
-      perform everyday document tasks.
+  <!-- Sheet 3 -->
+  <article class="sheet" id="privacy">
+    <h2>What Inkleaf sends, and when</h2>
+    <p class="lead">
+      Nothing about you, ever. There's no account, no analytics and no crash
+      reports. These are the only times it goes online at all.
     </p>
 
-    <div class="privacy-points">
-      <div class="privacy-point">
-        <div class="privacy-icon">⌂</div>
-        <div>
-          <h3>Local-first</h3>
-          <p>
-            Work with your documents directly on your desktop.
-          </p>
-        </div>
-      </div>
-
-      <div class="privacy-point">
-        <div class="privacy-icon">◌</div>
-        <div>
-          <h3>Works offline</h3>
-          <p>
-            Core document workflows don't depend on a constant internet connection.
-          </p>
-        </div>
-      </div>
-
-      <div class="privacy-point">
-        <div class="privacy-icon">▣</div>
-        <div>
-          <h3>No forced cloud</h3>
-          <p>
-            No account or cloud subscription is required for the desktop editor.
-          </p>
-        </div>
-      </div>
-
-      <div class="privacy-point">
-        <div class="privacy-icon">✓</div>
-        <div>
-          <h3>Your files, your control</h3>
-          <p>
-            You decide when a document leaves your computer.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="privacy-visual">
-    <div class="privacy-glow"></div>
-
-    <div class="privacy-card">
-      <div class="privacy-card-top">
-        <span class="privacy-status"></span>
-        <span>LOCAL DOCUMENT</span>
-      </div>
-
-      <div class="privacy-lock">⌂</div>
-
-      <div class="privacy-card-title">
-        Your PDF
-      </div>
-
-      <div class="privacy-card-line"></div>
-      <div class="privacy-card-line short"></div>
-
-      <div class="privacy-card-footer">
-        <span>Stored locally</span>
-        <strong>✓</strong>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-    <!-- Open Source -->
-    <section class="opensource-card" id="opensource">
-  <div class="opensource-content">
-    <div class="eyebrow">OPEN SOURCE</div>
-
-    <h2>Built in the open.</h2>
-
-    <p>
-      Inkleaf is free and open-source software licensed under the
-      GNU General Public License v3.0 or later.
-    </p>
-
-    <div class="opensource-meta">
-      <span>GitHub</span>
-      <span>GPL-3.0-or-later</span>
-      <span>Community driven</span>
-    </div>
-  </div>
-
-  <a
-    href="https://github.com/priyanshdas/inkleaf"
-    class="opensource-button"
-    target="_blank"
-    rel="noopener"
-  >
-    Explore the source
-    <span>↗</span>
-  </a>
-</section>
-
-
-    <!-- Download -->
-    <section class="download-container" id="download">
-  <div class="download-heading">
-    <div class="eyebrow">GET INKLEAF</div>
-
-    <h2>Ready to take<br><span>control?</span></h2>
-
-    <p>
-      Download Inkleaf for Windows, Linux or Android and start working with your PDFs
-      without subscriptions or unnecessary cloud services. Pair your phone with your
-      computer and send PDFs between them over your own Wi-Fi.
-    </p>
-  </div>
-
-  <div class="download-options">
-
-    <a
-      href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-Setup.exe"
-      class="download-option download-primary"
-      data-os="windows"
-    >
-      <div class="download-option-icon">↓</div>
-
-      <div class="download-option-content">
-        <span class="download-label">WINDOWS</span>
-        <h3>Windows installer</h3>
-        <p>Windows 10 and 11. Updates itself. Or get the <span class="inline-link" data-href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-Portable.exe">portable version</span>, no install needed.</p>
-      </div>
-
-      <span class="download-arrow">→</span>
-    </a>
-
-    <a
-      href="https://apps.microsoft.com/detail/9NKC5ZQ6P2JR"
-      class="download-option"
-      target="_blank"
-      rel="noopener"
-    >
-      <div class="download-option-icon">▣</div>
-
-      <div class="download-option-content">
-        <span class="download-label">MICROSOFT STORE</span>
-        <h3>Get from Microsoft Store</h3>
-        <p>Windows 10 and 11. Installs in one click and updates through the Store, with no security warnings.</p>
-      </div>
-
-      <span class="download-arrow">↗</span>
-    </a>
-
-    <div class="download-option download-soon" data-os="mac">
-      <div class="download-option-icon">⌘</div>
-
-      <div class="download-option-content">
-        <span class="download-label">MACOS · COMING SOON</span>
-        <h3>Mac</h3>
-        <p>A signed Mac version for Apple Silicon and Intel is on the way. Watch the <a href="https://github.com/priyanshdas/inkleaf" target="_blank" rel="noopener">GitHub repository</a> to hear when it’s out.</p>
-      </div>
+    <div class="table-wrap">
+      <table class="sends">
+        <thead>
+          <tr><th scope="col">When you</th><th scope="col">What goes where</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Open, edit or save a PDF</td><td>Nothing. Your files stay on your device.</td></tr>
+          <tr><td>Send a PDF to your phone</td><td>It goes straight to the phone over your Wi-Fi, encrypted. Never through the internet.</td></tr>
+          <tr><td>Check for updates</td><td>A request to GitHub for the latest version number.</td></tr>
+          <tr><td>Use a language that isn't built in</td><td>The language pack is downloaded once from jsDelivr.</td></tr>
+          <tr><td>Use the AI summary or translation</td><td>The document's text goes to the AI service you picked, with your own API key. With AI on your computer, nothing leaves it.</td></tr>
+          <tr><td>Turn a web page into a PDF</td><td>A normal visit to that page, in a private window that's cleared afterwards.</td></tr>
+        </tbody>
+      </table>
     </div>
 
-    <div class="download-option download-multi" data-os="linux">
-      <div class="download-option-icon">◆</div>
+    <p>The full <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">privacy policy</a> is short and in plain English.</p>
 
-      <div class="download-option-content">
-        <span class="download-label">LINUX</span>
-        <h3>Linux</h3>
-        <p>.deb for Ubuntu, Debian and Mint; .rpm for Fedora and openSUSE; AppImage runs anywhere.</p>
-        <div class="download-links">
-          <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-amd64.deb">.deb</a>
-          <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-x86_64.rpm">.rpm</a>
-          <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-x86_64.AppImage">AppImage</a>
-          <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-arm64.deb">.deb (ARM)</a>
-          <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-arm64.AppImage">AppImage (ARM)</a>
-        </div>
-      </div>
+    <p class="folio">3</p>
+  </article>
+
+  <!-- Sheet 4 -->
+  <article class="sheet" id="download">
+    <h2>Download</h2>
+    <p class="lead">Free, with every tool included. The installed version keeps itself up to date.</p>
+
+    <div class="table-wrap">
+      <table class="downloads">
+        <tbody>
+          <tr data-os="windows">
+            <th scope="row">Windows 10 and 11</th>
+            <td>
+              <a class="dl" href="https://apps.microsoft.com/detail/9NKC5ZQ6P2JR">Microsoft Store</a>
+              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-Setup.exe">Installer (.exe)</a>
+              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-Portable.exe">Portable, no install</a>
+              <p class="note">The Store version installs without any security warning. The installer from GitHub may show a SmartScreen message: click More info, then Run anyway.</p>
+            </td>
+          </tr>
+          <tr data-os="linux">
+            <th scope="row">Linux</th>
+            <td>
+              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-amd64.deb">.deb</a>
+              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-x86_64.rpm">.rpm</a>
+              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-x86_64.AppImage">AppImage</a>
+              <p class="note">Use the .deb on Ubuntu, Debian or Mint, the .rpm on Fedora or openSUSE, and the AppImage anywhere else. On ARM: <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-arm64.deb">.deb</a> or <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-arm64.AppImage">AppImage</a>.</p>
+            </td>
+          </tr>
+          <tr data-os="android">
+            <th scope="row">Android 7 and newer</th>
+            <td>
+              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-Android.apk">Android app (.apk)</a>
+              <p class="note">The first time, your phone will ask you to allow installs from your browser.</p>
+            </td>
+          </tr>
+          <tr data-os="mac" class="later">
+            <th scope="row">Mac</th>
+            <td><p class="note">Not yet. A signed version for Apple Silicon and Intel is planned.</p></td>
+          </tr>
+          <tr data-os="ios" class="later">
+            <th scope="row">iPhone and iPad</th>
+            <td><p class="note">Not yet. Planned after the Mac version.</p></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <a
-      href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-Android.apk"
-      class="download-option"
-      data-os="android"
-    >
-      <div class="download-option-icon">▯</div>
+    <p>Older versions, release notes and checksums are on the <a href="https://github.com/priyanshdas/inkleaf-releases/releases">releases page</a>.</p>
 
-      <div class="download-option-content">
-        <span class="download-label">ANDROID</span>
-        <h3>Android app</h3>
-        <p>The full editor, laid out for your phone. Android 7 and newer. Your phone may ask you to allow installs from your browser the first time.</p>
-      </div>
+    <p class="folio">4</p>
+  </article>
 
-      <span class="download-arrow">→</span>
-    </a>
-
-    <div class="download-option download-soon" data-os="ios">
-      <div class="download-option-icon">◱</div>
-
-      <div class="download-option-content">
-        <span class="download-label">IPHONE · COMING SOON</span>
-        <h3>iPhone and iPad</h3>
-        <p>An App Store version is on the way, with the same Wi-Fi link to your computer.</p>
-      </div>
+  <!-- Sheet 5 -->
+  <article class="sheet" id="about">
+    <h2>Who makes it</h2>
+    <div class="note-from">
+      <p>
+        I'm Priyansh. I'm a chef, and I write code in my spare time. I made
+        Inkleaf because every PDF editor I tried wanted a subscription, an
+        account, or my files on their server, and most of the free ones
+        couldn't really change the text at all.
+      </p>
+      <p>
+        It's licensed under the GPL, so it will stay free and you can read,
+        change and share every line of it. If something breaks or feels
+        awkward, <a href="https://github.com/priyanshdas/inkleaf/issues">open an issue</a>.
+        Fixes to translations from people who speak the language are
+        especially welcome.
+      </p>
+      <p>
+        If Inkleaf saves you some time, you can
+        <a href="https://ko-fi.com/inkleaf">buy me a coffee</a>. It's never required.
+      </p>
     </div>
 
-    <a
-      href="https://github.com/priyanshdas/inkleaf-releases/releases"
-      class="download-option"
-      target="_blank"
-      rel="noopener"
-    >
-      <div class="download-option-icon">⇣</div>
-
-      <div class="download-option-content">
-        <span class="download-label">GITHUB</span>
-        <h3>All releases</h3>
-        <p>Every version, with release notes and checksums.</p>
-      </div>
-
-      <span class="download-arrow">↗</span>
-    </a>
-
-  </div>
-
-  <div class="download-note">
-    <span>✓</span>
-    Free and open source · Windows, Linux &amp; Android · Offline-first · <a href="#code-signing">Code signing policy</a>
-  </div>
-</section>
-
-    <!-- Code signing policy -->
-    <section class="signing-section" id="code-signing">
-  <div class="eyebrow">TRUST</div>
-  <h2>Code signing policy</h2>
-  <p class="signing-lead">
-    Free code signing provided by
-    <a href="https://about.signpath.io" target="_blank" rel="noopener">SignPath.io</a>,
-    certificate by
-    <a href="https://signpath.org" target="_blank" rel="noopener">SignPath Foundation</a>.
-  </p>
-
-  <div class="signing-grid">
-    <div class="signing-card">
-      <h3>How releases are signed</h3>
+    <section class="signing" id="code-signing" aria-labelledby="signing-title">
+      <h3 id="signing-title">Code signing policy</h3>
+      <p>
+        Free code signing provided by <a href="https://about.signpath.io">SignPath.io</a>,
+        certificate by <a href="https://signpath.org">SignPath Foundation</a>.
+      </p>
       <p>
         Windows builds are made by GitHub Actions straight from the
-        <a href="https://github.com/priyanshdas/inkleaf" target="_blank" rel="noopener">public source code</a>,
-        and signed only after a maintainer approves the release. Nothing
-        built on anyone’s own computer is signed.
+        <a href="https://github.com/priyanshdas/inkleaf">public source code</a>,
+        and signed only after a maintainer approves the release. Nothing built
+        on anyone's own computer is signed.
       </p>
-    </div>
-
-    <div class="signing-card">
-      <h3>Team roles</h3>
-      <dl class="signing-roles">
+      <dl class="roles">
         <dt>Committers and reviewers</dt>
-        <dd><a href="https://github.com/priyanshdas" target="_blank" rel="noopener">Priyansh Das</a></dd>
+        <dd><a href="https://github.com/priyanshdas">Priyansh Das</a></dd>
         <dt>Approvers</dt>
-        <dd><a href="https://github.com/priyanshdas" target="_blank" rel="noopener">Priyansh Das</a></dd>
+        <dd><a href="https://github.com/priyanshdas">Priyansh Das</a></dd>
       </dl>
-      <p>Changes from anyone else are reviewed by a committer before they’re merged.</p>
-    </div>
-
-    <div class="signing-card">
-      <h3>Privacy</h3>
+      <p>Changes from anyone else are reviewed by a committer before they're merged.</p>
       <p>
-        Inkleaf doesn’t send any information to other networked systems
+        Inkleaf doesn't send any information to other networked systems
         unless you ask it to: when you use the AI tools, Web page to PDF,
         download a language pack or check for updates. The
-        <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md" target="_blank" rel="noopener">privacy policy</a>
+        <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">privacy policy</a>
         says exactly what is sent, and to whom.
       </p>
-    </div>
-  </div>
-</section>
+    </section>
 
+    <p class="folio">5</p>
+  </article>
 
-  </main>
+</main>
 
-
-  <!-- Footer -->
- <footer class="site-footer">
-  <div class="footer-main">
-    <div class="footer-brand">
-      <a href="#" class="footer-logo">
-        <img src="icon-48.png" alt="Inkleaf">
-        <span>Inkleaf</span>
-      </a>
-
-      <p>
-        A free, open-source PDF editor for Windows, Linux and Android.
-      </p>
-    </div>
-
-    <div class="footer-links">
-      <div class="footer-column">
-        <span class="footer-heading">PRODUCT</span>
-        <a href="#features">Features</a>
-        <a href="#download">Download</a>
-        <a href="https://apps.microsoft.com/detail/9NKC5ZQ6P2JR" target="_blank" rel="noopener">
-          Microsoft Store
-        </a>
-      </div>
-
-      <div class="footer-column">
-        <span class="footer-heading">PROJECT</span>
-        <a href="#opensource">Open Source</a>
-        <a href="https://github.com/priyanshdas/inkleaf" target="_blank" rel="noopener">
-          GitHub
-        </a>
-        <a href="https://github.com/priyanshdas/inkleaf-releases/releases" target="_blank" rel="noopener">
-          Releases
-        </a>
-      </div>
-
-      <div class="footer-column">
-        <span class="footer-heading">LEGAL</span>
-        <a href="#privacy">Privacy</a>
-        <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy Policy</a>
-        <a href="https://github.com/priyanshdas/inkleaf/blob/main/TERMS.md" target="_blank" rel="noopener">Terms of Use</a>
-        <a href="#code-signing">Code signing policy</a>
-        <a href="https://github.com/priyanshdas/inkleaf/blob/main/LICENSE" target="_blank" rel="noopener">
-          License
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <div class="footer-bottom">
-    <span>© 2026 Priyansh Das. Free software under the GPL.</span>
-    <span>Inkleaf · GPL-3.0-or-later</span>
-  </div>
+<footer class="foot">
+  <p>
+    <a href="https://github.com/priyanshdas/inkleaf">Source code</a>
+    <a href="https://github.com/priyanshdas/inkleaf-releases/releases">All releases</a>
+    <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">Privacy policy</a>
+    <a href="https://github.com/priyanshdas/inkleaf/blob/main/TERMS.md">Terms of use</a>
+    <a href="https://github.com/priyanshdas/inkleaf/blob/main/LICENSE">Licence (GPL-3.0-or-later)</a>
+  </p>
+  <p>© 2026 Priyansh Das</p>
 </footer>
 
-
-  <script src="script.js"></script>
-
+<script src="script.js"></script>
 </body>
 </html>
