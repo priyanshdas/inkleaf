@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [{ "path": "/api/cleanup", "schedule": "17 3 * * *" }],
+  "headers": [
+    { "source": "/(.*)", "headers": [{ "key": "x-content-type-options", "value": "nosniff" }] }
+  ]
+}

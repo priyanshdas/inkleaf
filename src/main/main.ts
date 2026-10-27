@@ -15,6 +15,9 @@ import { ensurePacks, packPath, packStatus, removePacks } from './packs';
 import { aiStatus, ask, listModels, removeKey, saveConfig } from './ai';
 import { forget as forgetDevice, linkStatus, sendToDevice, startLink, startPairing } from './link';
 import { checkForUpdates, installUpdate, startUpdates } from './updates';
+import { defaultAppState, makeDefaultApp } from './default-app';
+import { openForThisDevice, receiveCode } from './device-key';
+import { fetchPickup, forgetPickup, startSending, stopSending } from './pickup';
 
 // Lets tests run with a clean profile. Ignored in packaged builds.
 if (!app.isPackaged && process.env.INKLEAF_USER_DATA) app.setPath('userData', process.env.INKLEAF_USER_DATA);
@@ -551,7 +554,7 @@ function registerIpc() {
     const kinds: Record<string, [string, string, string]> = {
       pdf: [t('PDF document'), 'pdf', t('Save a copy')], docx: [t('Word document'), 'docx', t('Save Word document')],
       xlsx: [t('Excel workbook'), 'xlsx', t('Save Excel workbook')], pptx: [t('PowerPoint presentation'), 'pptx', t('Save PowerPoint presentation')],
-      txt: [t('Plain text'), 'txt', t('Save text file')], md: [t('Markdown'), 'md', t('Save Markdown file')], html: [t('Web page'), 'html', t('Save web page')],
+      txt: [t('Plain text'), 'txt', t('Save text file')], png: [t('PNG picture'), 'png', t('Save picture')], md: [t('Markdown'), 'md', t('Save Markdown file')], html: [t('Web page'), 'html', t('Save web page')],
     };
     const [label, ext, title] = kinds[kind] ?? kinds.pdf;
     const result = await dialog.showSaveDialog(ctx.win, {
@@ -704,6 +707,32 @@ function registerIpc() {
     app.relaunch();
     app.quit();
     return true;
+  });
+  // "Make Inkleaf my default PDF app": whether it is, and whether the start
+  // screen should still offer it (not once someone has said "Not now")
+  ipcMain.handle('default-app:state', async () => ({
+    state: await defaultAppState(),
+    dismissed: !!readJson<{ defaultAppDismissed?: boolean }>(settingsFile(), {}).defaultAppDismissed,
+  }));
+  ipcMain.handle('default-app:make', () => makeDefaultApp());
+  // PDFs locked to this computer (shared/lock.ts)
+  ipcMain.handle('lock:receive-code', () => receiveCode());
+  // files sent with a pickup code (already encrypted by the window)
+  ipcMain.handle('pickup:send', (event, id: unknown, check: unknown, data: unknown) => {
+    if (typeof id !== 'string' || typeof check !== 'string' || !(data instanceof Uint8Array)) throw new Error(t('Nothing to send.'));
+    const sender = event.sender;
+    return startSending(id, check, data, (e) => { if (!sender.isDestroyed()) sender.send('pickup:event', e); });
+  });
+  ipcMain.on('pickup:stop', (_event, id: unknown) => stopSending(String(id)));
+  ipcMain.handle('pickup:fetch', (_event, id: unknown, check: unknown, nearby: unknown) =>
+    fetchPickup(String(id), String(check), Array.isArray(nearby) ? nearby.map(String) : []));
+  ipcMain.handle('pickup:forget', (_event, id: unknown, token: unknown) => forgetPickup(String(id), String(token)));
+  ipcMain.handle('lock:open', (_event, data: unknown) => {
+    if (!(data instanceof Uint8Array)) throw new Error(t('That isn’t a locked PDF.'));
+    return openForThisDevice(data);
+  });
+  ipcMain.on('default-app:dismiss', () => {
+    writeJson(settingsFile(), { ...readJson(settingsFile(), {}), defaultAppDismissed: true });
   });
   ipcMain.handle('theme:get', () => readJson<{ theme?: ThemeSetting }>(settingsFile(), {}).theme ?? 'system');
   ipcMain.on('theme:set', (_event, theme: ThemeSetting) => {

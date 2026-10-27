@@ -10,7 +10,9 @@ async function exportPdf(doc: EditorDoc, pageIds?: string[]): Promise<ExportResu
   const { exportPdf } = await import('./exporter');
   return exportPdf(doc, pageIds);
 }
-import { h, modal, promptDialog, toast } from './ui';
+import { h, icon, modal, promptDialog, toast } from './ui';
+import { asShareCode, isDeviceLocked, openDeviceLocked } from './secure-share';
+import { qrFromPicture, scanQr } from './qr';
 
 /**
  * Parses "1-3, 5, 8-" into zero-based page indices (in the order written).
@@ -66,15 +68,21 @@ export async function blankPdf(width: number, height: number, pages = 1): Promis
  * for the password when one is needed. Resolves to null if the user gives up.
  */
 export async function unlock(bytes: Uint8Array, name: string, force = false): Promise<{ bytes: Uint8Array; wasProtected: boolean } | null> {
+  // locked to one person's device (Share securely): what's inside, if it's this one
+  let deviceLocked = false;
+  if (isDeviceLocked(bytes)) {
+    bytes = await openDeviceLocked(bytes, name);
+    deviceLocked = true;
+  }
   // most PDFs aren't encrypted: skip the full parse for those
-  if (!force && !mightBeEncrypted(bytes)) return { bytes, wasProtected: false };
+  if (!force && !mightBeEncrypted(bytes)) return { bytes, wasProtected: deviceLocked };
   let info;
   try {
     info = await core.inspect(bytes);
   } catch (err) {
     throw new Error(t('“{name}” doesn’t look like a PDF Inkleaf can read. {message}', { name, message: (err as Error).message }));
   }
-  if (!info.encrypted) return { bytes, wasProtected: false };
+  if (!info.encrypted) return { bytes, wasProtected: deviceLocked };
 
   if (info.opensWithoutPassword) {
     return { bytes: await core.decrypt(bytes, ''), wasProtected: true };
@@ -82,17 +90,50 @@ export async function unlock(bytes: Uint8Array, name: string, force = false): Pr
 
   let wrong = false;
   for (;;) {
-    const password = await promptDialog(t('Password required'), t('“{name}” is protected. Enter its password to open it.', { name }), {
-      type: 'password',
-      hint: wrong ? t('That password didn’t work. Try again.') : t('Saved copies won’t be password-protected.'),
-    });
+    const password = await passwordPrompt(name, wrong);
     if (password === null) return null;
-    try {
-      return { bytes: await core.decrypt(bytes, password), wasProtected: true };
-    } catch {
-      wrong = true;
+    // a code from Share securely, typed with different spacing or case
+    const code = asShareCode(password);
+    for (const attempt of code && code !== password ? [password, code] : [password]) {
+      try {
+        return { bytes: await core.decrypt(bytes, attempt), wasProtected: true };
+      } catch {
+        // try the next spelling, then ask again
+      }
     }
+    wrong = true;
   }
+}
+
+/** Asks for a password or code; a code can also come from its QR code. */
+async function passwordPrompt(name: string, wrong: boolean): Promise<string | null> {
+  const input = h('input', { class: 'field-input', type: 'password', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
+  const note = h('span', { class: 'field-hint' }, wrong ? t('That password didn’t work. Try again.') : t('Saved copies won’t be password-protected.'));
+  let closeModal: (value: string) => void = () => {};
+  const fill = (text: string | null) => {
+    const code = text ? asShareCode(text) : null;
+    if (code) {
+      input.value = code;
+      closeModal('ok');
+    } else if (text !== null) {
+      note.textContent = t('That QR code doesn’t hold an Inkleaf code.');
+    }
+  };
+  const scan = h('button', { class: 'btn btn-ghost small', type: 'button' }, icon('camera'), t('Scan QR code'));
+  scan.addEventListener('click', async () => fill(await scanQr(t('Scan the code'), t('Point the camera at the QR code you were sent.'), (text) => !!asShareCode(text))));
+  const picture = h('button', { class: 'btn btn-ghost small', type: 'button' }, icon('image-up'), t('Use a picture of it'));
+  picture.addEventListener('click', async () => fill(await qrFromPicture()));
+  const choice = await modal({
+    title: t('Password required'),
+    body: h('div', {},
+      h('label', { class: 'field' },
+        h('span', { class: 'field-label' }, t('“{name}” is protected. Enter its password or code to open it.', { name })),
+        input, note),
+      h('div', { class: 'share-code-actions' }, scan, picture)),
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('OK'), value: 'ok', primary: true }],
+    onOpen: (close) => { closeModal = close; },
+  });
+  return choice === 'ok' ? input.value : null;
 }
 
 /**

@@ -76,6 +76,9 @@ export const HUB: { group: string; tools: HubTool[] }[] = [
     tools: [
       { title: msg('Unlock PDF'), detail: msg('Remove a password you know.'), icon: 'lock-open', command: 'unlock', standalone: true },
       { title: msg('Protect PDF'), detail: msg('Add a password.'), icon: 'shield-check', command: 'protect' },
+      { title: msg('Share securely'), detail: msg('Lock it with a code, or to one person’s device.'), icon: 'qr-code', command: 'secure-share' },
+      { title: msg('My receive code'), detail: msg('Let people lock PDFs just for you.'), icon: 'key-round', command: 'receive-code', standalone: true },
+      { title: msg('Receive a file'), detail: msg('Enter or scan a pickup code someone gave you.'), icon: 'download', command: 'receive-file', standalone: true },
       { title: msg('Sign PDF'), detail: msg('Draw, type or add your signature.'), icon: 'signature', command: 'sign' },
       { title: msg('Redact PDF'), detail: msg('Black out and remove private text.'), icon: 'eye-off', command: 'redact' },
       { title: msg('Compare PDF'), detail: msg('See what changed between two.'), icon: 'git-compare', command: 'compare' },

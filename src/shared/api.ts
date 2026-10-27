@@ -44,7 +44,7 @@ export type MenuCommand =
   | 'theme-system' | 'theme-light' | 'theme-dark' | 'toggle-inspector'
   | 'find' | 'print' | 'enhance' | 'compress' | 'protect' | 'ocr' | 'compare' | 'decor' | 'remove-decor'
   | 'images-to-pdf' | 'pdf-to-images' | 'pdf-to-word' | 'crop' | 'uncrop-page' | 'uncrop-all' | 'form-builder'
-  | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'check-updates' | 'show-comments' | 'show-bookmarks'
+  | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'check-updates' | 'default-app' | 'secure-share' | 'receive-code' | 'receive-file' | 'show-comments' | 'show-bookmarks'
   | 'toggle-autosave' | 'open-backups' | 'open-github' | 'report-problem' | 'donate'
   | 'convert-to-pdf' | 'convert-from-pdf' | 'web-to-pdf' | 'scan-to-pdf' | 'repair' | 'pdf-to-pdfa'
   | 'ai-summarize' | 'ai-translate' | 'ai-settings' | 'all-tools' | 'unlock' | 'language' | 'terms' | 'privacy'
@@ -80,7 +80,13 @@ export type UpdateState =
   | { state: 'error'; message: string }
   | { state: 'unavailable'; reason: string };
 
-export type CopyKind = 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'txt' | 'md' | 'html';
+export type PickupEvent =
+  | { id: string; state: 'uploading'; percent: number }
+  | { id: string; state: 'uploaded' }
+  | { id: string; state: 'upload-failed'; message: string }
+  | { id: string; state: 'taken' };
+
+export type CopyKind = 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'txt' | 'md' | 'html' | 'png';
 
 /** Files Inkleaf can turn into a PDF (besides PDFs themselves). */
 export const CONVERTIBLE = ['docx', 'doc', 'odt', 'rtf', 'xlsx', 'xls', 'ods', 'csv', 'pptx', 'ppt', 'odp', 'txt', 'md', 'markdown', 'html', 'htm', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'];
@@ -175,6 +181,29 @@ export interface InkleafApi {
   readRecovery(id: string): Promise<Uint8Array>;
   /** Looks for a newer version now (also happens on its own at start-up). */
   checkForUpdates(): void;
+  /**
+   * Whether Inkleaf opens PDFs on this computer, and whether the start screen
+   * should still offer to make it ("unsupported" for the portable version,
+   * the AppImage, phones and runs from source).
+   */
+  defaultAppState(): Promise<{ state: 'default' | 'not-default' | 'unsupported'; dismissed: boolean }>;
+  /** On Windows this opens Settings ('settings'); on Linux it's set straight away ('done'). */
+  makeDefaultApp(): Promise<'done' | 'settings' | 'unsupported' | 'failed'>;
+  dismissDefaultApp(): void;
+  /** This computer's receive code, for PDFs locked to one device (shared/lock.ts). */
+  receiveCode(): Promise<string>;
+  /** Opens a PDF locked to a device; it only works on the device it was locked for. */
+  openLocked(data: Uint8Array): Promise<{ ok: true; name: string; pdf: Uint8Array } | { ok: false; reason: 'other-device' | 'damaged' }>;
+  /**
+   * Pickup codes (shared/pickup.ts): offers an already-encrypted file on this
+   * network and uploads it to the relay; resolves to this computer's Wi-Fi addresses.
+   */
+  sendPickup(id: string, check: string, data: Uint8Array): Promise<string[]>;
+  stopPickup(id: string): void;
+  /** Upload progress, and when someone on the same Wi-Fi has taken it. Returns a way to stop listening. */
+  onPickupEvent(handler: (event: PickupEvent) => void): () => void;
+  fetchPickup(id: string, check: string, nearby: string[]): Promise<{ ok: true; data: Uint8Array; via: 'wifi' | 'internet' } | { ok: false; reason: 'gone' | 'offline' }>;
+  forgetPickup(id: string, token: string): Promise<void>;
   /** Restarts into a downloaded update. */
   installUpdate(): void;
   onUpdate(handler: (state: UpdateState) => void): void;

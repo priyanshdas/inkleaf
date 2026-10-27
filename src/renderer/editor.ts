@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { clearPageText, selectWordAt, startTextSelect } from './text-select';
 import type { EditorDoc } from './document';
 import { annotBounds, dragHandle, handlesFor, hitTest, moveAnnot, newId, normBox, Point, simplifyStroke } from './geometry';
 import { DEFAULT_STYLES, loadStyles, saveStyles, ToolStyles } from './styles';
@@ -131,6 +132,8 @@ export class Editor extends EventTarget {
     if (tool !== 'select') this.select(null);
     this.tool = tool;
     this.viewer.container.dataset.tool = tool;
+    this.viewer.setTextSelectable(tool === 'select');
+    if (tool !== 'select') clearPageText();
     this.clearHover();
     this.dispatchEvent(new CustomEvent('toolchange'));
   }
@@ -325,9 +328,15 @@ export class Editor extends EventTarget {
     root.addEventListener('pointercancel', lift);
     // Clicking the page shouldn't move keyboard focus (or start a text
     // selection); otherwise a text box we just opened would lose focus at once.
+    // A Select press on the PDF's own words is followed in text-select.ts,
+    // which sets the selection itself, so all this does is keep it.
     root.addEventListener('mousedown', (e) => {
-      if (!(e.target as HTMLElement).closest('.text-editor, .form-field')) e.preventDefault();
+      if ((e.target as HTMLElement).closest('.text-editor, .form-field')) return;
+      e.preventDefault();
+      if (!this.selectingText) clearPageText();
+      this.selectingText = false;
     });
+    this.viewer.setTextSelectable(this.tool === 'select');
     root.addEventListener('pointermove', (e) => this.onPointerMove(e));
     root.addEventListener('pointerup', (e) => this.onPointerUp(e));
     root.addEventListener('pointercancel', () => this.cancelDrag());
@@ -351,6 +360,8 @@ export class Editor extends EventTarget {
   // --- touch: two fingers zoom and scroll, whatever tool is picked ---------------------------------
 
   private touches = new Map<number, { x: number; y: number }>();
+  /** Set by a Select press that started selecting the page's words, so mousedown keeps it. */
+  private selectingText = false;
   private pinch: { distance: number; scale: number; mid: { x: number; y: number }; frame: number } | null = null;
 
   private fingers() {
@@ -472,6 +483,8 @@ export class Editor extends EventTarget {
           this.select(null);
           // on a touch screen, dragging an empty spot scrolls the page
           if (e.pointerType === 'touch') this.startPan(e);
+          // on or beside the page's own words, select them to copy
+          else this.selectingText = startTextSelect(e);
         }
         return;
       }
@@ -863,7 +876,10 @@ export class Editor extends EventTarget {
     if (hit && (hit.type === 'text' || hit.type === 'replace')) {
       this.select(null);
       this.text.start(view, hit);
+      return;
     }
+    // a double-click on the page's own words picks the whole word
+    if (!this.topmostAt(view, ux, uy)) selectWordAt(e);
   }
 
   // --- hover feedback -------------------------------------------------------------
@@ -1026,4 +1042,3 @@ export function styleGroupFor(type: Annot['type']): keyof ToolStyles {
     default: return 'text';
   }
 }
-

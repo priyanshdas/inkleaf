@@ -7,6 +7,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.mjs';
 export type { PDFDocumentProxy, PDFPageProxy };
 export type PageViewport = ReturnType<PDFPageProxy['getViewport']>;
 export const AnnotationMode = pdfjs.AnnotationMode;
+export const TextLayer = pdfjs.TextLayer;
+export type TextLayer = InstanceType<typeof pdfjs.TextLayer>;
 
 export async function loadPdf(bytes: Uint8Array): Promise<PDFDocumentProxy> {
   // pdf.js transfers the buffer to its worker, so hand it a copy and keep ours.

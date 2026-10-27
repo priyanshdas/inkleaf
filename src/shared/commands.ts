@@ -122,6 +122,9 @@ export const MENU: MenuSection[] = [
       { label: msg('Recognise Text (OCR)…'), command: 'ocr' },
       { label: msg('Compress…'), command: 'compress' },
       { label: msg('Password Protect…'), command: 'protect' },
+      { label: msg('Share Securely…'), command: 'secure-share' },
+      { label: msg('My Receive Code…'), command: 'receive-code' },
+      { label: msg('Receive a File…'), command: 'receive-file' },
       { label: msg('Remove a Password…'), command: 'unlock' },
       { label: msg('Watermark, Page Numbers & Headers…'), command: 'decor' },
       { label: msg('Add Form Fields'), command: 'form-builder' },
@@ -147,6 +150,7 @@ export const MENU: MenuSection[] = [
     items: [
       { label: msg('Keyboard Shortcuts'), command: 'shortcuts', key: 'Mod+/' },
       { label: msg('Check for Updates…'), command: 'check-updates' },
+      { label: msg('Make Inkleaf the Default PDF App…'), command: 'default-app' },
       'separator',
       { label: msg('Report a Problem…'), command: 'report-problem' },
       { label: msg('Inkleaf on GitHub'), command: 'open-github' },

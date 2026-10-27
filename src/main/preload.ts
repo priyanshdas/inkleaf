@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { InkleafApi, MenuCommand, OpenedFile } from '../shared/api';
+import type { InkleafApi, MenuCommand, OpenedFile, PickupEvent } from '../shared/api';
 
 const api: InkleafApi = {
   info: () => ipcRenderer.invoke('app:info'),
@@ -44,6 +44,20 @@ const api: InkleafApi = {
   recoveries: () => ipcRenderer.invoke('recovery:list'),
   readRecovery: (id) => ipcRenderer.invoke('recovery:read', id),
   checkForUpdates: () => ipcRenderer.send('update:check'),
+  defaultAppState: () => ipcRenderer.invoke('default-app:state'),
+  makeDefaultApp: () => ipcRenderer.invoke('default-app:make'),
+  dismissDefaultApp: () => ipcRenderer.send('default-app:dismiss'),
+  receiveCode: () => ipcRenderer.invoke('lock:receive-code'),
+  openLocked: (data: Uint8Array) => ipcRenderer.invoke('lock:open', data),
+  sendPickup: (id: string, check: string, data: Uint8Array) => ipcRenderer.invoke('pickup:send', id, check, data),
+  stopPickup: (id: string) => ipcRenderer.send('pickup:stop', id),
+  onPickupEvent: (handler) => {
+    const listener = (_event: Electron.IpcRendererEvent, e: PickupEvent) => handler(e);
+    ipcRenderer.on('pickup:event', listener);
+    return () => ipcRenderer.removeListener('pickup:event', listener);
+  },
+  fetchPickup: (id: string, check: string, nearby: string[]) => ipcRenderer.invoke('pickup:fetch', id, check, nearby),
+  forgetPickup: (id: string, token: string) => ipcRenderer.invoke('pickup:forget', id, token),
   installUpdate: () => ipcRenderer.send('update:install'),
   onUpdate: (handler) => {
     ipcRenderer.on('update', (_event, state) => handler(state));

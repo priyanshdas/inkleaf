@@ -30,7 +30,7 @@ import type {
   AiConfig, AiStatus, AppInfo, CopyKind, InkleafApi, MenuCommand, OpenedFile, PickedFile, RecentFile, RecoveredFile, ThemeSetting,
 } from '../shared/api';
 import { CONVERTIBLE } from '../shared/api';
-import { UI_LANGUAGES } from '../shared/i18n';
+import { t, UI_LANGUAGES } from '../shared/i18n';
 import { createLink } from './link-client';
 import manifest from '../shared/pack-manifest.json';
 
@@ -330,7 +330,7 @@ function systemLanguage(): string {
 
 const unsupported: string[] = [
   // there's one window, no menu bar to quit from, and the stores handle updates
-  'new-window', 'devtools', 'fullscreen', 'quit', 'check-updates', 'open-backups',
+  'new-window', 'devtools', 'fullscreen', 'quit', 'check-updates', 'default-app', 'secure-share', 'receive-code', 'receive-file', 'open-backups',
   // keyboard shortcuts don't mean much without a keyboard
   'shortcuts',
   // a floating desktop panel; the phone app will get its own version
@@ -545,6 +545,17 @@ const api: InkleafApi & {
   readRecovery: (id) => readData(`${RECOVERY}/${id}.pdf`),
 
   checkForUpdates() {},
+  async defaultAppState() { return { state: 'unsupported' as const, dismissed: true }; },
+  async makeDefaultApp() { return 'unsupported' as const; },
+  dismissDefaultApp() {},
+  // locking to one device isn't on phones yet
+  async receiveCode(): Promise<string> { throw new Error(t('Receive codes are only on the computer version for now.')); },
+  async openLocked() { return { ok: false as const, reason: 'other-device' as const }; },
+  async sendPickup(): Promise<string[]> { throw new Error(t('Sending with a pickup code is only on the computer version for now.')); },
+  stopPickup() {},
+  onPickupEvent() { return () => {}; },
+  async fetchPickup() { return { ok: false as const, reason: 'offline' as const }; },
+  async forgetPickup() {},
   installUpdate() {},
   onUpdate() {},
   showInFolder() {},

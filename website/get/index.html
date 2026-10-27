@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get a file: Inkleaf</title>
+<meta name="description" content="Download a PDF someone sent you with an Inkleaf pickup code.">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#123b2f">
+<link rel="icon" type="image/x-icon" href="../favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wdth,wght@0,75..100,400..700;1,75..100,400..700&display=swap">
+<link rel="stylesheet" href="../style.css">
+<style>
+  .get-form { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0 8px; }
+  .get-form input {
+    flex: 1 1 18rem;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--ink);
+    font: inherit;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+  }
+  .get-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .get-form .button { border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+  .get-form .button[disabled] { opacity: 0.6; cursor: progress; }
+  .get-status { min-height: 1.6em; margin: 14px 0 0; font-weight: 550; }
+  .get-status.ok { color: var(--accent); }
+  .get-status.bad { color: #c4314b; }
+  .get-note { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <a class="brand" href="../">
+    <img src="../icon-48.png" alt="" width="24" height="24">
+    Inkleaf
+  </a>
+  <nav aria-label="Main">
+    <a href="../#download" class="bar-download">Get Inkleaf</a>
+  </nav>
+</header>
+
+<main>
+  <article class="sheet">
+    <h1>Get a file</h1>
+    <p class="lead">Someone sent you a PDF with an Inkleaf pickup code. It’s encrypted, and only that code can unlock it. It’s unlocked here in your browser, so the code never leaves this page.</p>
+
+    <form class="get-form" id="get-form" autocomplete="off">
+      <label class="visually-hidden" for="code">Pickup code</label>
+      <input id="code" name="code" placeholder="Pickup code" spellcheck="false" autocapitalize="characters" required>
+      <button class="button" id="get" type="submit">Download the file</button>
+    </form>
+    <p class="get-status" id="status" role="status" aria-live="polite"></p>
+
+    <div class="get-note">
+      <p>Downloading uses up the code: after that, nobody can pick the file up again. Files nobody picks up are deleted after 7 days.</p>
+      <p>Have Inkleaf? Open it and choose Tools › Receive a File instead. If the sender locked the file to your computer, open the downloaded PDF in Inkleaf on that computer.</p>
+    </div>
+  </article>
+</main>
+
+<footer class="foot">
+  <p>
+    <a href="../">Inkleaf</a>
+    <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">Privacy policy</a>
+    <a href="https://github.com/priyanshdas/inkleaf/tree/main/relay">How the relay works</a>
+  </p>
+</footer>
+
+<script type="module">
+// The same steps as src/shared/pickup.ts in Inkleaf: keep the two in step.
+const RELAY = 'https://inkleaf-relay.vercel.app';
+const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+const enc = new TextEncoder();
+const $ = (id) => document.getElementById(id);
+
+function clean(text) {
+  return text.toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+}
+
+async function derive(code) {
+  const id = code.slice(0, 7), secret = code.slice(7);
+  const base = await crypto.subtle.importKey('raw', enc.encode(secret), 'HKDF', false, ['deriveKey', 'deriveBits']);
+  const salt = enc.encode(`inkleaf-send:${id}`);
+  const key = await crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt, info: enc.encode('key') }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const token = new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info: enc.encode('delete') }, base, 128));
+  const check = new Uint8Array(await crypto.subtle.digest('SHA-256', token)).slice(0, 16);
+  const hex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+  return { id, key, check: hex(check), token: hex(token) };
+}
+
+function say(text, kind = '') {
+  $('status').textContent = text;
+  $('status').className = `get-status ${kind}`;
+}
+
+async function get(code) {
+  const pickup = await derive(code);
+  say('Getting the file…');
+  const where = await fetch(`${RELAY}/api/drop?id=${pickup.id}&check=${pickup.check}`);
+  if (!where.ok) throw new Error('gone');
+  const { url } = await where.json();
+  // a fresh copy, never a cached one: once it's picked up it should be gone
+  const res = await fetch(`${url}?fresh=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('gone');
+  const data = new Uint8Array(await res.arrayBuffer());
+  const magic = enc.encode('INKSEND1');
+  if (data.length < 36 || magic.some((b, i) => data[i] !== b)) throw new Error('mismatch');
+  say('Unlocking…');
+  let plain;
+  try {
+    plain = new Uint8Array(await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: data.slice(8, 20), additionalData: enc.encode(`INKSEND1${pickup.id}`) }, pickup.key, data.slice(20)));
+  } catch {
+    throw new Error('mismatch');
+  }
+  const length = new DataView(plain.buffer).getUint16(0);
+  const name = new TextDecoder().decode(plain.slice(2, 2 + length)) || 'shared.pdf';
+  const file = new Blob([plain.slice(2 + length)], { type: 'application/pdf' });
+  const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(file), download: name });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+  // it's safely here: remove the copy on the relay
+  fetch(`${RELAY}/api/drop?action=delete`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: pickup.id, token: pickup.token }),
+  }).catch(() => {});
+  say(`Downloaded “${name}”.`, 'ok');
+}
+
+$('get-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = clean($('code').value);
+  if (!/^[0-9A-HJKMNP-TV-Z]{24}$/.test(code)) {
+    say('That isn’t a complete pickup code. It has 24 letters and numbers.', 'bad');
+    return;
+  }
+  $('get').disabled = true;
+  try {
+    await get(code);
+  } catch (err) {
+    say(err.message === 'mismatch'
+      ? 'That code doesn’t match the file, so it couldn’t be unlocked.'
+      : err.message === 'gone'
+        ? 'There’s nothing to pick up with that code. It may have been picked up already, or it’s more than 7 days old.'
+        : 'Couldn’t reach the file. Check your internet connection and try again.', 'bad');
+  } finally {
+    $('get').disabled = false;
+  }
+});
+
+// a QR code brings the code along after the #; the rest (Wi-Fi addresses) is only for Inkleaf
+const fromLink = clean(location.hash.slice(1).split('&')[0]);
+if (fromLink) {
+  $('code').value = fromLink.match(/.{1,5}/g).join('-');
+  history.replaceState(null, '', location.pathname);
+}
+</script>
+</body>
+</html>

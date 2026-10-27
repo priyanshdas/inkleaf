@@ -13,6 +13,20 @@ anywhere, there are no accounts, and every tool is free. Built by EPD.
 [releases page](https://github.com/priyanshdas/inkleaf/releases) (Windows,
 macOS, Linux and the Android APK).
 
+## Why another PDF editor?
+
+There are lots of free PDF tools, and many are good at one job. Xournal++
+is great for writing and drawing on a PDF, PDF Arranger for reordering and
+merging pages, and LibreOffice Draw can open a PDF and change its text,
+though the layout and fonts often shift when it does. What I couldn't find
+was one free app that changes the text that's actually in the file, so the
+old words are really gone, and also signs, fills forms, cleans up scans and
+handles pages. And I wanted it to do all that offline, without an account,
+on my computer and my phone.
+
+That's what Inkleaf is for. It isn't trying to replace every tool above.
+If one of them already does what you need, it's a fine choice.
+
 ## What it does
 
 - **Edit existing text.** Click a line in the PDF, retype it. When you save, the
@@ -131,6 +145,21 @@ macOS, Linux and the Android APK).
   straight between the two over your Wi-Fi, encrypted (AES-256-GCM); there's
   no cloud and no account.
 - Updates itself (installed version) when a new release is published.
+- **Share securely.** Lock a copy so only the right person can open it:
+  with a strong generated code (it opens in any PDF app), or to one
+  person's computer (it opens only in Inkleaf there, so there's no code to
+  leak). Save the locked file to send yourself, or send it with a pickup
+  code: the other person types the code or scans its QR code and the file
+  comes to them, straight over your Wi-Fi or through the relay for up to 7
+  days. Without Inkleaf, scanning the QR code downloads it in a browser.
+  The relay only ever holds encrypted files; its source is in `relay/`.
+- **Tool rail.** Rest the pointer on a tool for its name, shortcut and what
+  it does; the button at the bottom of the rail shows every tool's name.
+- **Default PDF app.** The start screen offers once to make Inkleaf the app
+  that opens PDFs (also under Help › Make Inkleaf the Default PDF App). On
+  Linux it's set straight away; Windows only lets you choose that yourself,
+  so Inkleaf opens Settings on its own entry for you to confirm. The
+  portable version and the AppImage aren't installed, so they don't offer it.
 - Unlimited undo, light and dark mode, keyboard shortcuts for every tool
   (press Ctrl+/ or ⌘/ to see them).
 

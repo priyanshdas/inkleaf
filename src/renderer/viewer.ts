@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import type { EditorDoc } from './document';
 import { decorTexts } from './decor';
-import { AnnotationMode, PageViewport, pageViewport, PDFPageProxy } from './pdf';
+import { AnnotationMode, PageViewport, pageViewport, PDFPageProxy, TextLayer } from './pdf';
 import { drawAnnot, drawAnnots, drawSelection, Transform } from './render';
 import { annotBounds } from './geometry';
 import type { Annot, PageRef } from './types';
@@ -54,6 +54,11 @@ export class PageView {
   pixelRatio = 1;
   /** Identifies the zoom/rotation the sharp render was made for ('' = none). */
   renderedKey = '';
+  /** The selectable words (see Viewer.setTextSelectable) and what they were laid out for. */
+  text!: HTMLDivElement;
+  textKey = '';
+  private textLayer: TextLayer | null = null;
+  private textPage: PDFPageProxy | null = null;
   previewKey = '';
   private renderTask: ReturnType<PDFPageProxy['render']> | null = null;
   /** Device-pixel box last painted on the live layer, so we clear only that. */
@@ -71,11 +76,15 @@ export class PageView {
     this.preview = blankCanvas('page-preview');
     this.base = blankCanvas('page-base');
     this.marks = blankCanvas('page-marks');
+    // invisible copies of the page's own words, laid over the picture so
+    // they can be selected and copied with the Select tool
+    this.text = document.createElement('div');
+    this.text.className = 'page-text';
     this.forms = document.createElement('div');
     this.forms.className = 'page-forms';
     this.overlay = document.createElement('div');
     this.overlay.className = 'page-overlay';
-    this.el.append(this.preview, this.base, this.marks, this.forms, this.overlay);
+    this.el.append(this.preview, this.base, this.marks, this.text, this.forms, this.overlay);
   }
 
   /** User space → mark-layer device pixels. */
@@ -157,6 +166,40 @@ export class PageView {
     release(this.marks);
     this.renderedKey = '';
     this.bakedHighlights = [];
+    this.clearText();
+  }
+
+  /** Lays the page's words out over it, once per zoom and rotation. */
+  layOutText(viewport: PageViewport) {
+    const page = this.pdfPage;
+    if (!page) return;
+    const crop = this.ref.crop;
+    const key = `${viewport.scale.toFixed(4)}:${viewport.rotation}:${crop ? `${crop.x},${crop.y},${crop.w},${crop.h}` : ''}`;
+    if (this.textKey === key && this.textPage === page) return;
+    this.clearText();
+    this.textKey = key;
+    this.textPage = page;
+    const box = document.createElement('div');
+    box.className = 'page-text-layer';
+    box.style.setProperty('--total-scale-factor', String(viewport.scale));
+    this.text.append(box);
+    const layer = new TextLayer({
+      textContentSource: page.streamTextContent({ includeMarkedContent: true, disableNormalization: true }),
+      container: box,
+      viewport,
+    });
+    this.textLayer = layer;
+    layer.render().catch(() => {
+      // cancelled, or a page with no readable text; either way there's nothing to select
+    });
+  }
+
+  clearText() {
+    this.textLayer?.cancel();
+    this.textLayer = null;
+    this.textKey = '';
+    this.textPage = null;
+    this.text.replaceChildren();
   }
 
   /** Reads a pixel of the rendered page, in CSS pixel coordinates. */
@@ -202,6 +245,8 @@ export class Viewer extends EventTarget {
   private offsetsValid = false;
   /** The annotation being drawn or dragged right now, painted on its own layer. */
   private liveTarget: { pageId: string; annotId: string } | null = null;
+  /** Whether the page's own words are laid out for selecting (the Select tool). */
+  private textSelectable = false;
 
   constructor(readonly container: HTMLElement, readonly pagesEl: HTMLElement, private hooks: ViewerHooks) {
     super();
@@ -433,6 +478,17 @@ export class Viewer extends EventTarget {
     });
   }
 
+  /** Turns selecting the page's own words on or off. */
+  setTextSelectable(on: boolean) {
+    if (this.textSelectable === on) return;
+    this.textSelectable = on;
+    if (!on) return; // hidden by the stylesheet, kept for when Select comes back
+    for (const id of this.near) {
+      const view = this.views.get(id);
+      if (view?.viewport && view.renderedKey) view.layOutText(view.viewport);
+    }
+  }
+
   private ensurePage(view: PageView): PageViewport | Promise<PageViewport> {
     const doc = this.doc!;
     const rotation = doc.displayRotation(view.ref);
@@ -513,6 +569,7 @@ export class Viewer extends EventTarget {
           const bake = this.bake(view);
           const done = await view.renderSharp(key, vp, ratio, view.ref.src === doc.mainSource, bake.fn);
           if (!done || this.doc !== doc) return;
+          if (this.textSelectable) view.layOutText(vp);
           view.bakedHighlights = bake.list;
           if (view.liveUntilRender) {
             view.liveUntilRender = false;

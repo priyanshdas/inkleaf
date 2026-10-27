@@ -32,7 +32,7 @@ async function exported(doc: EditorDoc): Promise<Uint8Array> {
 }
 
 /** A list of radio "cards", each with a title and a line of explanation. */
-function choices<T extends string>(name: string, options: { value: T; title: string; detail: string }[], initial: T) {
+export function choices<T extends string>(name: string, options: { value: T; title: string; detail: string }[], initial: T) {
   let value = initial;
   const el = h('div', { class: 'choice-list', role: 'radiogroup' }, ...options.map((o) => {
     const input = h('input', { type: 'radio', name, value: o.value, checked: o.value === initial });
@@ -72,7 +72,7 @@ export async function compressDialog(doc: EditorDoc, host: ToolHost) {
     body: h('div', { class: 'result-card' },
       h('div', { class: 'result-sizes' },
         h('span', {}, formatBytes(report.before)), icon('chevron-right'), h('strong', {}, formatBytes(report.after))),
-      h('p', { class: 'modal-text' }, details ? t('{percent}% smaller · {details}.', { percent: Math.round((saved / report.before) * 100), details }) : t('{percent}% smaller.', { percent: Math.round((saved / report.before) * 100) }))),
+      h('p', { class: 'modal-text' }, details ? t('{percent}% smaller: {details}.', { percent: Math.round((saved / report.before) * 100), details }) : t('{percent}% smaller.', { percent: Math.round((saved / report.before) * 100) }))),
     buttons: [
       { label: t('Close'), value: 'cancel' },
       { label: t('Open in a new tab'), value: 'open' },

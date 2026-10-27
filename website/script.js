@@ -32,31 +32,72 @@
   })();
 })();
 
-// 2. Before and after slider for the cleaned-up scan.
+// 2. Before and after slider for the cleaned-up scan. The slider itself is
+//    invisible and covers the picture, so dragging the handle (or anywhere on
+//    the picture) and the arrow keys all work.
 (() => {
   const range = document.getElementById('compare-range');
   const frame = document.querySelector('.compare-frame');
   if (!range || !frame) return;
-  const show = () => frame.style.setProperty('--pos', `${range.value}%`);
+  const show = () => {
+    const v = Number(range.value);
+    frame.style.setProperty('--pos', `${v}%`);
+    frame.classList.toggle('near-left', v < 18);
+    frame.classList.toggle('near-right', v > 82);
+  };
   range.addEventListener('input', show);
   show();
 
-  // dragging on the picture itself moves it too
-  let dragging = false;
-  const moveTo = (event) => {
-    const box = frame.getBoundingClientRect();
-    const percent = ((event.clientX - box.left) / box.width) * 100;
-    range.value = String(Math.min(100, Math.max(0, Math.round(percent))));
-    show();
+  const start = () => frame.classList.add('dragging');
+  const stop = () => frame.classList.remove('dragging');
+  range.addEventListener('pointerdown', start);
+  range.addEventListener('pointerup', stop);
+  range.addEventListener('pointercancel', stop);
+  range.addEventListener('blur', stop);
+
+  // the first time it scrolls into view, nudge the handle once so it's
+  // obvious it moves
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
+  let touched = false;
+  range.addEventListener('pointerdown', () => { touched = true; }, { once: true });
+  const seen = new IntersectionObserver((entries) => {
+    if (!entries.some((e) => e.isIntersecting)) return;
+    seen.disconnect();
+    const path = [50, 34, 66, 50];
+    const t0 = performance.now(), each = 650;
+    const step = (now) => {
+      if (touched) return;
+      const k = Math.min((now - t0) / each, path.length - 1);
+      const i = Math.min(Math.floor(k), path.length - 2), f = k - i;
+      const e = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
+      range.value = String(Math.round(path[i] + (path[i + 1] - path[i]) * e));
+      show();
+      if (k < path.length - 1) requestAnimationFrame(step);
+    };
+    setTimeout(() => requestAnimationFrame(step), 400);
+  }, { threshold: 0.6 });
+  seen.observe(frame);
+})();
+
+// 2b. The video at the top: a pause button, and no autoplay for people who
+//     asked their system for less motion.
+(() => {
+  const video = document.getElementById('shot-video');
+  const toggle = document.getElementById('shot-toggle');
+  if (!video || !toggle) return;
+  const label = () => {
+    const paused = video.paused;
+    toggle.textContent = paused ? 'Play' : 'Pause';
+    toggle.setAttribute('aria-pressed', String(paused));
   };
-  frame.addEventListener('pointerdown', (event) => {
-    dragging = true;
-    frame.setPointerCapture(event.pointerId);
-    moveTo(event);
-  });
-  frame.addEventListener('pointermove', (event) => dragging && moveTo(event));
-  frame.addEventListener('pointerup', () => { dragging = false; });
-  frame.addEventListener('pointercancel', () => { dragging = false; });
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    video.removeAttribute('autoplay');
+    video.pause();
+  }
+  toggle.addEventListener('click', () => { if (video.paused) video.play(); else video.pause(); });
+  video.addEventListener('play', label);
+  video.addEventListener('pause', label);
+  label();
 })();
 
 // 3. Point out the download for this device, and name it on the top button.

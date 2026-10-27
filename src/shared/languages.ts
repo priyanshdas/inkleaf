@@ -103,10 +103,10 @@ export function languageName(nameOrCode: string): string {
   }
 }
 
-/** "Hindi · हिन्दी" (or just the name when the two are the same), for lists. */
+/** "Hindi (हिन्दी)" (or just the name when the two are the same), for lists. */
 export function languageLabel(lang: Language): string {
   const shown = languageName(lang.code);
-  return shown === lang.native ? shown : `${shown} · ${lang.native}`;
+  return shown === lang.native ? shown : `${shown} (${lang.native})`;
 }
 export const languageByOcr = (ocr: string) => LANGUAGES.find((l) => l.ocr === ocr);
 

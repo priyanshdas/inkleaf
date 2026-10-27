@@ -1,0 +1,11 @@
+{
+  "name": "inkleaf-relay",
+  "private": true,
+  "description": "Holds files sent with an Inkleaf pickup code until they're picked up. It only ever sees encrypted bytes.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "engines": { "node": "22.x" },
+  "dependencies": {
+    "@vercel/blob": "2.8.2"
+  }
+}

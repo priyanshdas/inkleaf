@@ -17,6 +17,7 @@ import type { ReadingMode } from './viewer';
 import { AppCommand, displayShortcut, MENU, MenuEntry, shortcutFor } from '../shared/commands';
 import { ChangeDetail, EditorDoc } from './document';
 import { Editor } from './editor';
+import { pageTextSelection } from './text-select';
 import type { ExportResult } from './exporter';
 import { loadFontMetrics } from './fonts';
 import { FormLayer, SignFieldRequest } from './forms';
@@ -28,6 +29,8 @@ import {
 import { chooseSignature, signMenu } from './signature';
 import { Thumbnails } from './thumbnails';
 import type { ImageAnnot, Tool } from './types';
+import { LockedError, receiveCodeDialog, receiveFileDialog, secureShareDialog } from './secure-share';
+import { setupRail } from './rail';
 import { confirmDialog, h, hydrateIcons, icon, localizeStatic, isModalOpen, liveStatus, modal, pickImage, richText, toast, toastHook } from './ui';
 import { EnhancedView, NEUTRAL, enhancePanel, enhancedCopy, isNeutral, type Enhance } from './enhance';
 import { Viewer } from './viewer';
@@ -173,7 +176,7 @@ async function offerRecovery() {
     title: t('Restore unsaved work?'),
     body: h('div', {},
       h('p', { class: 'modal-text' }, t('Inkleaf didn’t close properly last time. These documents had changes that weren’t saved:')),
-      h('ul', { class: 'recover-list' }, ...found.map((r) => h('li', {}, h('strong', {}, r.name), h('span', {}, ` · ${when(r.savedAt)}`)))),
+      h('ul', { class: 'recover-list' }, ...found.map((r) => h('li', {}, h('strong', {}, r.name), h('span', { class: 'recover-when' }, when(r.savedAt))))),
     ),
     buttons: [{ label: t('Discard'), value: 'discard', danger: true }, { label: t('Restore'), value: 'restore', primary: true }],
     dismissValue: 'later',
@@ -465,6 +468,10 @@ async function openFile(file: OpenedFile) {
     if (await forms.hasFields()) toast(t('This PDF has form fields. Click a field to fill it in.'), 'info');
   } catch (err) {
     console.error(err);
+    if (err instanceof LockedError) {
+      await modal({ title: t('Couldn’t open this PDF'), body: err.message });
+      return;
+    }
     const choice = await modal({
       title: t('Couldn’t open this PDF'),
       body: t('“{name}” looks damaged. Inkleaf can try to repair it into a new copy; the original isn’t touched.', { name: file.name }),
@@ -669,7 +676,7 @@ type Command = AppCommand | 'prev-page' | 'next-page';
 
 const NO_DOC_NEEDED = new Set<Command>([
   'new', 'open', 'about', 'shortcuts', 'close', 'close-tab', 'new-window', 'quit', 'fullscreen', 'devtools',
-  'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
+  'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'default-app', 'receive-code', 'receive-file', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
   'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'language', 'terms', 'privacy', 'link-pair',
 ]);
 
@@ -727,6 +734,8 @@ async function run(command: Command) {
     case 'cut':
     case 'paste':
       if (isTyping() || isModalOpen()) return api.nativeEdit(command);
+      // words selected on the page itself copy as plain text
+      if (command === 'copy' && pageTextSelection()) return api.nativeEdit('copy');
       if (command === 'paste') editor.paste();
       else editor.copySelected(command === 'cut');
       return;
@@ -796,6 +805,9 @@ async function run(command: Command) {
     case 'enhance': return toggleEnhance();
     case 'compress': return tool(t('Couldn’t compress this PDF'), () => compressDialog(doc!, toolHost));
     case 'protect': return tool(t('Couldn’t protect this PDF'), () => protectDialog(doc!, toolHost));
+    case 'secure-share': return tool(t('Couldn’t lock this PDF'), () => secureShareDialog(doc!, toolHost));
+    case 'receive-code': return receiveCodeDialog();
+    case 'receive-file': return receiveFileDialog((data, name) => openFile({ name: /\.pdf$/i.test(name) ? name : `${name}.pdf`, path: null, data }), withBusy);
     case 'decor': return tool(t('Couldn’t add that'), () => decorDialog(doc!));
     case 'remove-decor': return doc!.setDecor(NO_DECOR);
     case 'images-to-pdf': return tool(t('Couldn’t make a PDF from those pictures'), () => imagesToPdf(toolHost));
@@ -861,6 +873,7 @@ async function run(command: Command) {
     case 'show-comments': return showSide('comments');
     case 'show-bookmarks': return showSide('bookmarks');
     case 'check-updates': return api.checkForUpdates();
+    case 'default-app': return makeDefaultFromMenu();
 
     case 'shortcuts': return showShortcuts();
     case 'about': return showAbout();
@@ -1465,6 +1478,7 @@ const menus: Record<string, () => (MenuItem | 'separator')[]> = {
     { label: t('Recognise text (OCR)…'), icon: 'scan-text', command: 'ocr', action: () => run('ocr') },
     { label: t('Compress…'), icon: 'file-archive', command: 'compress', action: () => run('compress') },
     { label: t('Password protect…'), icon: 'shield-check', command: 'protect', action: () => run('protect') },
+    { label: t('Share securely…'), icon: 'qr-code', command: 'secure-share', action: () => run('secure-share') },
     { label: t('Watermark, page numbers & headers…'), icon: 'droplets', command: 'decor', action: () => run('decor') },
     { label: t('Add form fields'), icon: 'text-cursor', command: 'form-builder', action: () => run('form-builder') },
     { label: t('Compare with another PDF…'), icon: 'git-compare', command: 'compare', action: () => run('compare') },
@@ -1635,6 +1649,67 @@ function folderOf(path: string) {
   return parts.slice(-2).join(sep) || path;
 }
 
+// --- "Make Inkleaf my default PDF app" -----------------------------------------------------------
+
+/** Set while Windows Settings is open for this, so coming back to the window checks again. */
+let defaultPending = false;
+
+async function offerDefaultApp(slot: HTMLElement) {
+  const { state, dismissed } = await api.defaultAppState().catch(() => ({ state: 'unsupported' as const, dismissed: true }));
+  if (state !== 'not-default' || (dismissed && !defaultPending)) return;
+
+  const text = h('p', {}, defaultPending
+    ? t('In Settings, choose Inkleaf for .pdf files. This message goes away once it’s set.')
+    : t('Make Inkleaf the app that opens PDFs when you double-click them.'));
+  const make = h('button', { class: 'btn btn-primary' }, t('Make it the default'));
+  const later = h('button', { class: 'btn' }, t('Not now'));
+  make.addEventListener('click', () => void makeDefault(slot));
+  later.addEventListener('click', () => {
+    api.dismissDefaultApp();
+    defaultPending = false;
+    slot.replaceChildren();
+  });
+  slot.replaceChildren(
+    h('div', { class: 'default-offer' },
+      h('span', { class: 'default-offer-icon' }, icon('file-text')),
+      h('div', { class: 'default-offer-text' }, h('strong', {}, t('Open PDFs with Inkleaf?')), text),
+      h('div', { class: 'default-offer-actions' }, make, later),
+    ),
+  );
+}
+
+async function makeDefault(slot: HTMLElement | null) {
+  const result = await api.makeDefaultApp().catch(() => 'failed' as const);
+  if (result === 'done') {
+    toast(t('Inkleaf now opens your PDFs.'), 'success');
+    slot?.replaceChildren();
+  } else if (result === 'settings') {
+    defaultPending = true;
+    if (slot) void offerDefaultApp(slot);
+    else toast(t('Windows Settings is open. Choose Inkleaf for .pdf files there.'));
+  } else if (result === 'unsupported') {
+    toast(t('This copy of Inkleaf isn’t installed, so it can’t be your default PDF app. Install it from the website or the Microsoft Store first.'), 'info', 7000);
+  } else {
+    toast(t('Couldn’t change the default app. You can set it in your system settings instead.'), 'error');
+  }
+}
+
+async function makeDefaultFromMenu() {
+  const { state } = await api.defaultAppState().catch(() => ({ state: 'unsupported' as const }));
+  if (state === 'default') return toast(t('Inkleaf is already your default PDF app.'), 'success');
+  return makeDefault(doc ? null : document.querySelector<HTMLElement>('#welcome .default-slot'));
+}
+
+// back from Windows Settings: see whether it worked
+window.addEventListener('focus', async () => {
+  if (!defaultPending) return;
+  const { state } = await api.defaultAppState().catch(() => ({ state: 'unsupported' as const }));
+  if (state !== 'default') return;
+  defaultPending = false;
+  toast(t('Inkleaf now opens your PDFs.'), 'success');
+  document.querySelector('#welcome .default-slot')?.replaceChildren();
+});
+
 async function renderWelcome() {
   if (doc) return;
   const recent: RecentFile[] = await api.recentFiles().catch(() => []);
@@ -1674,6 +1749,8 @@ async function renderWelcome() {
     );
 
   const phone = isMobile();
+  const defaultSlot = h('div', { class: 'default-slot' });
+  void offerDefaultApp(defaultSlot);
   root.replaceChildren(
     h('div', { class: 'home' },
       h('div', { class: 'home-intro' },
@@ -1689,6 +1766,7 @@ async function renderWelcome() {
         action('layout-grid', t('All tools'), t('Merge, scan, compress, translate…'), 'all-tools'),
         phone ? action('monitor', t('Connect to a computer'), t('Send PDFs back and forth over your Wi-Fi'), 'link-pair') : null,
       ),
+      defaultSlot,
       h('section', { class: 'recent' },
         h('h2', {}, t('Recent files')),
         recent.length
@@ -1700,7 +1778,7 @@ async function renderWelcome() {
                 : t('Files you open will show up here. You can also drop a PDF (or a Word file, spreadsheet, slides or picture to convert) anywhere in this window.'))),
       ),
       h('footer', { class: 'home-foot' },
-        h('span', {}, ...richText(t('Built by {name} · Free and open source'), { name: h('strong', {}, 'EPD') })),
+        h('span', {}, ...richText(t('Built by {name}, free and open source'), { name: h('strong', {}, 'EPD') })),
         h('button', { class: 'coffee-link', 'data-command': 'donate' }, icon('coffee'), t('Buy me a coffee')),
       ),
     ),
@@ -1880,6 +1958,7 @@ async function start() {
     send.querySelector('[data-icon]')?.setAttribute('data-icon', 'monitor');
   }
   hydrateIcons();
+  setupRail();
   try {
     if (!isMobile() && localStorage.getItem('inkleaf.sidebar-hidden')) $('#app').classList.add('sidebar-hidden');
     if (!isMobile() && localStorage.getItem('inkleaf.inspector-hidden')) $('#app').classList.add('inspector-hidden');

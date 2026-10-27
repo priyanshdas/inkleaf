@@ -1,7 +1,7 @@
 {
   "name": "inkleaf",
   "productName": "Inkleaf",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A free, open-source, offline PDF editor: edit text, annotate, sign, fill and build forms, OCR, compress, compare and convert.",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/priyanshdas/inkleaf",
@@ -254,6 +254,7 @@
   },
   "desktopName": "inkleaf.desktop",
   "dependencies": {
+    "@vercel/blob": "2.8.2",
     "bidi-js": "1.1.0",
     "electron-updater": "6.8.10",
     "harfbuzzjs": "1.6.4",

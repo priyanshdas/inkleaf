@@ -62,7 +62,12 @@
     </div>
 
     <figure class="shot">
-      <img src="edit.webp" width="1360" height="860" alt="Inkleaf on Windows with a restaurant menu open. One line is selected for editing, and the misspelled word risoto has been corrected to risotto.">
+      <video id="shot-video" width="1920" height="1214" autoplay muted loop playsinline preload="auto" poster="edit-start.webp"
+        aria-label="Inkleaf with a restaurant menu open. The pointer picks Edit text, clicks the line with the misspelled word risoto, adds the missing t, and saves the file.">
+        <source src="edit.mp4" type="video/mp4">
+        <source src="edit.webm" type="video/webm">
+      </video>
+      <button class="shot-toggle" type="button" id="shot-toggle" aria-pressed="false">Pause</button>
     </figure>
 
     <p class="folio">1</p>
@@ -92,23 +97,30 @@
       <dt>Pages and files</dt>
       <dd>Merge, split, reorder, rotate and extract pages. Make files smaller, turn Word, Excel and PowerPoint files into PDFs and back, add a password, and compare two versions word by word.</dd>
 
+      <dt>Share securely</dt>
+      <dd>Lock a copy with a strong code, or so only one person's computer can open it. Send it with a pickup code: they type it or scan its QR code and the file comes to them, over your Wi-Fi or the internet.</dd>
+
       <dt>Phone and computer</dt>
       <dd>The Android app has its own phone layout, built for reading first. Pair it with your computer once and send PDFs both ways over your home Wi-Fi.</dd>
     </dl>
 
     <figure class="compare" id="compare">
       <div class="compare-frame">
-        <img src="scan-after.jpg" width="780" height="440" alt="The same memo after cleaning up: white paper and crisp black text.">
+        <img src="scan-after.jpg" width="780" height="440" alt="The same memo after cleaning up: white paper and crisp black text." draggable="false">
         <div class="compare-before">
-          <img src="scan-before.jpg" width="780" height="440" alt="A faded memo scan with grey-brown paper and pale text.">
+          <img src="scan-before.jpg" width="780" height="440" alt="A faded memo scan with grey-brown paper and pale text." draggable="false">
         </div>
-        <span class="compare-handle" aria-hidden="true"></span>
+        <span class="compare-tag compare-tag-before" aria-hidden="true">Before</span>
+        <span class="compare-tag compare-tag-after" aria-hidden="true">After</span>
+        <span class="compare-handle" aria-hidden="true">
+          <span class="compare-knob">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6"/><path d="M15 6l6 6-6 6"/></svg>
+          </span>
+        </span>
+        <input class="compare-range" type="range" min="0" max="100" value="50" id="compare-range"
+          aria-label="Compare the scan before and after. Move left to see more of the cleaned-up page.">
       </div>
-      <label class="compare-label">
-        <span class="visually-hidden">Show more of the original or the cleaned-up scan</span>
-        <input type="range" min="0" max="100" value="50" id="compare-range">
-      </label>
-      <figcaption>Left: the scan as it came. Right: after Enhance Pages, using the Scan preset.</figcaption>
+      <figcaption>Drag the handle to compare. Before: the scan as it came. After: Enhance Pages with the Scan preset.</figcaption>
     </figure>
 
     <p class="folio">2</p>
@@ -134,6 +146,7 @@
           <tr><td>Use a language that isn't built in</td><td>The language pack is downloaded once from jsDelivr.</td></tr>
           <tr><td>Use the AI summary or translation</td><td>The document's text goes to the AI service you picked, with your own API key. With AI on your computer, nothing leaves it.</td></tr>
           <tr><td>Turn a web page into a PDF</td><td>A normal visit to that page, in a private window that's cleared afterwards.</td></tr>
+          <tr><td>Send with a pickup code</td><td>On your Wi-Fi, straight to the other computer. Otherwise the file, encrypted first, waits on the Inkleaf relay until it's picked up (7 days at most). Only the code can unlock it, and the relay never sees the code.</td></tr>
         </tbody>
       </table>
     </div>
@@ -204,6 +217,15 @@
         couldn't really change the text at all.
       </p>
       <p>
+        Plenty of free tools are good at one job: Xournal++ for writing on a
+        PDF, PDF Arranger for pages, LibreOffice Draw for changing text
+        (though the layout often shifts). I couldn't find one free app that
+        really replaces the words in the file and also signs, fills forms,
+        cleans up scans and handles pages, offline, on my computer and my
+        phone. If one of those tools already does what you need, it's a fine
+        choice.
+      </p>
+      <p>
         It's licensed under the GPL, so it will stay free and you can read,
         change and share every line of it. If something breaks or feels
         awkward, <a href="https://github.com/priyanshdas/inkleaf/issues">open an issue</a>.
@@ -238,7 +260,8 @@
       <p>
         Inkleaf doesn't send any information to other networked systems
         unless you ask it to: when you use the AI tools, Web page to PDF,
-        download a language pack or check for updates. The
+        send or receive a file with a pickup code, download a language pack
+        or check for updates. The
         <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">privacy policy</a>
         says exactly what is sent, and to whom.
       </p>

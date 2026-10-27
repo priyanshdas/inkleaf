@@ -92,7 +92,7 @@ export class NotePopup {
       this.pageId = active.pageId;
       this.area.value = note.text;
     }
-    this.meta.textContent = `${note.author || 'You'} · ${when(note.created)}`;
+    this.meta.textContent = `${note.author || 'You'}, ${when(note.created)}`;
     this.colours.replaceChildren(...NOTE_COLORS.map((c) => {
       const b = h('button', { class: 'note-colour', style: `background:${c}`, title: t('Note colour'), 'aria-pressed': String(c === note.color) });
       b.addEventListener('click', () => this.editor.applyStyle('note', { color: c }));
@@ -162,7 +162,7 @@ export class CommentsPanel {
         const item = h('button', { class: `comment-item${selected ? ' selected' : ''}` },
           h('span', { class: 'comment-dot', style: `background:${a.color}` }),
           h('span', { class: 'comment-body' },
-            h('span', { class: 'comment-meta' }, t('{author} · Page {page}', { author: a.author || t('You'), page: index + 1 })),
+            h('span', { class: 'comment-meta' }, t('{author}, page {page}', { author: a.author || t('You'), page: index + 1 })),
             h('span', { class: `comment-text${a.text.trim() ? '' : ' empty'}` }, a.text.trim() || t('Empty comment')),
           ));
         item.addEventListener('click', () => {

@@ -9,6 +9,7 @@
 // tests/make_fixtures.py.
 
 import { _electron as electron } from 'playwright-core';
+import { startFakeRelay } from './fake-relay.mjs';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -1428,6 +1429,315 @@ async function linkTest() {
 }
 
 // --- enhance pages ---------------------------------------------------------------------------------
+// --- making Inkleaf the default PDF app (Linux, through xdg-mime) ---------------------------------
+
+async function defaultAppTest() {
+  console.log('Default PDF app');
+  try {
+    execFileSync('xdg-mime', ['--version']);
+  } catch {
+    console.log('  (skipped: xdg-mime isn’t installed here)');
+    return;
+  }
+  // a private desktop setup, so the test never touches this machine's own default
+  const home = fs.mkdtempSync(path.join(out, 'xdg-'));
+  const config = path.join(home, 'config'), data = path.join(home, 'data');
+  fs.mkdirSync(path.join(data, 'applications'), { recursive: true });
+  fs.mkdirSync(config, { recursive: true });
+  fs.writeFileSync(path.join(data, 'applications', 'inkleaf-test.desktop'),
+    '[Desktop Entry]\nType=Application\nName=Inkleaf\nExec=/bin/true %U\nMimeType=application/pdf;\n');
+  fs.writeFileSync(path.join(data, 'applications', 'other-viewer.desktop'),
+    '[Desktop Entry]\nType=Application\nName=Other\nExec=/bin/true %U\nMimeType=application/pdf;\n');
+  const env = { INKLEAF_TEST_DESKTOP_FILE: 'inkleaf-test.desktop', XDG_CONFIG_HOME: config, XDG_DATA_HOME: data, XDG_CURRENT_DESKTOP: 'X-Generic' };
+  const current = () => execFileSync('xdg-mime', ['query', 'default', 'application/pdf'], { env: { ...process.env, ...env } }).toString().trim();
+  execFileSync('xdg-mime', ['default', 'other-viewer.desktop', 'application/pdf'], { env: { ...process.env, ...env } });
+
+  let { app, win, errors, profile } = await launch(null, { env });
+  await win.waitForSelector('.default-offer', { timeout: 10000 });
+  check('the start screen offers to open PDFs with Inkleaf', /Open PDFs with Inkleaf/.test(await win.textContent('.default-offer')));
+  await win.click('.default-offer .btn-primary');
+  await win.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('now opens your PDFs')), null, { timeout: 10000 });
+  check('it says so once it’s done', true);
+  check('PDFs now open with Inkleaf', current() === 'inkleaf-test.desktop', current());
+  check('and the offer goes away', !(await win.$('.default-offer')));
+  await win.evaluate(() => window.__inkleaf.run('default-app'));
+  await win.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('already your default')), null, { timeout: 10000 });
+  check('the menu item knows it already is', true);
+  check('no errors', errors.length === 0, errors.join('; '));
+  await app.close();
+
+  // someone else's app takes over again; "Not now" is remembered
+  execFileSync('xdg-mime', ['default', 'other-viewer.desktop', 'application/pdf'], { env: { ...process.env, ...env } });
+  ({ app, win } = await launch(null, { env, profile }));
+  await win.waitForSelector('.default-offer', { timeout: 10000 });
+  await win.click('.default-offer .btn:not(.btn-primary)');
+  check('“Not now” hides it', !(await win.$('.default-offer')));
+  await app.close();
+  ({ app, win } = await launch(null, { env, profile }));
+  await win.waitForSelector('.home', { timeout: 10000 });
+  await win.waitForTimeout(1200);
+  check('and it stays hidden next time', !(await win.$('.default-offer')));
+  check('the default wasn’t changed behind anyone’s back', current() === 'other-viewer.desktop', current());
+  await app.close();
+
+  // a copy that isn't installed (here: no desktop file) never offers it
+  ({ app, win } = await launch(null, {}));
+  await win.waitForSelector('.home', { timeout: 10000 });
+  await win.waitForTimeout(1200);
+  check('copies that aren’t installed don’t offer it', !(await win.$('.default-offer')));
+  await win.evaluate(() => window.__inkleaf.run('default-app'));
+  await win.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('isn’t installed')), null, { timeout: 10000 });
+  check('and the menu item explains why', true);
+  await app.close();
+}
+
+// --- sharing securely: codes, device locks, pickup codes ----------------------------------------
+
+async function shareTest() {
+  console.log('Share securely');
+  // keys are kept in the clear on this keychain-less box; the relay is a local stand-in
+  const relay = await startFakeRelay();
+  const env = { INKLEAF_TEST_PLAIN_KEYS: '1', INKLEAF_TEST_RELAY: relay.url };
+  const args = ['--password-store=basic'];
+  const toastSays = (win, text) => win.waitForFunction((t) => [...document.querySelectorAll('.toast')].some((x) => x.textContent.includes(t)), text, { timeout: 20000 });
+  const top = '.modal-backdrop.show:last-child';
+  const share = async (win, who, how) => {
+    await win.evaluate(() => { void window.__inkleaf.run('secure-share'); });
+    await win.waitForSelector(`${top} input[name="share-who"]`);
+    await win.click(`${top} label.choice:has(input[name="share-who"][value="${who}"])`);
+    await win.click(`${top} label.choice:has(input[name="share-how"][value="${how}"])`);
+    await win.click(`${top} .btn-primary`);
+  };
+  const pages = (win) => win.evaluate(() => window.__inkleaf.getDoc()?.pages.length ?? 0);
+
+  // 1. anyone with the code, as a file: a normal AES-256 PDF
+  let { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'), { env, args });
+  await waitForPages(win);
+  const expectPages = await pages(win);
+  await share(win, 'code', 'file');
+  await win.waitForSelector(`${top} .share-code-text`);
+  const code = (await win.textContent(`${top} .share-code-text`)).trim();
+  check('a strong code is made', /^[0-9A-Z]{5}(-[0-9A-Z]{5}){3}$/.test(code), code);
+  const locked = path.join(out, 'shared-with-code.pdf');
+  await stubDialog(app, 'showSaveDialog', locked);
+  await win.click(`${top} .btn-primary`);
+  await win.waitForSelector(`${top} .share-code-text`);
+  await win.click(`${top} .btn-primary`);
+  const info = execFileSync('qpdf', ['--show-encryption', `--password=${code}`, locked]).toString();
+  check('it’s an AES-256 PDF', /AESv3|R = 6/.test(info), info.split('\n')[0]);
+  let opensWithout = true;
+  try { execFileSync('qpdf', ['--check', locked], { stdio: 'pipe' }); } catch { opensWithout = false; }
+  check('which won’t open without the code', !opensWithout);
+  check('no errors while sharing', errors.length === 0, errors.join('; '));
+  await app.close();
+
+  ({ app, win } = await launch(locked, { env, args }));
+  await win.waitForSelector(`${top} input[type="password"]`);
+  await win.fill(`${top} input[type="password"]`, code.toLowerCase().replace(/-/g, ' '));
+  await win.press(`${top} input[type="password"]`, 'Enter');
+  await waitForPages(win);
+  check('the code opens it in Inkleaf, however it’s typed', (await pages(win)) === expectPages);
+  await app.close();
+
+  // 2. only one person's device, as a file
+  const recipientProfile = fs.mkdtempSync(path.join(out, 'profile-'));
+  ({ app, win } = await launch(null, { env, args, profile: recipientProfile }));
+  const receive = await win.evaluate(() => window.inkleaf.receiveCode());
+  check('a computer has a receive code', /^[0-9A-Z]{55}$/.test(receive), receive);
+  check('and it stays the same', receive === await win.evaluate(() => window.inkleaf.receiveCode()));
+  await app.close();
+
+  ({ app, win } = await launch(path.join(fixtures, 'sample.pdf'), { env, args }));
+  await waitForPages(win);
+  await share(win, 'device', 'file');
+  await win.waitForSelector(`${top} .share-receive-input`);
+  await win.fill(`${top} .share-receive-input`, receive.slice(0, 50));
+  await win.click(`${top} .btn-primary`);
+  check('a cut-short receive code is caught', /isn’t a complete receive code/.test(await win.textContent(`${top} .field-error`)));
+  await win.fill(`${top} .share-receive-input`, receive.match(/.{1,5}/g).join('-').toLowerCase());
+  const deviceLocked = path.join(out, 'shared-to-device.pdf');
+  await stubDialog(app, 'showSaveDialog', deviceLocked);
+  await win.click(`${top} .btn-primary`);
+  await toastSays(win, 'Only the person with that receive code');
+  check('other PDF apps see a page explaining it', text(deviceLocked).includes('This PDF is locked'));
+  await app.close();
+
+  ({ app, win } = await launch(deviceLocked, { env, args, profile: recipientProfile }));
+  await waitForPages(win);
+  check('it opens on the computer it was locked for', (await pages(win)) === expectPages);
+  await app.close();
+  ({ app, win } = await launch(deviceLocked, { env, args }));
+  await win.waitForSelector('.modal-backdrop.show', { timeout: 15000 });
+  check('and nowhere else', /someone else’s device/.test(await win.textContent('.modal-backdrop.show')));
+  await app.close();
+
+  // 3. a pickup code: picked up over the same network
+  ({ app, win } = await launch(path.join(fixtures, 'sample.pdf'), { env, args }));
+  await waitForPages(win);
+  await share(win, 'code', 'pickup');
+  await win.waitForFunction(() => /ready for 7 days/.test(document.querySelector('.share-status')?.textContent ?? ''), null, { timeout: 20000 });
+  check('it’s uploaded to the relay, encrypted', relay.seen.uploads === 1 && ![...relay.files.values()][0].includes(Buffer.from('%PDF')));
+  await app.evaluate(({ clipboard }) => clipboard.writeText(''));
+  await win.click(`${top} .share-code-actions .btn:nth-child(2)`);
+  // the copy lands a moment after the click, so wait for it rather than racing it
+  let link = '';
+  for (let i = 0; i < 40 && !link; i++) {
+    link = await app.evaluate(({ clipboard }) => clipboard.readText());
+    if (!link) await win.waitForTimeout(100);
+  }
+  check('the link goes to the download page', link.startsWith('https://priyanshdas.github.io/inkleaf/get/#'), link);
+  check('and says where to find it nearby', /&l=[\d.]+:\d+/.test(link), link);
+
+  let receiver = await launch(null, { env, args });
+  await receiver.win.evaluate(() => { void window.__inkleaf.run('receive-file'); });
+  await receiver.win.fill(`${top} .share-receive-input`, link);
+  await receiver.win.press(`${top} .share-receive-input`, 'Enter');
+  await toastSays(receiver.win, 'over your Wi-Fi');
+  await waitForPages(receiver.win);
+  check('it arrives over the network', (await pages(receiver.win)) === expectPages);
+  await win.waitForFunction(() => /Picked up over your Wi-Fi/.test(document.querySelector('.share-status')?.textContent ?? ''), null, { timeout: 10000 });
+  check('the sender sees it was picked up', true);
+  await receiver.win.waitForTimeout(500);
+  check('and the relay’s copy is deleted', relay.files.size === 0 && relay.seen.deletes === 1);
+  await receiver.app.close();
+  await win.click(`${top} .btn-primary`);
+
+  // 4. a pickup code typed in, with the sender gone: through the relay
+  await share(win, 'code', 'pickup');
+  await win.waitForFunction(() => /ready for 7 days/.test(document.querySelector('.share-status')?.textContent ?? ''), null, { timeout: 20000 });
+  const typed = (await win.textContent(`${top} .share-code-text`)).trim();
+  await app.close();
+
+  receiver = await launch(null, { env, args });
+  await receiver.win.evaluate(() => { void window.__inkleaf.run('receive-file'); });
+  await receiver.win.fill(`${top} .share-receive-input`, typed.toLowerCase());
+  await receiver.win.press(`${top} .share-receive-input`, 'Enter');
+  await toastSays(receiver.win, 'Got “');
+  await waitForPages(receiver.win);
+  check('it arrives through the relay when the sender is away', (await pages(receiver.win)) === expectPages);
+  await receiver.win.waitForTimeout(500);
+  check('and is deleted from the relay once opened', relay.files.size === 0 && relay.seen.deletes === 2);
+  await receiver.win.evaluate(() => { void window.__inkleaf.run('receive-file'); });
+  await receiver.win.fill(`${top} .share-receive-input`, typed);
+  await receiver.win.press(`${top} .share-receive-input`, 'Enter');
+  await toastSays(receiver.win, 'nothing to pick up');
+  check('the same code doesn’t work twice', true);
+  await receiver.win.evaluate(() => { void window.__inkleaf.run('receive-file'); });
+  await receiver.win.fill(`${top} .share-receive-input`, 'ABCDE-FGHJK');
+  await receiver.win.press(`${top} .share-receive-input`, 'Enter');
+  check('a short code is caught', /isn’t a complete pickup code/.test(await receiver.win.textContent(`${top} .field-error`)));
+  await receiver.app.close();
+
+  // 5. a pickup code for one person's device
+  ({ app, win } = await launch(path.join(fixtures, 'sample.pdf'), { env, args }));
+  await waitForPages(win);
+  await share(win, 'device', 'pickup');
+  await win.fill(`${top} .share-receive-input`, receive);
+  await win.click(`${top} .btn-primary`);
+  await win.waitForFunction(() => /ready for 7 days/.test(document.querySelector('.share-status')?.textContent ?? ''), null, { timeout: 20000 });
+  const deviceCode = (await win.textContent(`${top} .share-code-text`)).trim();
+  await app.close();
+  receiver = await launch(null, { env, args, profile: recipientProfile });
+  await receiver.win.evaluate(() => { void window.__inkleaf.run('receive-file'); });
+  await receiver.win.fill(`${top} .share-receive-input`, deviceCode);
+  await receiver.win.press(`${top} .share-receive-input`, 'Enter');
+  await waitForPages(receiver.win);
+  check('a device-locked file sent by code opens for its person', (await pages(receiver.win)) === expectPages);
+  await receiver.app.close();
+  relay.close();
+}
+
+// --- the tool rail: names and hover cards --------------------------------------------------------
+
+async function selectTextTest() {
+  console.log('Selecting the PDF’s own text');
+  const { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  await win.waitForSelector('.page-text-layer span', { timeout: 10000 });
+  const line = await win.evaluate(() => {
+    const span = [...document.querySelectorAll('.page-text-layer span')].find((s) => s.textContent.startsWith('Invoice number'));
+    const r = span.getBoundingClientRect();
+    return { left: r.left, right: r.right, y: r.top + r.height / 2 };
+  });
+  const selected = () => win.evaluate(() => String(window.getSelection()));
+
+  // from the margin to well past the end of the line: just that line
+  await win.mouse.move(line.left - 30, line.y);
+  await win.mouse.down();
+  await win.mouse.move(line.right + 120, line.y + 2, { steps: 10 });
+  await win.mouse.up();
+  check('dragging across a line selects it', (await selected()) === 'Invoice number: INV-2041 for Hotel Aurora', await selected());
+  await app.evaluate(({ clipboard }) => clipboard.writeText(''));
+  await win.keyboard.press('Control+c');
+  let copied = '';
+  for (let i = 0; i < 30 && !copied; i++) {
+    copied = await app.evaluate(({ clipboard }) => clipboard.readText());
+    if (!copied) await win.waitForTimeout(100);
+  }
+  check('and Ctrl+C copies it', copied === 'Invoice number: INV-2041 for Hotel Aurora', copied);
+
+  await win.mouse.dblclick(line.left + 20, line.y);
+  check('double-clicking picks one word', (await selected()) === 'Invoice', await selected());
+  const page = await win.locator('.page').first().boundingBox();
+  await win.mouse.click(page.x + page.width / 2, page.y + 480);
+  check('clicking elsewhere lets go of it', (await selected()) === '');
+
+  // something added on top of the words still moves, rather than selecting them
+  await win.click('#rail [data-tool="text"]');
+  await win.mouse.click(page.x + page.width / 2, page.y + page.height / 2);
+  await win.keyboard.type('On top');
+  await win.keyboard.press('Escape');
+  await win.click('#rail [data-tool="select"]');
+  const before = await win.evaluate(() => window.__inkleaf.getDoc().annots(window.__inkleaf.getDoc().pages[0].id).at(-1).y);
+  await win.mouse.move(page.x + page.width / 2 + 8, page.y + page.height / 2 - 2);
+  await win.mouse.down();
+  await win.mouse.move(line.left + 60, line.y, { steps: 8 });
+  await win.mouse.up();
+  const after = await win.evaluate(() => window.__inkleaf.getDoc().annots(window.__inkleaf.getDoc().pages[0].id).at(-1).y);
+  check('added things still move with Select', Math.abs(after - before) > 50 && (await selected()) === '');
+
+  // a drag out in the empty part of the page doesn't grab words from elsewhere
+  await win.mouse.move(page.x + 80, page.y + 600);
+  await win.mouse.down();
+  await win.mouse.move(page.x + 300, page.y + 640, { steps: 5 });
+  await win.mouse.up();
+  check('a drag in empty space selects nothing', (await selected()) === '', await selected());
+
+  await win.click('#rail [data-tool="pen"]');
+  check('other tools draw over the words instead of selecting them', !(await win.locator('.page-text').first().isVisible()));
+  check('no errors', errors.length === 0, errors.join('\n'));
+  await quit(app, win);
+}
+
+async function railTest() {
+  console.log('Tool rail');
+  let { app, win, errors, profile } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  const b = await (await win.$('[data-tool="redact"]')).boundingBox();
+  await win.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await win.waitForSelector('#tool-tip:not([hidden])', { timeout: 3000 });
+  const tip = await win.textContent('#tool-tip');
+  check('resting on a tool shows what it does', /Redact/.test(tip) && /deleted from the file/.test(tip), tip);
+  check('with its key', (await win.textContent('.tool-tip-key')) === 'B');
+  check('and no browser tooltip on top of it', !(await win.getAttribute('[data-tool="redact"]', 'title')));
+  await win.mouse.move(700, 400);
+  await win.waitForSelector('#tool-tip[hidden]', { state: 'attached', timeout: 3000 });
+  check('it goes when the pointer leaves', true);
+  await win.click('.rail-expand');
+  await win.waitForTimeout(400);
+  const wide = await win.evaluate(() => document.getElementById('app').classList.contains('rail-wide'));
+  const width = await win.evaluate(() => document.getElementById('rail').getBoundingClientRect().width);
+  check('the rail widens to show names', wide && width > 150, String(width));
+  check('no errors', errors.length === 0, errors.join('; '));
+  await app.close();
+  ({ app, win } = await launch(path.join(fixtures, 'sample.pdf'), { profile }));
+  await waitForPages(win);
+  check('and stays wide next time', await win.evaluate(() => document.getElementById('app').classList.contains('rail-wide')));
+  await win.click('.rail-expand');
+  check('until you narrow it again', !(await win.evaluate(() => document.getElementById('app').classList.contains('rail-wide'))));
+  await app.close();
+}
+
 async function enhanceTest() {
   console.log('Enhance pages');
   const { app, win, errors } = await launch(path.join(fixtures, 'faded.pdf'));
@@ -1525,7 +1835,7 @@ print(px[len(px) // 2])`, plain, auto);
 // ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }
