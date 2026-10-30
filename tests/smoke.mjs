@@ -10,6 +10,7 @@
 
 import { _electron as electron } from 'playwright-core';
 import { startFakeRelay } from './fake-relay.mjs';
+import { startFakeLlamaDownloads } from './fake-llama.mjs';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -586,10 +587,25 @@ async function v2Test() {
     };
   });
   await win.evaluate(() => { void window.__inkleaf.run('print'); });
-  await win.waitForFunction(() => !document.querySelector('#print-root'), null, { timeout: 30000 }).catch(() => {});
+  await win.waitForSelector('.print-dialog .print-sheet img', { timeout: 30000 });
+  check('print shows a preview of every page', (await win.locator('.print-sheet').count()) === 3);
+  check('the busy cover steps aside for the preview', !(await win.locator('#busy:not([hidden])').isVisible().catch(() => false)));
+  await win.screenshot({ path: path.join(out, 'print-preview.png') });
+  await win.fill('.print-range', '2-3');
+  check('a page range dims the pages left out', (await win.locator('.print-sheet.skipped').count()) === 1);
+  await win.click('.modal button:has-text("Print…")');
+  await win.waitForFunction(() => globalThis.__done !== undefined || !document.querySelector('.print-dialog'), null, { timeout: 10000 }).catch(() => {});
+  await win.waitForTimeout(800);
+  let printed = await app.evaluate(() => globalThis.__printedPages);
+  check('only the chosen pages go to the printer', printed === 2, `pages ${printed}`);
+  // cancelling the preview prints nothing
+  await app.evaluate(() => { globalThis.__printedPages = undefined; });
+  await win.evaluate(() => { void window.__inkleaf.run('print'); });
+  await win.waitForSelector('.print-dialog', { timeout: 30000 });
+  await win.click('.modal button:has-text("Cancel")');
   await win.waitForTimeout(500);
-  const printed = await app.evaluate(() => globalThis.__printedPages);
-  check('print prepares every page', printed === 3, `pages ${printed}`);
+  printed = await app.evaluate(() => globalThis.__printedPages);
+  check('cancelling the preview prints nothing', printed === undefined && !(await win.locator('#print-root').count()), `pages ${printed}`);
 
   const file = path.join(out, 'v2.pdf');
   const warnings = await save(win, file);
@@ -1257,8 +1273,8 @@ async function aiProvidersTest() {
   // the first AI tool asks you to choose a service
   await win.evaluate(() => { void window.__inkleaf.run('ai-settings'); });
   await win.waitForSelector('.ai-grid');
-  check('settings offer Claude, ChatGPT, Gemini, Grok, Perplexity, local and other services',
-    (await win.locator('.ai-option').count()) === 7);
+  check('settings offer the built-in AI, Claude, ChatGPT, Gemini, Grok, Perplexity, local and other services',
+    (await win.locator('.ai-option').count()) === 8);
 
   // a model on this computer: no key, models listed straight from the server
   await win.click('.ai-option:has(input[value="local"])');
@@ -1649,6 +1665,83 @@ async function shareTest() {
 
 // --- the tool rail: names and hover cards --------------------------------------------------------
 
+async function builtinAiTest() {
+  console.log('\nBuilt-in AI and Ask this PDF');
+  const fake = await startFakeLlamaDownloads();
+  const { app, win, errors, profile } = await launch(path.join(fixtures, 'sample.pdf'), { env: fake.env });
+  await waitForPages(win);
+  const status = () => win.evaluate(() => window.inkleaf.aiStatus());
+
+  check('a new install starts on the built-in AI, not yet downloaded', await (async () => {
+    const s = await status();
+    return s.provider === 'builtin' && !s.ready && s.local.supported && s.local.installed.length === 0;
+  })());
+
+  // asking before it's set up opens the settings
+  await win.evaluate(() => { void window.__inkleaf.run('ai-ask'); });
+  await win.waitForSelector('.ask-panel:not([hidden])');
+  await win.fill('.ask-input', 'What is the total due?');
+  await win.press('.ask-input', 'Enter');
+  await win.waitForSelector('.modal .local-models');
+  check('the built-in AI is picked, with its two sizes', await win.isChecked('.ai-option input[value="builtin"]')
+    && (await win.locator('.local-model').count()) === 2);
+  await modalButton(win, 'Save');
+  check('saving before downloading says to download first', /Download the model first/.test(await win.textContent('.modal .field-error')));
+
+  // a download with a wrong checksum is refused and thrown away
+  await win.click('.local-model:nth-child(2) button:has-text("Download")');
+  await win.waitForFunction(() => /didn’t match/.test(document.querySelector('.modal .field-error')?.textContent ?? ''), null, { timeout: 30000 });
+  check('a download that doesn’t match its checksum is refused', !fs.existsSync(path.join(profile, 'ai', 'models', 'better.gguf')));
+
+  // the real one: llama.cpp and the model, with progress
+  await win.click('.local-model:nth-child(1) button:has-text("Download")');
+  await win.waitForSelector('.local-model .meter', { timeout: 10000 });
+  check('it shows progress while downloading', true);
+  await win.waitForSelector('.local-model:nth-child(1) .badge:has-text("Downloaded")', { timeout: 60000 });
+  check('llama.cpp is unpacked and the model checked', fs.existsSync(path.join(profile, 'ai', 'models', 'quick.gguf.ok'))
+    && fs.readdirSync(path.join(profile, 'ai'), { withFileTypes: true }).some((e) => e.isDirectory() && e.name.startsWith('llama-')));
+  await modalButton(win, 'Save');
+  await win.waitForSelector('.modal', { state: 'detached' });
+  check('then it’s ready', (await status()).ready);
+
+  // ask again: the answer streams in from llama-server, with page links
+  await win.fill('.ask-input', 'What is the total due?');
+  await win.press('.ask-input', 'Enter');
+  await win.waitForFunction(() => /Built-in answer to: What is the total due\?/.test(document.querySelector('.ask-turn:last-child .ask-answer')?.textContent ?? ''), null, { timeout: 60000 });
+  await win.waitForFunction(() => document.querySelector('.ask-send')?.getAttribute('aria-label') === 'Ask');
+  check('the answer comes from the built-in AI', true);
+  check('it ran on the graphics card llama.cpp reported', (await status()).local.device === 'Test GPU');
+  check('the panel says which AI it used', /Built-in AI · Quick/.test(await win.textContent('.ask-using')));
+  check('and that nothing leaves the computer', /stay on this computer/.test(await win.textContent('.ask-note')));
+  const refs = await win.locator('.ask-turn:last-child .ask-ref').count();
+  await win.evaluate(() => window.__inkleaf.viewer.scrollToPage(window.__inkleaf.getDoc().pages[2].id, false));
+  await win.waitForTimeout(300);
+  await win.click('.ask-turn:last-child .ask-ref');
+  await win.waitForTimeout(500);
+  check('page references link to their page', refs === 1 && await win.evaluate(() => window.__inkleaf.viewer.currentPageId === window.__inkleaf.getDoc().pages[0].id));
+
+  // the summarizer uses it too
+  await win.evaluate(() => { void window.__inkleaf.run('ai-summarize'); });
+  await win.waitForSelector('.modal:has-text("AI Summarizer")');
+  check('the summarizer says the document stays on this computer', /Nothing leaves your computer/.test(await win.textContent('.modal .field-hint.warn')));
+  await modalButton(win, 'Summarize');
+  await win.waitForSelector('.ai-summary li', { timeout: 60000 });
+  check('and summarizes with it', /built-in AI/.test(await win.textContent('.ai-summary')));
+  await modalButton(win, 'Close');
+
+  // removing the model removes llama.cpp too
+  await win.evaluate(() => { void window.__inkleaf.run('ai-settings'); });
+  await win.waitForSelector('.modal .local-models');
+  await win.click('.local-model:nth-child(1) button:has-text("Remove")');
+  await win.waitForSelector('.local-model:nth-child(1) button:has-text("Download")');
+  check('Remove deletes the model and llama.cpp', !fs.existsSync(path.join(profile, 'ai', 'models', 'quick.gguf'))
+    && !fs.readdirSync(path.join(profile, 'ai'), { withFileTypes: true }).some((e) => e.isDirectory() && e.name.startsWith('llama-')));
+  await modalButton(win, 'Cancel');
+  check('no errors', errors.length === 0, errors.join('\n'));
+  await quit(app, win);
+  fake.close();
+}
+
 async function selectTextTest() {
   console.log('Selecting the PDF’s own text');
   const { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'));
@@ -1835,7 +1928,7 @@ print(px[len(px) // 2])`, plain, auto);
 // ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

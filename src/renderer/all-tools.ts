@@ -87,8 +87,10 @@ export const HUB: { group: string; tools: HubTool[] }[] = [
   {
     group: msg('Intelligence'),
     tools: [
-      { title: msg('AI Summarizer'), detail: msg('The key points, in seconds.'), icon: 'sparkles', command: 'ai-summarize', online: true },
-      { title: msg('Translate PDF'), detail: msg('Into 56 languages, layout kept.'), icon: 'languages', command: 'ai-translate', online: true },
+      { title: msg('Ask this PDF'), detail: msg('Questions answered, with the pages they came from.'), icon: 'message-circle-question', command: 'ai-ask' },
+      { title: msg('AI Summarizer'), detail: msg('The key points, in seconds.'), icon: 'sparkles', command: 'ai-summarize' },
+      { title: msg('Translate PDF'), detail: msg('Into 56 languages, layout kept.'), icon: 'languages', command: 'ai-translate' },
+      { title: msg('AI settings'), detail: msg('Built-in AI, or your own key for a cloud service.'), icon: 'wrench', command: 'ai-settings', standalone: true },
       { title: msg('PDF to Markdown'), detail: msg('Text with headings and lists.'), icon: 'hash', command: 'pdf-to-md' },
     ],
   },

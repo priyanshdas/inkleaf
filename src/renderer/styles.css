@@ -2278,3 +2278,174 @@ html.engine[data-theme="dark"] { --reader-bg: #0b1814; }
 .share-status { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--ink-2); }
 .share-status li.ready { color: var(--accent); font-weight: 550; }
 .share-status li.off { color: var(--ink-3); }
+
+/* --- Ask this PDF ------------------------------------------------------------------------ */
+.ask-panel {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: min(380px, 92vw);
+  background: var(--panel);
+  border-inline-start: 1px solid var(--line);
+  box-shadow: var(--pop-shadow);
+}
+.ask-panel[hidden] { display: none; }
+.ask-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 12px 4px 16px; }
+.ask-title { display: flex; align-items: center; gap: 8px; color: var(--accent); }
+.ask-title h2 { margin: 0; color: var(--ink); font-size: 15px; font-weight: 650; }
+.ask-close { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-2); cursor: pointer; }
+.ask-close:hover { background: var(--panel-3); }
+.ask-close:focus-visible { outline: none; box-shadow: var(--focus); }
+.ask-using { padding: 0 16px 10px; border-bottom: 1px solid var(--line); color: var(--ink-3); font-size: 12px; }
+.ask-list { flex: 1; overflow-y: auto; padding: 14px 16px; user-select: text; }
+.ask-empty p { margin: 0 0 12px; color: var(--ink-2); line-height: 1.5; }
+.ask-suggestions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.ask-suggestions .chip { height: auto; min-height: 28px; padding: 5px 10px; text-align: start; white-space: normal; }
+.ask-turn + .ask-turn { margin-top: 18px; }
+.ask-question {
+  width: fit-content;
+  max-width: 88%;
+  margin: 0 0 8px auto;
+  padding: 7px 11px;
+  border-radius: 12px 12px 4px 12px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ask-answer { color: var(--ink); line-height: 1.55; overflow-wrap: anywhere; }
+.ask-answer > :first-child { margin-top: 0; }
+.ask-answer > :last-child { margin-bottom: 0; }
+.ask-answer p, .ask-answer ul, .ask-answer ol { margin: 0 0 8px; }
+.ask-answer ul, .ask-answer ol { padding-inline-start: 20px; }
+.ask-answer.error { color: var(--danger); }
+.ask-thinking { color: var(--ink-3); animation: ask-pulse 1.4s ease-in-out infinite; }
+@keyframes ask-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .ask-thinking { animation: none; } }
+.ask-refs { display: inline-flex; gap: 3px; vertical-align: baseline; }
+.ask-ref {
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--accent);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.ask-ref:hover { border-color: var(--accent); background: var(--accent-soft); }
+.ask-ref:focus-visible { outline: none; box-shadow: var(--focus); }
+.ask-compose { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 6px; border-top: 1px solid var(--line); }
+.ask-input {
+  flex: 1;
+  min-height: 38px;
+  max-height: 160px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.4;
+  resize: none;
+}
+.ask-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ask-send { width: 38px; height: 38px; padding: 0; justify-content: center; flex: none; }
+.ask-note { margin: 0; padding: 0 12px 10px; color: var(--ink-3); font-size: 11.5px; line-height: 1.4; }
+
+/* the built-in AI's models in AI settings */
+.local-models { display: grid; gap: 6px; }
+.local-model { align-items: center; }
+.local-model > span:first-of-type { flex: 1; }
+.lang-option.local-model > .local-state, .lang-option.local-model > .local-progress { display: flex; flex-direction: row; align-items: center; gap: 8px; flex: none; color: var(--ink-3); font-size: 12px; }
+.meter { position: relative; display: block; width: 90px; height: 6px; overflow: hidden; border-radius: 3px; background: var(--panel-3); }
+.meter > span { position: absolute; inset-block: 0; inset-inline-start: 0; background: var(--accent); transition: width 0.25s; }
+
+/* phones: the list of backups */
+.backup-list { display: grid; gap: 6px; max-height: 60vh; overflow-y: auto; }
+.backup-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
+.backup-row:hover, .backup-row:focus-visible { border-color: var(--accent); background: var(--accent-soft); outline: none; }
+.backup-row > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.backup-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.backup-row span span { color: var(--ink-3); font-size: 12px; }
+
+/* phones: Ask this PDF fills the screen */
+.ask-sheet { display: block; padding: 0; background: var(--panel); }
+.ask-sheet .ask-panel { position: absolute; inset: 0; width: auto; border: 0; box-shadow: none; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+.ask-sheet .ask-input { font-size: 16px; }
+.ask-sheet .ask-close { width: 40px; height: 40px; }
+.ask-sheet .ask-ref { line-height: 24px; padding: 0 9px; }
+
+/* the Copy bar a touch selection of the PDF's words gets */
+.copy-bar {
+  position: fixed; z-index: 60; display: flex; padding: 4px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--pop-shadow); color: var(--ink);
+}
+.copy-bar button {
+  display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px;
+  border: 0; border-radius: 7px; background: none; color: inherit; font: inherit; font-weight: 600;
+}
+.copy-bar button:active { background: var(--panel-3); }
+.copy-bar svg { width: 18px; height: 18px; }
+html.mobile .page-text-layer { -webkit-touch-callout: none; }
+
+/* Enhance pages on a phone: a sheet along the bottom, with the pages still
+   in view (and still scrollable) above it */
+.enhance-sheet { display: block; padding: 0; background: transparent; pointer-events: none; }
+.enhance-sheet .enhance-panel {
+  position: absolute; inset: auto 0 0 0; width: auto; max-height: 58%;
+  padding: 10px 18px calc(14px + env(safe-area-inset-bottom));
+  border-radius: 18px 18px 0 0; pointer-events: auto;
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, .22);
+}
+.enhance-sheet .enhance-panel::before {
+  content: ''; display: block; width: 36px; height: 4px; margin: 0 auto 10px;
+  border-radius: 2px; background: var(--line-strong);
+}
+.enhance-sheet .enhance-close { width: 40px; height: 40px; }
+.enhance-sheet .enhance-presets { flex-wrap: nowrap; overflow-x: auto; margin-inline: -18px; padding-inline: 18px; scrollbar-width: none; }
+.enhance-sheet .enhance-presets .chip { flex: none; min-height: 36px; }
+.enhance-sheet .enhance-row { grid-template-columns: 92px minmax(0, 1fr) 44px; margin: 10px 0; }
+.enhance-sheet .enhance-toggle { min-height: 36px; font-size: 14px; }
+.enhance-sheet .enhance-toggle input { width: 20px; height: 20px; }
+.enhance-sheet .enhance-foot .btn { min-height: 40px; }
+.lang-option span .local-warning { color: var(--danger); }
+/* phones: the download button goes under the description, so the words get the width */
+html.mobile .lang-option.local-model { flex-wrap: wrap; }
+html.mobile .lang-option.local-model > span:first-of-type { flex: 1 1 calc(100% - 32px); }
+html.mobile .lang-option.local-model > .btn,
+html.mobile .lang-option.local-model > .local-state,
+html.mobile .lang-option.local-model > .local-progress { margin-inline-start: auto; }
+
+/* --- print preview -----------------------------------------------------------------------------
+   The pages exactly as they'll print, with the choice of which ones. */
+.print-dialog { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 18px; }
+.print-preview {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; align-content: start;
+  max-height: min(62vh, 560px); overflow-y: auto; padding: 14px;
+  border-radius: var(--radius); background: var(--panel-3);
+}
+.print-sheet { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+.print-sheet img {
+  display: block; width: 100%; height: auto; background: #fff;
+  box-shadow: var(--page-shadow, 0 1px 4px rgba(0, 0, 0, .2)); transition: opacity .15s, filter .15s;
+}
+.print-sheet figcaption { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.print-sheet.skipped img { opacity: .28; filter: grayscale(1); }
+.print-sheet.skipped figcaption { text-decoration: line-through; }
+.print-options { display: flex; flex-direction: column; gap: 10px; }
+.print-choice { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13.5px; }
+.print-choice input[type="radio"] { accent-color: var(--accent); margin: 0; }
+.print-range { flex: 1 1 100%; margin-inline-start: 24px; width: auto; }
+.print-summary { margin: 4px 0 0; }
+@media (max-width: 640px) {
+  .print-dialog { grid-template-columns: 1fr; }
+  .print-preview { max-height: 46vh; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+}
+.modal:has(.print-dialog) { width: min(920px, 100%); }

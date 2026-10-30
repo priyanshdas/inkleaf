@@ -27,6 +27,10 @@ own private storage on your phone (and nowhere else):
   of unsaved work;
 - fonts, signatures and stamps you add;
 - language packs you've downloaded;
+- the built-in AI's model (and, on a computer, llama.cpp), if you download
+  it; remove it in AI settings;
+- your receive code's private key, if you've used Share securely (kept in
+  the system's secure storage on a phone);
 - API keys for the AI service you choose, if you add any, encrypted with
   your operating system's secure storage;
 - on a phone, the PDFs you open, save or receive, in Inkleaf's own library;
@@ -79,10 +83,11 @@ Only in these cases, and never with your files unless you ask:
 
 | Feature | What is sent, and to whom | When |
 | --- | --- | --- |
-| AI Summarizer, Translate PDF | The document's text, and your API key, to the AI service you chose in AI settings (Anthropic, OpenAI, Google, xAI, Perplexity or a service you entered). With "AI on this computer", nothing leaves your computer; on a phone, the text goes over your Wi-Fi to the AI app on your own computer | Only when you run one of them |
+| Ask this PDF, AI Summarizer, Translate PDF | With the built-in AI, nothing: it runs on your computer or phone. With a cloud service, the document's text (for Ask this PDF, only the parts that match your question), and your API key, to the AI service you chose in AI settings (Anthropic, OpenAI, Google, xAI, Perplexity or a service you entered). With "AI on this computer", nothing leaves your computer; on a phone, the text goes over your Wi-Fi to the AI app on your own computer | Only when you run one of them |
+| Built-in AI download | A download request to GitHub (llama.cpp, computer app only) and to Hugging Face (the model file). Nothing about you or your documents is sent | Only when you press Download in AI settings |
 | Web page to PDF | A normal page request to the website you typed | Only when you use it |
 | Language packs | A download request to jsDelivr | The first time you use a language that isn't built in |
-| Updates | A request to GitHub for the latest version (desktop app; phone apps are updated by you or your app store) | When Inkleaf checks for updates |
+| Updates | A request to GitHub for the latest version (the computer app, and the Android app when it was installed from the APK; copies from an app store are updated by the store) | When Inkleaf checks for updates, at most once a day |
 | Send with a pickup code (Share securely) | The file, encrypted on your computer first, to the Inkleaf relay (a small service run by me on Vercel, source in `relay/`). The key is only in the pickup code, which never goes to the relay, so the relay can't read the file. It's deleted as soon as it's picked up, or after 7 days | Only when you choose to send with a pickup code |
 | Receive a File | A request to the Inkleaf relay for the encrypted file, then a request to delete it once it's opened | Only when you receive a file that isn't on your Wi-Fi |
 | Links (Ko-fi, GitHub) | Opened in your own web browser | When you click them |
@@ -99,6 +104,7 @@ policies:
 - If you use "Other service", that service's own policy applies.
 - jsDelivr: https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net
 - GitHub: https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
+- Hugging Face: https://huggingface.co/privacy
 - Ko-fi: https://more.ko-fi.com/privacy
 
 Web pages printed with Web page to PDF are loaded in a private session,

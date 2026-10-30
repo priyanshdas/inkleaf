@@ -30,6 +30,7 @@ const ICONS = [
   'archive', 'wrench', 'merge', 'split', 'file-stack', 'list-ordered', 'bookmark', 'star', 'clock', 'cloud-off',
   'file-minus', 'layout-grid', 'file-archive', 'file-image', 'presentation', 'sheet', 'square-pen', 'text-cursor', 'hash', 'arrow-right',
   'zoom-in', 'maximize-2', 'text-select', 'pen-tool', 'form-input', 'file-search', 'arrow-right-left', 'book-open',
+  'message-circle-question', 'key-round', 'inbox', 'history', 'contrast', 'cpu',
 ];
 
 const num = (v, d = 0) => (v === undefined ? d : Number(v));

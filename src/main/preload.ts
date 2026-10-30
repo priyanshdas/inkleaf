@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { InkleafApi, MenuCommand, OpenedFile, PickupEvent } from '../shared/api';
+import type { LocalAiEvent } from '../shared/local-models';
 
 const api: InkleafApi = {
   info: () => ipcRenderer.invoke('app:info'),
@@ -35,7 +36,28 @@ const api: InkleafApi = {
   aiSave: (config) => ipcRenderer.invoke('ai:save', config),
   aiModels: (config) => ipcRenderer.invoke('ai:models', config),
   aiRemoveKey: (provider) => ipcRenderer.invoke('ai:remove-key', provider),
-  aiAsk: (request) => ipcRenderer.invoke('ai:ask', request),
+  aiAsk: async (request, onChunk) => {
+    if (!onChunk) return ipcRenderer.invoke('ai:ask', request);
+    const id = Math.random().toString(36).slice(2);
+    const listener = (_event: Electron.IpcRendererEvent, streamId: string, text: string) => {
+      if (streamId === id) onChunk(text);
+    };
+    ipcRenderer.on('ai:chunk', listener);
+    try {
+      return await ipcRenderer.invoke('ai:ask', request, id);
+    } finally {
+      ipcRenderer.removeListener('ai:chunk', listener);
+    }
+  },
+  aiStop: () => ipcRenderer.invoke('ai:stop'),
+  localAiDownload: (id) => ipcRenderer.invoke('local-ai:download', id),
+  localAiCancelDownload: () => ipcRenderer.invoke('local-ai:cancel-download'),
+  localAiRemove: (id) => ipcRenderer.invoke('local-ai:remove', id),
+  onLocalAiEvent: (handler) => {
+    const listener = (_event: Electron.IpcRendererEvent, e: LocalAiEvent) => handler(e);
+    ipcRenderer.on('local-ai:event', listener);
+    return () => ipcRenderer.removeListener('local-ai:event', listener);
+  },
   print: () => ipcRenderer.invoke('window:print'),
   backupOriginal: (path) => ipcRenderer.invoke('backup:original', path),
   openBackups: () => ipcRenderer.send('backup:open'),

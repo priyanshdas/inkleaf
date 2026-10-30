@@ -168,5 +168,11 @@ export function mockAnswer(request: AiRequest): string {
     const target = LANGUAGES.find((l) => request.system?.includes(`into ${l.name}.`));
     return JSON.stringify(list.map((l) => `[${target?.native ?? 'T'}] ${l}`));
   }
+  // "Ask this PDF": echo the question and point at a page, so the tests can follow the link
+  const question = request.prompt.match(/\nQuestion: (.*)$/);
+  if (question && request.prompt.includes('<document name=')) {
+    const sent = (request.prompt.match(/\[Page \d+\]/g) ?? []).length;
+    return `You asked: ${question[1]}\n\n- The total is **18,450 rupees** (p. 1).\n- Pages sent: ${sent}.`;
+  }
   return 'Summary: this is a test summary of the document.\n\n- First key point\n- Second key point';
 }

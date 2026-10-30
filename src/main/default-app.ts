@@ -52,17 +52,81 @@ function storeAppId(): string | null {
   return m ? `${m[1]}_${m[2]}!Inkleaf` : null;
 }
 
-async function windowsIsDefault(): Promise<boolean> {
+/** The ProgID of the app the person chose for PDFs, wherever this Windows keeps it. */
+async function chosenPdfProgId(): Promise<string | null> {
   const base = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.pdf';
-  // newer Windows 11 builds keep the choice in UserChoiceLatest
-  const progId = (await regValue(`${base}\\UserChoiceLatest`, 'ProgId')) ?? (await regValue(`${base}\\UserChoice`, 'ProgId'));
+  // Windows 11 since 2025 keeps the choice in UserChoiceLatest\ProgId (a key
+  // holding a value of the same name) and stops updating UserChoice, which
+  // then still names the app from before. So the newer place comes first.
+  return (await regValue(`${base}\\UserChoiceLatest\\ProgId`, 'ProgId'))
+    ?? (await regValue(`${base}\\UserChoiceLatest`, 'ProgId'))
+    ?? (await regValue(`${base}\\UserChoice`, 'ProgId'));
+}
+
+async function windowsIsDefault(): Promise<boolean> {
+  const progId = await chosenPdfProgId();
   if (!progId) return false;
   if (/^AppX/i.test(progId)) {
     const aumid = await regValue(`HKCU\\Software\\Classes\\${progId}\\Application`, 'AppUserModelID');
     return !!aumid && aumid.toLowerCase().startsWith(STORE_IDENTITY.toLowerCase());
   }
+  if (progId === 'Inkleaf.pdf') return true;
+  // picked with "Open with › Choose another app" instead: Applications\Inkleaf.exe
   const command = await regValue(`HKCR\\${progId}\\shell\\open\\command`, null);
-  return !!command && command.toLowerCase().includes(process.execPath.toLowerCase());
+  if (!command) return false;
+  const exe = command.toLowerCase();
+  return exe.includes(process.execPath.toLowerCase()) || exe.includes(`\\${path.basename(process.execPath).toLowerCase()}`);
+}
+
+// --- the preview pane and thumbnails in File Explorer ------------------------------------------------
+//
+// Explorer finds a file's previewer through the app that opens it. Edge (or
+// Acrobat) registers one for PDFs on its own ProgID, so once Inkleaf is the
+// default the preview pane goes blank. Inkleaf doesn't ship a previewer of
+// its own, so it borrows whichever one is already on the computer, by
+// pointing its ProgID at the same handler. Only for this user (HKCU), and
+// checked each time Inkleaf starts, in case the other app moves its handler.
+
+const PREVIEW = '{8895b1c6-b41f-4c1c-a562-0d564250836f}';
+const THUMBNAIL = '{e357fccd-a995-4576-b01f-234630154e96}';
+/** Edge's PDF previewer, used when no app has one registered on its ProgID. */
+const EDGE_PDF_PREVIEW = '{3A84F9C2-6164-485C-A7D9-4B27F8AC009E}';
+
+async function regValueNames(key: string): Promise<string[]> {
+  try {
+    const out = await run('reg', ['query', key]);
+    return out.split(/\r?\n/).filter((l) => /\sREG_\w+/.test(l)).map((l) => l.trim().split(/\s{2,}|\t/)[0]).filter((n) => n && n !== '(Default)');
+  } catch {
+    return [];
+  }
+}
+
+const clsidExists = async (clsid: string) => (await regValue(`HKCR\\CLSID\\${clsid}`, null)) !== null
+  || (await regValueNames(`HKCR\\CLSID\\${clsid}`)).length > 0;
+
+/** A handler of the given kind that another PDF app has registered, if any. */
+async function borrowedHandler(kind: string): Promise<string | null> {
+  const progIds = ['MSEdgePDF', ...(await regValueNames('HKCR\\.pdf\\OpenWithProgids'))].filter((p) => p !== 'Inkleaf.pdf');
+  const places = ['HKCR\\.pdf', ...[...new Set(progIds)].map((p) => `HKCR\\${p}`)];
+  for (const place of places) {
+    const clsid = await regValue(`${place}\\ShellEx\\${kind}`, null);
+    if (clsid && /^\{[0-9a-f-]{36}\}$/i.test(clsid) && (await clsidExists(clsid))) return clsid;
+  }
+  if (kind === PREVIEW && (await clsidExists(EDGE_PDF_PREVIEW))) return EDGE_PDF_PREVIEW;
+  return null;
+}
+
+/** Makes sure File Explorer can still preview PDFs when Inkleaf opens them. */
+export async function keepPdfPreviews(): Promise<void> {
+  if (process.platform !== 'win32' || !app.isPackaged || isPortable() || process.windowsStore) return;
+  for (const kind of [PREVIEW, THUMBNAIL]) {
+    const key = `HKCU\\Software\\Classes\\Inkleaf.pdf\\ShellEx\\${kind}`;
+    const current = await regValue(key, null);
+    if (current && (await clsidExists(current))) continue;
+    const clsid = await borrowedHandler(kind);
+    if (!clsid) continue;
+    await run('reg', ['add', key, '/ve', '/d', clsid, '/f']).catch(() => {});
+  }
 }
 
 async function windowsSettingsLink(): Promise<string> {

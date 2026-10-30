@@ -31,11 +31,11 @@ function sources(folder) {
   });
 }
 
-/** Every string literal passed straight to t(, msg( or (on phones) inkleafT( in a source file. */
+/** Every string literal passed straight to t(, msg( or (on phones) inkleafT( or relayT( in a source file. */
 function calls(src, kotlin = false) {
   const found = [];
   // the Android screens (Kotlin) translate with tr("…") and mark list labels with msg("…")
-  const pattern = kotlin ? /(?<![\w$.])(?:tr|msg)\(\s*(")/g : /(?:(?<![\w$.])(?:t|msg)|\binkleafT)\(\s*(['"`])/g;
+  const pattern = kotlin ? /(?<![\w$.])(?:tr|msg)\(\s*(")/g : /(?:(?<![\w$.])(?:t|msg)|\b(?:inkleafT|relayT))\(\s*(['"`])/g;
   for (const m of src.matchAll(pattern)) {
     // usage examples in comments aren't real calls
     const line = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index).trimStart();

@@ -5,6 +5,9 @@
 // and won't start a selection in the margin, so the drag is followed here
 // instead: each end of the selection snaps to the word nearest the pointer.
 
+import { t } from '../shared/i18n';
+import { h, icon, toast } from './ui';
+
 interface Spot { node: Node; offset: number }
 
 /** How far above or below a line (in screen pixels) a press still starts selecting it. */
@@ -40,9 +43,8 @@ export function selectWordAt(e: MouseEvent): boolean {
   if (!spot) return false;
   const text = spot.node.textContent ?? '';
   let a = spot.offset, b = spot.offset;
-  const word = /[\p{L}\p{N}_'’-]/u;
-  while (a > 0 && word.test(text[a - 1])) a--;
-  while (b < text.length && word.test(text[b])) b++;
+  while (a > 0 && WORD.test(text[a - 1])) a--;
+  while (b < text.length && WORD.test(text[b])) b++;
   if (a === b) return false;
   window.getSelection()?.setBaseAndExtent(spot.node, a, spot.node, b);
   return true;
@@ -58,21 +60,166 @@ export function pageTextSelection(): string {
 }
 
 export function clearPageText() {
+  hideCopyBar();
   if (pageTextSelection()) window.getSelection()?.removeAllRanges();
+}
+
+// --- touch: press and hold on a word ----------------------------------------------------------------
+
+/** How long a finger has to rest on a word before it's selected (ms). */
+const HOLD = 450;
+/** How far a finger can wander (px) and still count as resting. */
+const STILL = 8;
+
+/** The far end of the word picked by a hold, so dragging backwards keeps the whole word. */
+let wordEnd: Spot | null = null;
+let fromTouch = false;
+
+/**
+ * On a touch screen a drag scrolls, so selecting starts with a hold instead:
+ * a finger resting on a word for a moment selects it, and moving it after
+ * that stretches the selection. `began` is called when the hold takes, so
+ * the caller can stop scrolling.
+ */
+export function holdToSelect(e: PointerEvent, began: () => void) {
+  hideCopyBar();
+  const page = (e.target as HTMLElement).closest('.page');
+  const found = page?.querySelector<HTMLElement>('.page-text-layer');
+  if (!found || !found.querySelector('span')) return;
+  const id = e.pointerId;
+  const x = e.clientX, y = e.clientY;
+  let px = x, py = y;
+  const stop = () => {
+    clearTimeout(timer);
+    window.removeEventListener('pointermove', wander);
+    window.removeEventListener('pointerup', stop);
+    window.removeEventListener('pointercancel', stop);
+    window.removeEventListener('pointerdown', stop, true);
+  };
+  const wander = (m: PointerEvent) => {
+    if (m.pointerId !== id) return;
+    px = m.clientX;
+    py = m.clientY;
+    if (Math.hypot(px - x, py - y) > STILL) stop();
+  };
+  const timer = window.setTimeout(() => {
+    stop();
+    const word = wordAt(found, px, py);
+    if (!word) return;
+    began();
+    navigator.vibrate?.(10);
+    anchor = word.start;
+    wordEnd = word.end;
+    layer = found;
+    fromTouch = true;
+    window.getSelection()?.setBaseAndExtent(word.start.node, word.start.offset, word.end.node, word.end.offset);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  }, HOLD);
+  window.addEventListener('pointermove', wander);
+  window.addEventListener('pointerup', stop);
+  window.addEventListener('pointercancel', stop);
+  // a second finger means a pinch, not a hold
+  window.addEventListener('pointerdown', stop, true);
+}
+
+/** The word at a point, or the nearest one on that line. */
+function wordAt(found: HTMLElement, x: number, y: number): { start: Spot; end: Spot } | null {
+  const spot = spotAt(found, x, y, false, NEAR * 2);
+  if (!spot) return null;
+  const text = spot.node.textContent ?? '';
+  let a = spot.offset, b = spot.offset;
+  while (a > 0 && WORD.test(text[a - 1])) a--;
+  while (b < text.length && WORD.test(text[b])) b++;
+  // between two words: take the one the finger is just after
+  if (a === b) {
+    while (a > 0 && !WORD.test(text[a - 1])) a--;
+    b = a;
+    while (a > 0 && WORD.test(text[a - 1])) a--;
+  }
+  if (a === b) return null;
+  return { start: { node: spot.node, offset: a }, end: { node: spot.node, offset: b } };
+}
+
+const WORD = /[\p{L}\p{N}_'’-]/u;
+
+/** Whether `a` comes before `b` in the page's text. */
+function before(a: Spot, b: Spot): boolean {
+  if (a.node === b.node) return a.offset < b.offset;
+  return !!(a.node.compareDocumentPosition(b.node) & Node.DOCUMENT_POSITION_FOLLOWING);
 }
 
 function move(e: PointerEvent) {
   if (!anchor || !layer) return;
   const spot = spotAt(layer, e.clientX, e.clientY);
-  if (spot) window.getSelection()?.setBaseAndExtent(anchor.node, anchor.offset, spot.node, spot.offset);
+  if (!spot) return;
+  const selection = window.getSelection();
+  if (!wordEnd) {
+    selection?.setBaseAndExtent(anchor.node, anchor.offset, spot.node, spot.offset);
+    return;
+  }
+  // after a hold the held word always stays selected, whichever way the finger goes
+  if (before(spot, anchor)) selection?.setBaseAndExtent(wordEnd.node, wordEnd.offset, spot.node, spot.offset);
+  else if (before(spot, wordEnd)) selection?.setBaseAndExtent(anchor.node, anchor.offset, wordEnd.node, wordEnd.offset);
+  else selection?.setBaseAndExtent(anchor.node, anchor.offset, spot.node, spot.offset);
 }
 
 function end() {
   anchor = null;
+  wordEnd = null;
   layer = null;
   window.removeEventListener('pointermove', move);
   window.removeEventListener('pointerup', end);
   window.removeEventListener('pointercancel', end);
+  if (fromTouch) {
+    fromTouch = false;
+    showCopyBar();
+  }
+}
+
+// --- the little Copy bar a touch selection gets ------------------------------------------------
+
+let bar: HTMLElement | null = null;
+
+function hideCopyBar() {
+  bar?.remove();
+  bar = null;
+}
+
+function showCopyBar() {
+  hideCopyBar();
+  const selection = window.getSelection();
+  const text = pageTextSelection();
+  if (!selection || !text) return;
+  const r = selection.getRangeAt(0).getBoundingClientRect();
+  bar = h('div', { class: 'copy-bar', role: 'toolbar' },
+    h('button', {
+      type: 'button',
+      // keep the selection: a press on the bar shouldn't count as a press on the page
+      onpointerdown: (e: Event) => e.stopPropagation(),
+      onclick: async () => {
+        const words = pageTextSelection() || text;
+        let copied = false;
+        try {
+          await navigator.clipboard.writeText(words);
+          copied = true;
+        } catch {
+          copied = document.execCommand('copy');
+        }
+        clearPageText();
+        if (copied) toast(t('Copied.'), 'success');
+      },
+    }, icon('copy'), t('Copy')));
+  document.body.append(bar);
+  // above the words if there's room, otherwise below them
+  const height = bar.offsetHeight;
+  const top = r.top - height - 10 > 8 ? r.top - height - 10 : Math.min(r.bottom + 10, window.innerHeight - height - 8);
+  const left = Math.max(8, Math.min(r.left + r.width / 2 - bar.offsetWidth / 2, window.innerWidth - bar.offsetWidth - 8));
+  bar.style.top = `${top}px`;
+  bar.style.left = `${left}px`;
+  // the words move when the page scrolls or zooms, so the bar goes
+  window.addEventListener('scroll', hideCopyBar, { capture: true, once: true });
 }
 
 /**

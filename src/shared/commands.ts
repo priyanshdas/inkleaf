@@ -140,6 +140,7 @@ export const MENU: MenuSection[] = [
       'separator',
       { label: msg('AI Summarizer…'), command: 'ai-summarize' },
       { label: msg('Translate PDF…'), command: 'ai-translate' },
+      { label: msg('Ask This PDF…'), command: 'ai-ask', key: 'Mod+Shift+A' },
       { label: msg('AI Settings…'), command: 'ai-settings' },
       'separator',
       { label: msg('All Tools'), command: 'all-tools', key: 'Mod+K' },

@@ -452,6 +452,16 @@ export function enhancePanel(hooks: PanelHooks): HTMLElement {
       hooks.close();
     }
   });
+  // the phone's Back button arrives as an Escape for the whole page; it's
+  // ours when the sheet is the topmost thing open
+  const back = (e: KeyboardEvent) => {
+    if (!panel.isConnected) return document.removeEventListener('keydown', back);
+    const sheet = panel.closest('.enhance-sheet');
+    if (e.key !== 'Escape' || !sheet || sheet !== sheet.parentElement?.lastElementChild) return;
+    e.stopImmediatePropagation();
+    hooks.close();
+  };
+  document.addEventListener('keydown', back);
   update(s);
   return panel;
 }

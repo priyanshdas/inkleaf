@@ -110,8 +110,15 @@ If one of them already does what you need, it's a fine choice.
   automatically when a file won't open.
 - **Unlock PDF:** saves a copy of a protected file (with the password you
   know) without its password.
-- **AI Summarizer and Translate PDF** (optional). Pick the AI in Tools ›
-  AI settings:
+- **Ask this PDF, AI Summarizer and Translate PDF** (optional). Ask a
+  question and the answer points to the pages it came from (tap a page
+  number to jump there). Pick the AI in Tools › AI settings:
+  - **Built-in AI**, free, with no key and no account. Inkleaf downloads a
+    small open model once ([Qwen 3.5](https://huggingface.co/Qwen), Apache
+    2.0: Quick is 1.3 GB, Better 2.7 GB) and runs it with
+    [llama.cpp](https://github.com/ggml-org/llama.cpp), on your graphics card
+    if it can. It works offline after that and nothing leaves your computer.
+    The Android app runs the same models on the phone itself.
   - **Claude, ChatGPT, Gemini, Grok or Perplexity**, with your own API key.
     You pay the provider directly, and each key is stored encrypted and
     only ever sent to its own provider.
@@ -123,7 +130,8 @@ If one of them already does what you need, it's a fine choice.
 
   Inkleaf loads each provider's current list of models, so new models show
   up without an update. Cloud AI is the only thing in Inkleaf that sends
-  your document anywhere, and only when you run it. Translation goes into
+  your document anywhere, and only when you run it; Ask this PDF sends only
+  the parts of the document that match the question. Translation goes into
   any of 56 languages and either lays the new words over a copy of the
   pages, keeping the layout, or makes a Word document.
 - **All tools** (Ctrl+K or ⌘K): every tool on one searchable page, grouped
@@ -143,7 +151,11 @@ If one of them already does what you need, it's a fine choice.
   pencil for an edit sheet with annotate, text, sign and page tools. Pinch to
   zoom. Open PDFs from your files or cloud storage, or share them to Inkleaf
   from any app. Editing is done by the same engine as the desktop app, so
-  everything behaves the same.
+  everything behaves the same. The phone has the desktop's tools too: Ask
+  this PDF and the built-in AI, Share securely and Receive a file, Enhance
+  pages, selecting and copying a PDF's own text (hold a finger on a word),
+  backups of documents before they're saved over, and an update check for
+  the APK from GitHub.
 - **Phone ↔ computer.** Pair a phone with your computer by scanning a QR code
   (Tools › Connect a Phone), then send PDFs either way with one tap. Files go
   straight between the two over your Wi-Fi, encrypted (AES-256-GCM); there's
@@ -156,6 +168,8 @@ If one of them already does what you need, it's a fine choice.
   comes to them, straight over your Wi-Fi or through the relay for up to 7
   days. Without Inkleaf, scanning the QR code downloads it in a browser.
   The relay only ever holds encrypted files; its source is in `relay/`.
+- **Copy a PDF's own text.** With the Select tool, drag across the words
+  in any PDF (or double-click one) and copy them.
 - **Tool rail.** Rest the pointer on a tool for its name, shortcut and what
   it does; the button at the bottom of the rail shows every tool's name.
 - **Default PDF app.** The start screen offers once to make Inkleaf the app
@@ -352,6 +366,14 @@ npm run android:release              # the release APK and the Play Store bundle
 npm run build:mobile                 # or just update the app's pages, then
 npx cap open android                 # open it in Android Studio to run on a phone or emulator
 ```
+
+The built-in AI is compiled into the app from C++
+(`mobile/android/app/src/main/cpp`), so the build also needs the Android NDK
+and CMake 3.31 (Gradle installs both if they're missing) and Git. The first
+build downloads llama.cpp at the pinned release into `mobile/android/app/.llama`
+and checks it's the exact commit; that build takes several minutes, later
+ones are quick. Only 64-bit ARM phones get the model runner; on other phones
+the AI settings simply don't offer the built-in AI.
 
 The app's version always matches `version` in `package.json`.
 

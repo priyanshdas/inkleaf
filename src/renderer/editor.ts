@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { clearPageText, selectWordAt, startTextSelect } from './text-select';
+import { clearPageText, holdToSelect, selectWordAt, startTextSelect } from './text-select';
 import type { EditorDoc } from './document';
 import { annotBounds, dragHandle, handlesFor, hitTest, moveAnnot, newId, normBox, Point, simplifyStroke } from './geometry';
 import { DEFAULT_STYLES, loadStyles, saveStyles, ToolStyles } from './styles';
@@ -341,6 +341,11 @@ export class Editor extends EventTarget {
     root.addEventListener('pointerup', (e) => this.onPointerUp(e));
     root.addEventListener('pointercancel', () => this.cancelDrag());
     root.addEventListener('dblclick', (e) => this.onDoubleClick(e));
+    // a held finger selects words our way (text-select.ts); the phone's own
+    // long-press menu and selection handles would fight it
+    root.addEventListener('contextmenu', (e) => {
+      if ((e.target as HTMLElement).closest('.page-text')) e.preventDefault();
+    });
     root.addEventListener('pointerleave', () => {
       this.clearHover();
       this.ghost?.remove();
@@ -482,7 +487,15 @@ export class Editor extends EventTarget {
         } else {
           this.select(null);
           // on a touch screen, dragging an empty spot scrolls the page
-          if (e.pointerType === 'touch') this.startPan(e);
+          // (holding a finger still on a word selects it instead)
+          if (e.pointerType === 'touch') {
+            clearPageText();
+            this.startPan(e);
+            holdToSelect(e, () => {
+              this.drag = null;
+              this.viewer.container.classList.remove('panning');
+            });
+          }
           // on or beside the page's own words, select them to copy
           else this.selectingText = startTextSelect(e);
         }

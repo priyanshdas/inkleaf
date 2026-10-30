@@ -13,9 +13,10 @@ import { CONVERTIBLE } from '../shared/api';
 import { findOffice, htmlToPdf, officeToPdf, urlToPdf } from './convert';
 import { ensurePacks, packPath, packStatus, removePacks } from './packs';
 import { aiStatus, ask, listModels, removeKey, saveConfig } from './ai';
+import { cancelDownload, downloadModel, removeModel, shutdownLocalAi } from './local-ai';
 import { forget as forgetDevice, linkStatus, sendToDevice, startLink, startPairing } from './link';
 import { checkForUpdates, installUpdate, startUpdates } from './updates';
-import { defaultAppState, makeDefaultApp } from './default-app';
+import { defaultAppState, keepPdfPreviews, makeDefaultApp } from './default-app';
 import { openForThisDevice, receiveCode } from './device-key';
 import { fetchPickup, forgetPickup, startSending, stopSending } from './pickup';
 
@@ -487,7 +488,29 @@ function registerIpc() {
   ipcMain.handle('ai:save', (_event, config) => saveConfig(config ?? {}));
   ipcMain.handle('ai:models', (_event, config) => listModels(config ?? {}));
   ipcMain.handle('ai:remove-key', (_event, provider) => removeKey(provider));
-  ipcMain.handle('ai:ask', (_event, request) => ask(request));
+  // answers being written, by window, so Stop can end the right one
+  const answering = new Map<number, AbortController>();
+  ipcMain.handle('ai:ask', async (event, request, streamId?: string) => {
+    const sender = event.sender;
+    const stop = new AbortController();
+    answering.get(sender.id)?.abort();
+    answering.set(sender.id, stop);
+    const chunk = streamId ? (text: string) => { if (!sender.isDestroyed()) sender.send('ai:chunk', streamId, text); } : undefined;
+    try {
+      return await ask(request, chunk, stop.signal);
+    } finally {
+      if (answering.get(sender.id) === stop) answering.delete(sender.id);
+    }
+  });
+  ipcMain.handle('ai:stop', (event) => answering.get(event.sender.id)?.abort());
+  ipcMain.handle('local-ai:download', (_event, id: string) => {
+    // the download carries on in the background; progress and the result arrive as events
+    void downloadModel(String(id), (e) => {
+      for (const win of BrowserWindow.getAllWindows()) if (!win.webContents.isDestroyed()) win.webContents.send('local-ai:event', e);
+    }).catch(() => { /* reported through the 'failed' event */ });
+  });
+  ipcMain.handle('local-ai:cancel-download', () => cancelDownload());
+  ipcMain.handle('local-ai:remove', (_event, id: string) => removeModel(String(id)));
 
   ipcMain.handle('file:pick-pdfs', async (event, title?: unknown) => {
     const ctx = contextFor(event.sender);
@@ -802,6 +825,8 @@ if (!app.requestSingleInstanceLock()) {
     // tests on a Linux box without a keychain still need to store AI keys
     if (!app.isPackaged && process.env.INKLEAF_TEST_PLAIN_KEYS && process.platform === 'linux') safeStorage.setUsePlainTextEncryption(true);
     protocol.handle('app', serveAppFile);
+    // File Explorer's preview pane for PDFs, which needs a nudge once Inkleaf is the default
+    void keepPdfPreviews().catch(() => {});
     // Our own pages may list the fonts installed on this computer (for the
     // font picker); nothing else gets a browser permission.
     // camera only, for Scan to PDF; it asks the system the first time
@@ -848,4 +873,6 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
   });
+  // let llama.cpp release the model before the process ends
+  app.on('will-quit', () => void shutdownLocalAi());
 }

@@ -4,6 +4,7 @@
 
 import type { AiProviderId } from './ai-providers';
 import type { LinkEvent, LinkStatus } from './link-protocol';
+import type { LocalAiEvent, LocalAiStatus } from './local-models';
 
 export interface AiStatus {
   ready: boolean;
@@ -14,6 +15,10 @@ export interface AiStatus {
   models: Partial<Record<AiProviderId, string>>;
   urls: Partial<Record<AiProviderId, string>>;
   canEncrypt: boolean;
+  /** About how many characters of a document fit in one request to the chosen AI. */
+  budget: number;
+  /** The built-in AI on this computer; absent on phones. */
+  local?: LocalAiStatus;
 }
 
 export interface AiConfig {
@@ -47,7 +52,7 @@ export type MenuCommand =
   | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'check-updates' | 'default-app' | 'secure-share' | 'receive-code' | 'receive-file' | 'show-comments' | 'show-bookmarks'
   | 'toggle-autosave' | 'open-backups' | 'open-github' | 'report-problem' | 'donate'
   | 'convert-to-pdf' | 'convert-from-pdf' | 'web-to-pdf' | 'scan-to-pdf' | 'repair' | 'pdf-to-pdfa'
-  | 'ai-summarize' | 'ai-translate' | 'ai-settings' | 'all-tools' | 'unlock' | 'language' | 'terms' | 'privacy'
+  | 'ai-summarize' | 'ai-translate' | 'ai-ask' | 'ai-settings' | 'all-tools' | 'unlock' | 'language' | 'terms' | 'privacy'
   | 'link-pair' | 'link-send' | 'share';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
@@ -78,7 +83,9 @@ export type UpdateState =
   | { state: 'downloading'; version: string; percent: number }
   | { state: 'ready'; version: string }
   | { state: 'error'; message: string }
-  | { state: 'unavailable'; reason: string };
+  | { state: 'unavailable'; reason: string }
+  /** Phones: a newer version is out; `url` downloads the APK, `page` shows the release. */
+  | { state: 'available'; version: string; url: string; page: string };
 
 export type PickupEvent =
   | { id: string; state: 'uploading'; percent: number }
@@ -165,7 +172,15 @@ export interface InkleafApi {
   /** The models a provider offers right now. */
   aiModels(config: Partial<AiConfig>): Promise<string[]>;
   aiRemoveKey(provider: AiProviderId): Promise<void>;
-  aiAsk(request: { system: string; prompt: string; maxTokens: number }): Promise<string>;
+  /** Asks the chosen AI. With onChunk, the answer also arrives in pieces as it's written (built-in AI). */
+  aiAsk(request: { system: string; prompt: string; maxTokens: number }, onChunk?: (text: string) => void): Promise<string>;
+  /** Stops the answer being written for this window, if there is one. */
+  aiStop?(): Promise<void>;
+  /** The built-in AI's model files (computer app only). */
+  localAiDownload?(id: string): Promise<void>;
+  localAiCancelDownload?(): Promise<void>;
+  localAiRemove?(id: string): Promise<void>;
+  onLocalAiEvent?(listener: (event: LocalAiEvent) => void): () => void;
   /** Shows the system print dialog for the current page contents. */
   print(): Promise<{ ok: boolean; reason?: string }>;
   /** Phones: hands the finished PDF straight to the system's print service. */
@@ -173,6 +188,9 @@ export interface InkleafApi {
   /** Copies a file into the backups folder before it's first auto-saved over. */
   backupOriginal(path: string): Promise<void>;
   openBackups(): void;
+  /** Phones keep backups inside the app, so they're listed and opened from there. */
+  listBackups?(): Promise<{ id: string; name: string; savedAt: number; size: number }[]>;
+  openBackup?(id: string): Promise<OpenedFile>;
   /** Keeps a copy of unsaved work; cleared once it's saved or closed. */
   writeRecovery(id: string, name: string, path: string | null, data: Uint8Array): Promise<void>;
   clearRecovery(id: string): void;

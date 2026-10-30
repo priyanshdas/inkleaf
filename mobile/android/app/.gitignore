@@ -1,2 +1,6 @@
 /build/*
 !/build/.npmkeep
+
+# llama.cpp, fetched by the native build (src/main/cpp/CMakeLists.txt)
+/.llama/
+/.cxx/

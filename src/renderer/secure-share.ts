@@ -9,6 +9,7 @@
 
 import { PDFDocument, PDFName, PDFRawStream, StandardFonts, rgb } from 'pdf-lib';
 import { t } from '../shared/i18n';
+import { isMobile } from '../shared/platform';
 import { asShareCode, cleanCode, groupCode, lockFor, newShareCode, publicKeyFrom } from '../shared/lock';
 import { newPickup, openPickup, pickupLink, readPickup, sealForPickup } from '../shared/pickup';
 import type { PickupEvent } from '../shared/api';
@@ -65,10 +66,12 @@ function codePanel(code: string, name: string) {
 export async function secureShareDialog(doc: EditorDoc, host: ToolHost) {
   const who = choices('share-who', [
     { value: 'code', title: t('Anyone with the code'), detail: t('Whoever has the code can open it, in Inkleaf or any PDF app.') },
-    { value: 'device', title: t('Only one person’s device'), detail: t('Locked to their receive code, so it opens only in Inkleaf on their computer. Nothing to leak.') },
+    { value: 'device', title: t('Only one person’s device'), detail: t('Locked to their receive code, so it opens only in Inkleaf on their phone or computer. Nothing to leak.') },
   ], 'code');
   const how = choices('share-how', [
-    { value: 'pickup', title: t('Send with a pickup code'), detail: t('They type the code or scan its QR code, and the file comes to them: straight over your Wi-Fi, or through the internet for 7 days.') },
+    { value: 'pickup', title: t('Send with a pickup code'), detail: isMobile()
+      ? t('They type the code or scan its QR code, and the file comes to them through the internet, for up to 7 days.')
+      : t('They type the code or scan its QR code, and the file comes to them: straight over your Wi-Fi, or through the internet for 7 days.') },
     { value: 'file', title: t('Save the locked file'), detail: t('You send the file yourself, by email or on a USB stick.') },
   ], 'pickup');
   const go = await modal({
@@ -164,7 +167,7 @@ async function shareWithDevice(doc: EditorDoc, host: ToolHost, pickup: boolean) 
       h('div', { class: 'share-code-actions' }, scan, picture),
       status, error,
       h('p', { class: 'field-hint' }, icon('shield-check'),
-        t('Only Inkleaf on their computer can open the locked copy. Not even you can open it, so keep your original.'))),
+        t('Only Inkleaf on their phone or computer can open the locked copy. Not even you can open it, so keep your original.'))),
     buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: pickup ? t('Lock and send…') : t('Save locked PDF…'), value: 'ok', primary: true }],
     validate: async () => {
       await check();
@@ -196,6 +199,8 @@ async function sendWithPickup(name: string, file: Uint8Array) {
 
   const wifi = h('li', { class: nearby.length ? 'ready' : 'off' },
     nearby.length ? t('On your Wi-Fi: ready while Inkleaf is open.') : t('On your Wi-Fi: not available (no network).'));
+  // a phone sends through the internet only, so there's no Wi-Fi line to show
+  if (isMobile() && !nearby.length) wifi.hidden = true;
   const internet = h('li', {}, t('Anywhere: uploading…'));
   const stop = api().onPickupEvent((e: PickupEvent) => {
     if (e.id !== pickup.id) return;
@@ -286,7 +291,7 @@ export async function receiveFileDialog(open: (data: Uint8Array, name: string) =
   if (!got.ok) {
     toast(got.reason === 'gone'
       ? t('There’s nothing to pick up with that code. It may have been picked up already, or it’s more than 7 days old.')
-      : t('Couldn’t get it: this computer seems to be offline, and the file isn’t on this Wi-Fi.'), 'error', 8000);
+      : isMobile() ? t('Couldn’t get it: this phone seems to be offline.') : t('Couldn’t get it: this computer seems to be offline, and the file isn’t on this Wi-Fi.'), 'error', 8000);
     return;
   }
   const opened = await openPickup(pickup, got.data);
@@ -320,8 +325,8 @@ async function wrapLocked(data: Uint8Array): Promise<Uint8Array> {
   page.drawText('This PDF is locked', { x: 64, y: 620, size: 28, font: bold, color: ink });
   const lines = [
     'It was locked with Inkleaf so that only one person\'s device can open it.',
-    'If it was sent to you, open it in Inkleaf on your computer and it will',
-    'open normally. Other PDF apps can only show this page.',
+    'If it was sent to you, open it in Inkleaf on your phone or computer and it',
+    'will open normally. Other PDF apps can only show this page.',
     '',
     'Inkleaf is free and open source: priyanshdas.github.io/inkleaf',
   ];
@@ -390,7 +395,9 @@ export async function receiveCodeDialog() {
           h('div', { class: 'share-code-actions' }, copy, qrSaveButton(qrText, t('Inkleaf receive code'), 'Inkleaf receive code.png')))),
       h('p', { class: 'field-hint' }, icon('shield-check'), t('It’s safe to share: it can only lock files for you, never open them.')),
       h('p', { class: 'field-hint warn' }, icon('info'),
-        t('Files locked to this code open only in Inkleaf on this computer, signed in as you. If you reset this computer or move to a new one, they can’t be opened there, so ask for a new copy.'))),
+        isMobile()
+          ? t('Files locked to this code open only in Inkleaf on this phone. If you reset this phone or move to a new one, they can’t be opened there, so ask for a new copy.')
+          : t('Files locked to this code open only in Inkleaf on this computer, signed in as you. If you reset this computer or move to a new one, they can’t be opened there, so ask for a new copy.'))),
     buttons: [{ label: t('Done'), value: 'ok', primary: true }],
   });
 }

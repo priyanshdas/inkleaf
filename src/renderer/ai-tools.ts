@@ -19,6 +19,7 @@ import { pageRuns, runBox, TextRun } from './text-finder';
 import type { ReplaceAnnot } from './types';
 import { h, icon, modal, toast } from './ui';
 import { AI_PROVIDERS, LOCAL_SERVERS, providerById } from '../shared/ai-providers';
+import { LOCAL_MODELS, LocalAiStatus } from '../shared/local-models';
 
 const api = () => window.inkleaf;
 
@@ -34,6 +35,9 @@ export interface AiHost {
 async function privacyNote(): Promise<string> {
   const status = await api().aiStatus();
   const provider = providerById(status.provider);
+  if (provider.id === 'builtin') return isMobile()
+    ? t('The built-in AI reads the document here on this phone. Nothing leaves your phone.')
+    : t('The built-in AI reads the document here on this computer. Nothing leaves your computer.');
   if (isMobile()) {
     if (provider.onDevice) return t('This sends the document’s text to the AI running on your computer, over your Wi-Fi. Nothing goes through the internet.');
     return t('This sends the document’s text to {company} using your API key. Nothing else leaves your phone.', { company: t(provider.company) });
@@ -82,6 +86,79 @@ export async function aiSettings(): Promise<boolean> {
   const modelField = h('div', { class: 'field' }, h('span', { class: 'field-label' }, t('Model')),
     h('div', { class: 'field-row' }, model, load), modelList, modelNote);
 
+  // --- the built-in AI: pick a size, download it once ---
+  let local: LocalAiStatus = status.local ?? { supported: false, installed: [], sizes: {}, downloading: null, device: null };
+  let localChoice = status.models.builtin ?? LOCAL_MODELS[0].id;
+  const gb = (bytes: number) => (bytes / 1e9).toLocaleString(undefined, { maximumFractionDigits: 1 });
+  const size = (bytes: number) => bytes >= 1e9 ? t('{n} GB', { n: gb(bytes) }) : t('{n} MB', { n: Math.max(1, Math.round(bytes / 1e6)).toLocaleString() });
+  const localRows = h('div', { class: 'local-models', role: 'radiogroup' });
+  const localNote = h('p', { class: 'field-hint' });
+  const localField = h('div', { class: 'field' }, h('span', { class: 'field-label' }, t('Model')), localRows, localNote);
+
+  function drawLocal() {
+    localRows.replaceChildren(...LOCAL_MODELS.map((m) => {
+      const installed = local.installed.includes(m.id);
+      const busy = local.downloading?.id === m.id ? local.downloading : null;
+      const input = h('input', { type: 'radio', name: 'local-model', value: m.id, checked: m.id === localChoice });
+      input.addEventListener('change', () => {
+        localChoice = m.id;
+        error.textContent = '';
+      });
+      let action: HTMLElement;
+      if (busy) {
+        const percent = busy.total ? Math.floor((busy.received / busy.total) * 100) : 0;
+        const stop = h('button', { class: 'link-button', type: 'button' }, t('Cancel'));
+        stop.addEventListener('click', (e) => {
+          e.preventDefault();
+          void api().localAiCancelDownload?.();
+        });
+        action = h('span', { class: 'local-progress' },
+          h('span', { class: 'meter', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(percent) },
+            h('span', { style: `width:${percent}%` })),
+          h('span', {}, t('{done} of {total}', { done: size(busy.received), total: size(busy.total) })), stop);
+      } else if (installed) {
+        const remove = h('button', { class: 'link-button', type: 'button' }, t('Remove'));
+        remove.addEventListener('click', async (e) => {
+          e.preventDefault();
+          await api().localAiRemove?.(m.id);
+          local = (await api().aiStatus()).local ?? local;
+          drawLocal();
+        });
+        action = h('span', { class: 'local-state' }, h('em', { class: 'badge good' }, t('Downloaded')), remove);
+      } else {
+        const get = h('button', { class: 'btn small', type: 'button', disabled: !!local.downloading }, icon('download'), h('span', {}, t('Download ({size})', { size: size(local.sizes[m.id] ?? m.size) })));
+        get.addEventListener('click', async (e) => {
+          e.preventDefault();
+          localChoice = m.id;
+          error.textContent = '';
+          local = { ...local, downloading: { id: m.id, received: 0, total: m.size } };
+          drawLocal();
+          await api().localAiDownload?.(m.id);
+        });
+        action = get;
+      }
+      // a phone short of memory can still try, but should know it may not cope
+      const tight = isMobile() && !!local.memory && local.memory < m.phone.memory;
+      return h('label', { class: 'lang-option local-model' }, input,
+        h('span', {}, h('strong', {}, t(m.name)), h('span', {}, t(isMobile() ? m.phone.blurb : m.blurb)),
+          tight ? h('span', { class: 'local-warning' }, t('This phone may not have enough memory for it.')) : ''), action);
+    }));
+    localNote.textContent = isMobile()
+      ? t('Downloaded once, then it works offline. It runs on this phone’s processor, so long answers take a little while.')
+      : local.device
+      ? `${t('Downloaded once, then it works offline.')} ${t('Last ran on: {device}.', { device: local.device === 'CPU' ? t('the processor') : local.device })}`
+      : t('Downloaded once, then it works offline. It uses your graphics card if it can, otherwise the processor.');
+  }
+  const offLocal = api().onLocalAiEvent?.((event) => {
+    if (event.type === 'progress') local = { ...local, downloading: { id: event.id, received: event.received, total: event.total } };
+    else {
+      local = { ...local, downloading: null, installed: event.type === 'done' ? [...new Set([...local.installed, event.id])] : local.installed };
+      if (event.type === 'failed' && event.message) error.textContent = event.message;
+    }
+    drawLocal();
+  });
+  drawLocal();
+
   const localHelp = h('p', { class: 'field-hint' }, isMobile()
     ? t('Run Ollama or LM Studio on your computer and let it accept connections from your network (in Ollama, set OLLAMA_HOST to 0.0.0.0; in LM Studio, turn on “Serve on local network”). Then type your computer’s address here, with the phone on the same Wi-Fi, and press Load models.')
     : t('Install Ollama (ollama.com) or LM Studio (lmstudio.ai), download a model in it, then press Load models. Larger models give better translations but need a fast computer.'));
@@ -108,19 +185,25 @@ export async function aiSettings(): Promise<boolean> {
   }
 
   // one card per provider
-  const cards = AI_PROVIDERS.map((provider) => {
+  // the built-in AI needs a computer or phone that llama.cpp runs on
+  const offered = AI_PROVIDERS.filter((p) => p.id !== 'builtin' || local.supported);
+  if (!offered.includes(chosen)) chosen = offered.find((p) => p.id !== 'builtin') ?? offered[0];
+  const cards = offered.map((provider) => {
     const input = h('input', { type: 'radio', name: 'ai-provider', value: provider.id, checked: provider.id === chosen.id });
     input.addEventListener('change', () => {
       chosen = provider;
       show();
     });
-    const badge = provider.onDevice ? h('em', { class: 'badge good' }, t('Private')) : '';
+    const badge = provider.id === 'builtin' ? h('em', { class: 'badge good' }, t('Free')) : provider.onDevice ? h('em', { class: 'badge good' }, t('Private')) : '';
     return h('label', { class: 'lang-option ai-option' }, input,
       h('span', {}, h('strong', {}, t(provider.name), badge), h('span', {}, t(provider.blurb))));
   });
 
   function show() {
     const saved = !!hasKey[chosen.id];
+    const builtin = chosen.id === 'builtin';
+    localField.hidden = !builtin;
+    modelField.hidden = builtin;
     keyField.hidden = chosen.onDevice === true;
     key.value = '';
     key.placeholder = saved ? t('A key is saved. Paste a new one to replace it.') : chosen.keyPrefix ? `${chosen.keyPrefix}…` : chosen.needsKey ? '' : t('Optional');
@@ -135,14 +218,14 @@ export async function aiSettings(): Promise<boolean> {
     // on a phone, "local" means the AI app on your computer, reached over Wi-Fi
     presets.hidden = chosen.id !== 'local' || isMobile();
     url.value = status.urls[chosen.id] ?? chosen.baseUrl;
-    localHelp.hidden = !chosen.onDevice;
+    localHelp.hidden = !chosen.onDevice || builtin;
     model.value = status.models[chosen.id] ?? chosen.models[0] ?? '';
     model.placeholder = chosen.onDevice ? t('Press Load models') : '';
     fillList(chosen.models);
     modelNote.textContent = '';
     error.textContent = '';
     // a local server needs no key, so its list can load straight away
-    if (chosen.onDevice) void loadModels();
+    if (chosen.onDevice && !builtin) void loadModels();
   }
   show();
 
@@ -150,14 +233,24 @@ export async function aiSettings(): Promise<boolean> {
     title: t('AI tools'),
     wide: true,
     body: h('div', {},
-      h('p', { class: 'modal-text' }, t('Summarize and translate PDFs with the AI service you prefer. Cloud services use your own API key, and you pay them directly for what you use. AI on this computer is free and completely private.')),
+      h('p', { class: 'modal-text' }, isMobile()
+        ? (local.supported
+          ? t('Summarize, translate and ask questions about PDFs with the AI you prefer. The built-in AI is free and private and runs on this phone, with no key needed. Cloud services use your own API key, and you pay them directly for what you use.')
+          : t('Summarize, translate and ask questions about PDFs with the AI service you prefer. Cloud services use your own API key, and you pay them directly for what you use.'))
+        : t('Summarize, translate and ask questions about PDFs with the AI you prefer. The built-in AI is free and private, with no key needed. Cloud services use your own API key, and you pay them directly for what you use.')),
       h('div', { class: 'lang-grid ai-grid', role: 'radiogroup' }, ...cards),
-      urlField, keyField, modelField, localHelp, error),
+      urlField, keyField, modelField, localField, localHelp, error),
     buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Save'), value: 'ok', primary: true }],
     validate: async (value) => {
       if (value !== 'ok') return true;
       try {
-        await api().aiSave({ provider: chosen.id, key: key.value, model: model.value, url: url.value });
+        if (chosen.id === 'builtin' && !local.installed.includes(localChoice)) {
+          error.textContent = local.downloading?.id === localChoice
+            ? t('Wait for the download to finish, then press Save.')
+            : t('Download the model first.');
+          return false;
+        }
+        await api().aiSave({ provider: chosen.id, key: key.value, model: chosen.id === 'builtin' ? localChoice : model.value, url: url.value });
         return true;
       } catch (err) {
         error.textContent = cleanError(err);
@@ -165,6 +258,7 @@ export async function aiSettings(): Promise<boolean> {
       }
     },
   });
+  offLocal?.();
   return choice === 'ok' || (await api().aiStatus()).ready;
 }
 
@@ -227,8 +321,9 @@ export async function summarize(doc: EditorDoc, host: AiHost) {
     const lang = language.value ? `Write the summary in ${language.value}.` : 'Write the summary in the same language as the document.';
     const system = 'You summarize documents accurately and plainly. Never invent facts that are not in the document. Use simple Markdown (bullets, bold) only.';
 
-    // very long documents are summarised in parts, then the parts together
-    const LIMIT = 120_000;
+    // long documents are summarised in parts, then the parts together; how
+    // long "long" is depends on how much the chosen AI can read at once
+    const LIMIT = (await api().aiStatus()).budget;
     if (full.length <= LIMIT) {
       host.progress(t('Summarizing…'));
       return api().aiAsk({ system, prompt: `${style} ${lang}\n\n<document>\n${full}\n</document>`, maxTokens: 2000 });
@@ -283,13 +378,15 @@ export async function summarize(doc: EditorDoc, host: AiHost) {
 /** Translates lines in batches, keeping them one-for-one. */
 async function translateLines(lines: string[], language: string, host: AiHost, label: string): Promise<string[]> {
   const out: string[] = new Array(lines.length);
+  // each batch, translated, has to fit in what the AI can handle at once
+  const BATCH = Math.min(6000, Math.floor((await api().aiStatus()).budget / 4));
   const system = `You are a professional translator. Translate each line of the JSON array into ${language}. Keep numbers, names, codes, email addresses and URLs as they are. Reply with only a JSON array of strings, exactly as long as the input, in the same order. Lines that are only numbers or symbols stay unchanged.`;
   let start = 0;
   let batch = 0;
-  const batches = Math.max(1, Math.ceil(lines.join('').length / 6000));
+  const batches = Math.max(1, Math.ceil(lines.join('').length / BATCH));
   while (start < lines.length) {
     let end = start, size = 0;
-    while (end < lines.length && end - start < 120 && size < 6000) size += lines[end++].length + 4;
+    while (end < lines.length && end - start < 120 && size < BATCH) size += lines[end++].length + 4;
     const chunk = lines.slice(start, end);
     batch++;
     host.progress(t('{label} ({n} of {total})…', { label, n: Math.min(batch, batches), total: batches }));

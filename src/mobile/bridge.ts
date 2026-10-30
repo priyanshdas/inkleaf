@@ -32,6 +32,11 @@ import type {
 import { CONVERTIBLE } from '../shared/api';
 import { t, UI_LANGUAGES } from '../shared/i18n';
 import { createLink } from './link-client';
+import { onPhonePickupEvent, phoneFetchPickup, phoneForgetPickup, phoneOpenLocked, phoneReceiveCode, phoneSendPickup } from './phone-share';
+import { checkPhoneUpdates } from './phone-updates';
+import { onPhoneAiEvent, phoneAiAsk, phoneAiCancel, phoneAiDownload, phoneAiRemove, phoneAiStatus, phoneAiStop } from './phone-ai';
+import { LOCAL_MODELS, localModelById, type LocalAiEvent, type LocalAiStatus } from '../shared/local-models';
+import type { UpdateState } from '../shared/api';
 import manifest from '../shared/pack-manifest.json';
 
 /** Native helpers that no stock plugin covers (see mobile/android/.../InkleafFilesPlugin.java). */
@@ -42,6 +47,8 @@ interface InkleafFilesPlugin {
   htmlToPdf(options: { html: string; width?: number; height?: number; landscape?: boolean; margin?: number }): Promise<{ data: string }>;
   urlToPdf(options: { url: string }): Promise<{ data: string; title: string }>;
   takeIncoming(): Promise<{ files: { name: string; data: string }[] }>;
+  /** Which app store installed Inkleaf, if any (added in 3.0.2; older builds lack it). */
+  installSource?(): Promise<{ store: boolean }>;
   addListener(event: 'incoming', handler: () => void): Promise<{ remove: () => void }>;
 }
 const Native = registerPlugin<InkleafFilesPlugin>('InkleafFiles');
@@ -55,6 +62,7 @@ const engine = platform === 'android' || (platform === 'web' && /[?&]engine\b/.t
 const LIBRARY = 'library';
 const PACKS = 'packs';
 const RECOVERY = 'recovery';
+const BACKUPS = 'backups';
 
 // --- small helpers --------------------------------------------------------------------------
 
@@ -235,7 +243,7 @@ interface AiStored {
   hasKey: Partial<Record<AiProviderId, boolean>>;
 }
 
-const aiStored = (): AiStored => ({ provider: 'anthropic', models: {}, urls: {}, hasKey: {}, ...store.get<Partial<AiStored>>('ai', {}) });
+const aiStored = (): AiStored => ({ provider: 'builtin', models: {}, urls: {}, hasKey: {}, ...store.get<Partial<AiStored>>('ai', {}) });
 const keyName = (id: AiProviderId) => `ai-key-${id}`;
 const aiMock = () => platform === 'web' && store.get('ai-mock', false);
 
@@ -252,6 +260,24 @@ const aiUrl = (provider: AiProvider, stored: AiStored) =>
 const aiModel = (provider: AiProvider, stored: AiStored) => stored.models[provider.id] ?? provider.models[0] ?? '';
 const aiReady = (provider: AiProvider, stored: AiStored) =>
   (!provider.needsKey || !!stored.hasKey[provider.id]) && !!aiUrl(provider, stored) && !!aiModel(provider, stored);
+
+// The built-in AI, in the web build's test mode: pretends to download, so
+// its settings can be tried in a browser.
+const mockListeners = new Set<(event: LocalAiEvent) => void>();
+const mockLocal = (): LocalAiStatus => ({
+  supported: true, installed: store.get<string[]>('ai-mock-installed', []), downloading: null, device: null, memory: 6e9,
+  sizes: Object.fromEntries(LOCAL_MODELS.map((m) => [m.id, m.size])),
+});
+async function mockDownload(id: string) {
+  const total = localModelById(id).size;
+  for (const part of [0.3, 0.7, 1]) {
+    await new Promise((r) => setTimeout(r, 150));
+    mockListeners.forEach((l) => l({ type: 'progress', id, received: total * part, total }));
+  }
+  store.set('ai-mock-installed', [...new Set([...store.get<string[]>('ai-mock-installed', []), id])]);
+  mockListeners.forEach((l) => l({ type: 'done', id }));
+}
+const localStatus = () => (aiMock() ? Promise.resolve(mockLocal()) : phoneAiStatus());
 
 /** The native HTTP client, which isn't bound by a web page's cross-site rules. */
 const nativeHttp: Http = async (url, request) => {
@@ -329,12 +355,10 @@ function systemLanguage(): string {
 }
 
 const unsupported: string[] = [
-  // there's one window, no menu bar to quit from, and the stores handle updates
-  'new-window', 'devtools', 'fullscreen', 'quit', 'check-updates', 'default-app', 'secure-share', 'receive-code', 'receive-file', 'open-backups',
+  // there's one window, no menu bar to quit from, and Android picks the app for PDFs itself
+  'new-window', 'devtools', 'fullscreen', 'quit', 'default-app',
   // keyboard shortcuts don't mean much without a keyboard
   'shortcuts',
-  // a floating desktop panel; the phone app will get its own version
-  'enhance',
 ];
 if (platform === 'web') unsupported.push('print', 'web-to-pdf');
 
@@ -468,9 +492,14 @@ const api: InkleafApi & {
 
   async aiStatus(): Promise<AiStatus> {
     const stored = aiStored();
+    const local = await localStatus();
+    // the built-in AI is the default where it can run; otherwise a cloud service is
+    if (stored.provider === 'builtin' && !local.supported) stored.provider = 'anthropic';
     const provider = providerById(stored.provider);
+    const builtin = provider.id === 'builtin';
+    const model = builtin ? localModelById(stored.models.builtin) : null;
     return {
-      ready: aiMock() || aiReady(provider, stored),
+      ready: aiMock() || (model ? local.installed.includes(model.id) : aiReady(provider, stored)),
       provider: provider.id,
       model: aiModel(provider, stored),
       url: aiUrl(provider, stored),
@@ -478,11 +507,17 @@ const api: InkleafApi & {
       models: stored.models,
       urls: stored.urls,
       canEncrypt: true,
+      // the built-in AI runs on the phone's processor, so it gets less at once
+      budget: model ? model.phone.budget : provider.onDevice ? 24_000 : 120_000,
+      local,
     };
   },
   async aiSave(config: AiConfig) {
     const { provider, key, model, url } = checkConfig(config);
     const stored = aiStored();
+    if (provider.id === 'builtin' && !(await localStatus()).installed.includes(localModelById(model).id)) {
+      throw new Error(window.inkleafT('Download the model first.'));
+    }
     if (key) {
       await SecureStorage.set(keyName(provider.id), key);
       stored.hasKey[provider.id] = true;
@@ -508,12 +543,36 @@ const api: InkleafApi & {
     delete stored.hasKey[id];
     store.set('ai', stored);
   },
-  async aiAsk(request) {
+  async aiAsk(request, onChunk) {
     if (aiMock()) return mockAnswer(request);
     const stored = aiStored();
+    if (stored.provider === 'builtin') return phoneAiAsk(localModelById(stored.models.builtin).id, request, onChunk, window.inkleafT);
     const provider = providerById(stored.provider);
     if (!aiReady(provider, stored)) throw new Error(window.inkleafT('Set up an AI service first (Tools › AI settings).'));
     return askAi(nativeHttp, { provider, url: aiUrl(provider, stored), key: await aiKey(provider.id), model: aiModel(provider, stored) }, request);
+  },
+
+  async aiStop() {
+    await phoneAiStop();
+  },
+  async localAiDownload(id) {
+    if (aiMock()) return void mockDownload(id);
+    void phoneAiDownload(id, window.inkleafT);
+  },
+  async localAiCancelDownload() {
+    await phoneAiCancel();
+  },
+  async localAiRemove(id) {
+    if (aiMock()) return store.set('ai-mock-installed', store.get<string[]>('ai-mock-installed', []).filter((x) => x !== id));
+    await phoneAiRemove(id);
+  },
+  onLocalAiEvent(listener) {
+    mockListeners.add(listener);
+    const off = onPhoneAiEvent(listener);
+    return () => {
+      mockListeners.delete(listener);
+      off();
+    };
   },
 
   async print() {
@@ -523,10 +582,29 @@ const api: InkleafApi & {
   async printPdf(name, data) {
     await Native.print({ name, data: toBase64(data) });
   },
-  async backupOriginal() {
-    // documents live in Inkleaf's own library, so there's no outside file to protect
+  // Documents live in Inkleaf's own library. Before one is first saved over
+  // (by auto-save, say), a copy goes into backups, the newest 40 kept, so a
+  // bad change can still be undone after the app closes.
+  async backupOriginal(path) {
+    if (!path.startsWith(`${LIBRARY}/`) || !(await exists(path))) return;
+    const data = await readData(path);
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    await writeData(`${BACKUPS}/${id}.pdf`, data);
+    const list = [{ id, name: baseName(path), savedAt: Date.now(), size: data.length }, ...store.get<BackupEntry[]>('backups', [])];
+    for (const old of list.splice(40)) await Filesystem.deleteFile({ path: `${BACKUPS}/${old.id}.pdf`, directory: Directory.Data }).catch(() => {});
+    store.set('backups', list);
   },
   openBackups() {},
+  async listBackups() {
+    return store.get<BackupEntry[]>('backups', []);
+  },
+  async openBackup(id) {
+    const entry = store.get<BackupEntry[]>('backups', []).find((b) => b.id === id);
+    if (!entry) throw new Error(t('That backup is no longer there.'));
+    const data = await readData(`${BACKUPS}/${entry.id}.pdf`);
+    const date = new Date(entry.savedAt).toISOString().slice(0, 10);
+    return intoLibrary(entry.name.replace(/\.pdf$/i, '') + ` (backup ${date}).pdf`, data);
+  },
 
   async writeRecovery(id, name, path, data) {
     await writeData(`${RECOVERY}/${id}.pdf`, data);
@@ -544,20 +622,26 @@ const api: InkleafApi & {
   },
   readRecovery: (id) => readData(`${RECOVERY}/${id}.pdf`),
 
-  checkForUpdates() {},
+  checkForUpdates() {
+    void phoneUpdateCheck(true);
+  },
   async defaultAppState() { return { state: 'unsupported' as const, dismissed: true }; },
   async makeDefaultApp() { return 'unsupported' as const; },
   dismissDefaultApp() {},
-  // locking to one device isn't on phones yet
-  async receiveCode(): Promise<string> { throw new Error(t('Receive codes are only on the computer version for now.')); },
-  async openLocked() { return { ok: false as const, reason: 'other-device' as const }; },
-  async sendPickup(): Promise<string[]> { throw new Error(t('Sending with a pickup code is only on the computer version for now.')); },
-  stopPickup() {},
-  onPickupEvent() { return () => {}; },
-  async fetchPickup() { return { ok: false as const, reason: 'offline' as const }; },
-  async forgetPickup() {},
+  // Share securely (see phone-share.ts)
+  receiveCode: () => phoneReceiveCode(window.inkleafT),
+  openLocked: (data) => phoneOpenLocked(data),
+  sendPickup: (id, check, data) => phoneSendPickup(id, check, data, window.inkleafT),
+  stopPickup() {
+    // nothing is offered on the Wi-Fi from a phone, and the relay copy stays until it's picked up
+  },
+  onPickupEvent: (handler) => onPhonePickupEvent(handler),
+  fetchPickup: (id, check, nearby) => phoneFetchPickup(id, check, nearby),
+  forgetPickup: (id, token) => phoneForgetPickup(id, token),
   installUpdate() {},
-  onUpdate() {},
+  onUpdate(handler) {
+    updateHandlers.push(handler);
+  },
   showInFolder() {},
 
   openExternal(url) {
@@ -622,6 +706,18 @@ const api: InkleafApi & {
 };
 
 const startedAt = Date.now();
+
+interface BackupEntry { id: string; name: string; savedAt: number; size: number }
+
+const updateHandlers: ((state: UpdateState) => void)[] = [];
+async function phoneUpdateCheck(manual: boolean) {
+  if (platform === 'web') return;
+  const [{ version }, fromStore] = await Promise.all([
+    App.getInfo(),
+    Native.installSource ? Native.installSource().then((r) => r.store).catch(() => false) : Promise.resolve(false),
+  ]);
+  await checkPhoneUpdates({ current: version, manual, store, fromStore, relayT: window.inkleafT, report: (s) => updateHandlers.forEach((h) => h(s)) });
+}
 
 // a plain translation helper for messages made in this file; the editor's own
 // i18n module reads the same catalog once it loads
@@ -691,4 +787,6 @@ ready.then(() => {
   document.head.append(script);
   // files that arrived before the editor was listening
   setTimeout(() => void takeIncoming(), 1500);
+  // once a day, quietly: is there a newer version?
+  setTimeout(() => void phoneUpdateCheck(false), 15_000);
 });

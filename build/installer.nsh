@@ -29,6 +29,9 @@
     DeleteRegKey /ifempty SHCTX "Software\Inkleaf"
     DeleteRegValue SHCTX "Software\Classes\.pdf\OpenWithProgids" "Inkleaf.pdf"
     DeleteRegKey SHCTX "Software\Classes\Inkleaf.pdf"
+    ; the File Explorer preview Inkleaf borrows is set for each user (src/main/default-app.ts)
+    DeleteRegKey HKCU "Software\Classes\Inkleaf.pdf\ShellEx"
+    DeleteRegKey /ifempty HKCU "Software\Classes\Inkleaf.pdf"
     System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
   ${endIf}
 !macroend

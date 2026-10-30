@@ -326,6 +326,8 @@ function activate(tab: Tab | null) {
 
   activeTab = tab;
   doc = tab?.doc ?? null;
+  // the Ask panel shows the conversation about this document
+  if (askLoaded) void askLoaded.then((m) => m.refreshAsk());
   // each document has its own enhancement (or none)
   closeEnhance();
   enhanced.reset((doc && enhanceFor.get(doc)) ?? NEUTRAL);
@@ -541,7 +543,8 @@ function updateEnhanceButton() {
 }
 
 function closeEnhance() {
-  enhanceOpen?.remove();
+  // on a phone the panel sits in its own sheet
+  (enhanceOpen?.closest('.enhance-sheet') ?? enhanceOpen)?.remove();
   enhanceOpen = null;
   updateEnhanceButton();
 }
@@ -559,7 +562,13 @@ function toggleEnhance() {
     saveCopy: (s) => void saveEnhancedCopy(target, s),
     close: closeEnhance,
   });
-  $('#workspace').append(enhanceOpen);
+  if (isMobile()) {
+    // a sheet along the bottom; the pages stay in view above it, and can
+    // still be scrolled and zoomed while the sliders move
+    $('#modal-root').append(h('div', { class: 'modal-backdrop show enhance-sheet' }, enhanceOpen));
+  } else {
+    $('#workspace').append(enhanceOpen);
+  }
   updateEnhanceButton();
   enhanceOpen.querySelector<HTMLElement>('.chip')?.focus();
 }
@@ -796,7 +805,13 @@ async function run(command: Command) {
     case 'print': {
       if (editor.text.active) editor.text.finish();
       try {
-        await withBusy(t('Preparing to print…'), () => printDocument(doc!, (done, total) => progress(t('Preparing page {page} of {total} for printing…', { page: Math.min(done + 1, total), total }))));
+        const target = doc!;
+        const current = Math.max(0, target.pages.findIndex((p) => p.id === viewer.currentPageId));
+        await withBusy(t('Preparing to print…'), () => printDocument(target,
+          (done, total) => progress(t('Preparing page {page} of {total} for printing…', { page: Math.min(done + 1, total), total })),
+          current,
+          // the preview is a dialog of its own, so the busy cover steps aside for it
+          () => busy(false)));
       } catch (err) {
         showError(t('Couldn’t print'), err);
       }
@@ -825,6 +840,7 @@ async function run(command: Command) {
     case 'ai-settings': return tool(t('Couldn’t change the AI settings'), async () => void (await aiTools()).aiSettings());
     case 'ai-summarize': return tool(t('Couldn’t summarize this PDF'), async () => (await aiTools()).summarize(doc!, aiHost));
     case 'ai-translate': return tool(t('Couldn’t translate this PDF'), async () => (await aiTools()).translate(doc!, aiHost));
+    case 'ai-ask': return tool(t('Couldn’t open Ask this PDF'), async () => (await askModule()).openAsk(askHost));
     case 'all-tools': return tool(t('Something went wrong'), openAllTools);
     case 'link-pair': return tool(t('Couldn’t connect'), async () => (await import('./link-ui')).linkDialog());
     case 'link-send': {
@@ -866,7 +882,7 @@ async function run(command: Command) {
       autosave.setEnabled(!autosave.enabled);
       toast(autosave.enabled ? t('Auto-save is on. Documents you’ve saved before are kept saved as you work.') : (isMobile() ? t('Auto-save is off. Save with the save button.') : t('Auto-save is off. Save with Ctrl+S.')), 'info', 4500);
       return;
-    case 'open-backups': return api.openBackups();
+    case 'open-backups': return api.listBackups ? backupsDialog() : api.openBackups();
     case 'open-github': return api.openExternal(REPO_URL);
     case 'report-problem': return api.openExternal(ISSUES_URL);
     case 'donate': return api.openExternal(DONATE_URL || REPO_URL);
@@ -1066,6 +1082,17 @@ const aiHost = {
   progress,
   openDoc: (opened: EditorDoc) => addTab(opened),
   currentPageId: () => viewer.currentPageId,
+};
+
+let askLoaded: Promise<typeof import('./ask')> | null = null;
+const askModule = () => (askLoaded ??= import('./ask'));
+const askHost = {
+  doc: () => doc,
+  goToPage: (target: EditorDoc, index: number) => {
+    const page = target.pages[index];
+    if (target === doc && page) viewer.scrollToPage(page.id);
+  },
+  aiSettings: async () => (await aiTools()).aiSettings(),
 };
 
 // --- terms and privacy ---------------------------------------------------------------------
@@ -1329,6 +1356,47 @@ function onUpdate(state: UpdateState) {
     case 'unavailable':
       modal({ title: t('Updates'), body: state.reason });
       break;
+    case 'available':
+      // phones: download the new APK, and Android installs it over this one
+      modal({
+        title: t('Inkleaf {version} is out', { version: state.version }),
+        body: t('Download it and open the file to install it. Your documents and settings stay as they are.'),
+        buttons: [{ label: t('What’s new'), value: 'notes' }, { label: t('Later'), value: 'later' }, { label: t('Download'), value: 'get', primary: true }],
+      }).then((choice) => {
+        if (choice === 'get') api.openExternal(state.url);
+        if (choice === 'notes') api.openExternal(state.page);
+      });
+      break;
+  }
+}
+
+/** Phones keep backups inside the app: a list to open them from. */
+async function backupsDialog() {
+  const list = await api.listBackups!();
+  const when = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  let picked: string | null = null;
+  const body = list.length
+    ? h('div', { class: 'backup-list' }, ...list.map((b) => {
+      const row = h('button', { class: 'backup-row', type: 'button' },
+        icon('file-text'),
+        h('span', {}, h('strong', {}, b.name), h('span', {}, `${when.format(b.savedAt)} · ${Math.max(1, Math.round(b.size / 1024)).toLocaleString()} KB`)));
+      row.addEventListener('click', () => {
+        picked = b.id;
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      });
+      return row;
+    }))
+    : h('p', { class: 'modal-text' }, t('No backups yet. Before a document is first saved over, Inkleaf keeps a copy of how it was, here.'));
+  await modal({
+    title: t('Backups'),
+    body: h('div', {}, list.length ? h('p', { class: 'modal-text' }, t('Copies of documents from before they were saved over. Opening one makes a new document; nothing is changed.')) : '', body),
+    buttons: [{ label: t('Close'), value: 'close', primary: true }],
+  });
+  if (!picked) return;
+  try {
+    await openFile(await api.openBackup!(picked));
+  } catch (err) {
+    toast(String((err as Error)?.message ?? err), 'error');
   }
 }
 
@@ -1493,6 +1561,7 @@ const menus: Record<string, () => (MenuItem | 'separator')[]> = {
     'separator',
     { label: t('AI Summarizer…'), icon: 'sparkles', command: 'ai-summarize', action: () => run('ai-summarize') },
     { label: t('Translate PDF…'), icon: 'languages', command: 'ai-translate', action: () => run('ai-translate') },
+    { label: t('Ask this PDF…'), icon: 'message-circle-question', command: 'ai-ask', action: () => run('ai-ask') },
     { label: t('AI settings…'), icon: 'wrench', command: 'ai-settings', action: () => run('ai-settings') },
     'separator',
     { label: isMobile() ? t('Send to Computer…') : t('Send to Phone…'), icon: isMobile() ? 'monitor' : 'smartphone', command: 'link-send', action: () => run('link-send') },
@@ -1700,13 +1769,15 @@ async function makeDefaultFromMenu() {
   return makeDefault(doc ? null : document.querySelector<HTMLElement>('#welcome .default-slot'));
 }
 
-// back from Windows Settings: see whether it worked
+// back from Windows Settings (or anywhere the default was changed): see
+// whether Inkleaf opens PDFs now, and if so put the offer away
 window.addEventListener('focus', async () => {
-  if (!defaultPending) return;
+  const offer = document.querySelector('#welcome .default-offer');
+  if (!defaultPending && !offer) return;
   const { state } = await api.defaultAppState().catch(() => ({ state: 'unsupported' as const }));
   if (state !== 'default') return;
+  if (defaultPending) toast(t('Inkleaf now opens your PDFs.'), 'success');
   defaultPending = false;
-  toast(t('Inkleaf now opens your PDFs.'), 'success');
   document.querySelector('#welcome .default-slot')?.replaceChildren();
 });
 
