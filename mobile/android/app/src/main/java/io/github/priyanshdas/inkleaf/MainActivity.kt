@@ -34,6 +34,7 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(InkleafFilesPlugin::class.java)
         registerPlugin(EnginePlugin::class.java)
+        registerPlugin(InkleafAiPlugin::class.java)
         super.onCreate(savedInstanceState)
         // the bars are Inkleaf's dark green, so the clock and icons above them stay light
         enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))

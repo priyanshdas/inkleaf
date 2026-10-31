@@ -181,6 +181,7 @@ private fun ReaderBar(doc: OpenDoc, engine: EngineState, actions: Actions, onBac
             Text(doc.name.removeSuffix(".pdf"), style = MaterialTheme.typography.titleMedium, color = colors.onFrame, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(saveLabel(doc.saveState), style = MaterialTheme.typography.bodySmall, color = colors.onFrameMuted, maxLines = 1)
         }
+        FrameIconButton(R.drawable.lc_message_circle_question, tr("Ask this PDF"), onClick = { actions.run("ai-ask") })
         FrameIconButton(R.drawable.lc_undo_2, tr("Undo"), enabled = engine.canUndo, onClick = actions::undo)
         FrameIconButton(R.drawable.lc_redo_2, tr("Redo"), enabled = engine.canRedo, onClick = actions::redo)
         Box {
@@ -192,9 +193,11 @@ private fun ReaderBar(doc: OpenDoc, engine: EngineState, actions: Actions, onBac
                 item(R.drawable.lc_save, tr("Save")) { actions.save() }
                 item(R.drawable.lc_share_2, tr("Share…")) { actions.run("share") }
                 item(R.drawable.lc_download, tr("Save a copy…")) { actions.run("save-as") }
+                item(R.drawable.lc_qr_code, tr("Share securely…")) { actions.run("secure-share") }
                 item(R.drawable.lc_send, tr("Send to computer")) { actions.run("link-send") }
                 item(R.drawable.lc_printer, tr("Print…")) { actions.run("print") }
                 item(R.drawable.lc_search, tr("Find")) { actions.run("find") }
+                item(R.drawable.lc_contrast, tr("Enhance pages")) { actions.run("enhance") }
                 item(R.drawable.lc_maximize_2, tr("Fit width")) { actions.run("zoom-fit-width") }
                 item(R.drawable.lc_x, tr("Close")) { actions.close(doc.id, discard = false) }
             }

@@ -81,6 +81,30 @@ public class InkleafFilesPlugin extends Plugin {
         if (instance != null) instance.notifyListeners("incoming", new JSObject());
     }
 
+    /**
+     * Whether an app store installed Inkleaf. Store copies are kept up to date by the store, so the
+     * app's own "new version" check (for the APK from GitHub) stays quiet for them.
+     */
+    @PluginMethod
+    public void installSource(PluginCall call) {
+        String installer = null;
+        try {
+            Context context = getContext();
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                installer = context.getPackageManager().getInstallSourceInfo(context.getPackageName()).getInstallingPackageName();
+            } else {
+                installer = context.getPackageManager().getInstallerPackageName(context.getPackageName());
+            }
+        } catch (Exception ignored) {
+            // unknown: treat it as sideloaded
+        }
+        boolean store = installer != null && (installer.equals("com.android.vending") || installer.equals("org.fdroid.fdroid")
+            || installer.startsWith("com.amazon") || installer.equals("com.sec.android.app.samsungapps") || installer.equals("com.huawei.appmarket"));
+        JSObject result = new JSObject();
+        result.put("store", store);
+        call.resolve(result);
+    }
+
     @PluginMethod
     public void takeIncoming(PluginCall call) {
         List<Uri> uris;

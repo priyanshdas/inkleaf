@@ -141,14 +141,11 @@ fun DevicesScreen(state: UiState, actions: Actions, modifier: Modifier = Modifie
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Text(computer.name, style = MaterialTheme.typography.titleMedium)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(8.dp).clip(CircleShape).background(if (computer.online) Color(0xFF2FB36F) else Inkleaf.colors.muted))
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    if (computer.online) tr("Connected") else tr("Not connected right now"),
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                            Text(
+                                if (computer.online) tr("Connected") else tr("Not connected right now"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (computer.online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
@@ -229,10 +226,13 @@ fun SettingsScreen(state: UiState, actions: Actions, onBack: () -> Unit) {
                 Switch(state.engine.autosave, { actions.run("toggle-autosave") }, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
             },
         ) { actions.run("toggle-autosave") }
-        ListRow(R.drawable.lc_sparkles, tr("AI settings"), tr("Summarize and translate with the AI service you choose.")) { actions.run("ai-settings") }
+        ListRow(R.drawable.lc_history, tr("Backups"), tr("Copies of documents from before they were saved over.")) { actions.run("open-backups") }
+        ListRow(R.drawable.lc_sparkles, tr("AI settings"), tr("Summarize, translate and ask questions with the AI you choose.")) { actions.run("ai-settings") }
+        ListRow(R.drawable.lc_key_round, tr("My receive code"), tr("Let people lock PDFs just for you.")) { actions.run("receive-code") }
 
         SectionLabel(tr("About"), Modifier.padding(top = 8.dp))
         ListRow(R.drawable.lc_info, "Inkleaf", tr("Version {version}", "version" to state.version))
+        ListRow(R.drawable.lc_refresh_cw, tr("Check for updates"), null) { actions.run("check-updates") }
         ListRow(R.drawable.lc_heart, tr("Buy me a coffee"), tr("Inkleaf is free. If it helps you, you can buy me a coffee on Ko-fi")) { actions.run("donate") }
         ListRow(R.drawable.lc_book_open, tr("Source code"), "github.com/priyanshdas/inkleaf") { actions.run("open-github") }
         ListRow(R.drawable.lc_alert_circle, tr("Report a problem"), null) { actions.run("report-problem") }

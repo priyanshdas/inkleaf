@@ -56,6 +56,7 @@ val HUB = listOf(
         HubTool(msg("Compress PDF"), msg("Make the file smaller."), R.drawable.lc_file_archive, "compress"),
         HubTool(msg("Repair PDF"), msg("Rescue a damaged file."), R.drawable.lc_wrench, "repair", standalone = true),
         HubTool(msg("OCR PDF"), msg("Make scanned text searchable."), R.drawable.lc_scan_text, "ocr"),
+        HubTool(msg("Enhance PDF"), msg("Sharper, clearer scans and faded pages."), R.drawable.lc_contrast, "enhance"),
     )),
     HubGroup(msg("Convert to PDF"), listOf(
         HubTool(msg("JPG to PDF"), msg("Pictures, one per page."), R.drawable.lc_file_image, "images-to-pdf", standalone = true),
@@ -84,11 +85,16 @@ val HUB = listOf(
         HubTool(msg("Sign PDF"), msg("Draw, type or add your signature."), R.drawable.lc_signature, "sign"),
         HubTool(msg("Redact PDF"), msg("Black out and remove private text."), R.drawable.lc_eye_off, "redact"),
         HubTool(msg("Compare PDF"), msg("See what changed between two."), R.drawable.lc_git_compare, "compare"),
+        HubTool(msg("Share securely"), msg("Lock it with a code, or to one person’s device."), R.drawable.lc_qr_code, "secure-share"),
+        HubTool(msg("Receive a file"), msg("Enter or scan a pickup code someone gave you."), R.drawable.lc_download, "receive-file", standalone = true),
+        HubTool(msg("My receive code"), msg("Let people lock PDFs just for you."), R.drawable.lc_key_round, "receive-code", standalone = true),
     )),
     HubGroup(msg("Intelligence"), listOf(
+        HubTool(msg("Ask this PDF"), msg("Questions answered, with the pages they came from."), R.drawable.lc_message_circle_question, "ai-ask"),
         HubTool(msg("AI Summarizer"), msg("The key points, in seconds."), R.drawable.lc_sparkles, "ai-summarize"),
         HubTool(msg("Translate PDF"), msg("Into 56 languages, layout kept."), R.drawable.lc_languages, "ai-translate"),
         HubTool(msg("PDF to Markdown"), msg("Text with headings and lists."), R.drawable.lc_hash, "pdf-to-md"),
+        HubTool(msg("AI settings"), msg("Built-in AI, or your own key for a cloud service."), R.drawable.lc_wrench, "ai-settings", standalone = true),
     )),
 )
 

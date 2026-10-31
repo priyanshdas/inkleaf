@@ -40,11 +40,16 @@ import androidx.compose.ui.unit.dp
 /**
  * Keeps touches from reaching the editor engine's page, which sits underneath the native
  * screens. Everything opaque uses this; only the reader's page area leaves touches alone.
- * It takes what its children left, so their buttons and lists still work as usual.
+ *
+ * Being here is enough: once a touch lands on something in Compose that listens for touches,
+ * Android hands the whole gesture to this view and the page below never sees it. So it only
+ * listens, and claims nothing. (It used to mark every touch as used, and the lists inside,
+ * which wait to see whether a finger is scrolling, took that as someone else having it and
+ * didn't scroll.)
  */
 fun Modifier.ownTouches(): Modifier = pointerInput(Unit) {
     awaitPointerEventScope {
-        while (true) awaitPointerEvent().changes.forEach { it.consume() }
+        while (true) awaitPointerEvent()
     }
 }
 
@@ -85,11 +90,11 @@ fun PagePicture(image: ImageBitmap?, modifier: Modifier = Modifier, corner: Dp =
     }
 }
 
-/** "RECENT", "ORGANIZE": the small caps label above a group. */
+/** "Recent files", "Organize": the heading above a group. */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
     Row(modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, color = Inkleaf.colors.muted, modifier = Modifier.weight(1f))
+        Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
 }
