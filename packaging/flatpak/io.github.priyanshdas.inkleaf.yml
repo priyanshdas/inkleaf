@@ -1,0 +1,59 @@
+# Flatpak manifest for Inkleaf. Repackages the release .deb (same approach as
+# most Electron apps on Flathub), so it needs no change to the normal build.
+# Build and install locally:
+#   flatpak-builder --user --install --force-clean build-dir packaging/flatpak/io.github.priyanshdas.inkleaf.yml
+app-id: io.github.priyanshdas.inkleaf
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '25.08'
+command: inkleaf
+separate-locales: false
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  # Inkleaf works fully offline; no --share=network. Files are opened through
+  # the document portal (file chooser / "Open with"), so no filesystem access.
+
+modules:
+  - name: inkleaf
+    buildsystem: simple
+    build-commands:
+      - ar x inkleaf.deb data.tar.xz
+      - tar -xf data.tar.xz
+      - mv opt/Inkleaf /app/inkleaf
+      - install -Dm755 inkleaf.sh /app/bin/inkleaf
+      - install -Dm644 io.github.priyanshdas.inkleaf.desktop -t /app/share/applications
+      - install -Dm644 io.github.priyanshdas.inkleaf.metainfo.xml -t /app/share/metainfo
+      - install -Dm644 icon-256.png /app/share/icons/hicolor/256x256/apps/io.github.priyanshdas.inkleaf.png
+    sources:
+      - type: file
+        dest-filename: inkleaf.deb
+        url: https://github.com/priyanshdas/inkleaf-releases/releases/download/v3.1.2/Inkleaf-linux-amd64.deb
+        sha256: c976f673d5396db007cdc36929c937188e6254a8cf2e74138e93a78d26fc07ff
+        only-arches: [x86_64]
+        x-checker-data:
+          type: json
+          url: https://api.github.com/repos/priyanshdas/inkleaf-releases/releases/latest
+          version-query: .tag_name | sub("^v"; "")
+          url-query: .assets[] | select(.name=="Inkleaf-linux-amd64.deb") | .browser_download_url
+      - type: file
+        dest-filename: inkleaf.deb
+        url: https://github.com/priyanshdas/inkleaf-releases/releases/download/v3.1.2/Inkleaf-linux-arm64.deb
+        sha256: 4950032e45784998f19c34a9d3231ed7383a657d7fee9bca409d34ac89b17f10
+        only-arches: [aarch64]
+      - type: script
+        dest-filename: inkleaf.sh
+        commands:
+          - export TMPDIR="$XDG_RUNTIME_DIR/app/$FLATPAK_ID"
+          - exec zypak-wrapper /app/inkleaf/inkleaf "$@"
+      - type: file
+        path: icon-256.png
+      - type: file
+        path: io.github.priyanshdas.inkleaf.desktop
+      - type: file
+        path: io.github.priyanshdas.inkleaf.metainfo.xml
