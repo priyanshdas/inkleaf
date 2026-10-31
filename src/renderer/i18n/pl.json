@@ -1294,6 +1294,9 @@
   "1hcm8qn": "np. 1-3, 5",
   "0hl8j8j": "Strony do wydruku",
   "0zo8kgv": "Strony:",
-  "0ck1rdo": "Podgląd wydruku"
+  "0ck1rdo": "Podgląd wydruku",
+  "1tia8vo": "{count, plural, one {Przetłumaczono na {language}, ale # wiersza nie udało się przetłumaczyć i został bez zmian.} few {Przetłumaczono na {language}, ale # wierszy nie udało się przetłumaczyć i zostały bez zmian.} many {Przetłumaczono na {language}, ale # wierszy nie udało się przetłumaczyć i zostały bez zmian.} other {Przetłumaczono na {language}, ale # wiersza nie udało się przetłumaczyć i zostały bez zmian.}}",
+  "0jlko5v": "Uzupełnianie pominiętych wierszy",
+  "1mp5qkd": "SI nie odesłała tłumaczenia. Spróbuj ponownie albo wybierz większy model lub inną SI w Narzędzia › Ustawienia SI."
  }
 }

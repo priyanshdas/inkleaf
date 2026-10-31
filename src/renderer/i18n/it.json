@@ -1294,6 +1294,9 @@
   "1hcm8qn": "es. 1-3, 5",
   "0hl8j8j": "Pagine da stampare",
   "0zo8kgv": "Pagine:",
-  "0ck1rdo": "Anteprima di stampa"
+  "0ck1rdo": "Anteprima di stampa",
+  "1tia8vo": "{count, plural, one {Tradotto in {language}, ma # riga non è stata tradotta ed è rimasta com’era.} other {Tradotto in {language}, ma # righe non sono state tradotte e sono rimaste com’erano.}}",
+  "0jlko5v": "Completo le righe mancanti",
+  "1mp5qkd": "L’IA non ha restituito una traduzione. Riprova, o scegli un modello più grande o un’altra IA in Strumenti › Impostazioni IA."
  }
 }

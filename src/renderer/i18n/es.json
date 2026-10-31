@@ -1294,6 +1294,9 @@
   "1hcm8qn": "p. ej. 1-3, 5",
   "0hl8j8j": "Páginas que imprimir",
   "0zo8kgv": "Páginas:",
-  "0ck1rdo": "Vista previa de impresión"
+  "0ck1rdo": "Vista previa de impresión",
+  "1tia8vo": "{count, plural, one {Traducido al {language}, pero # línea no se pudo traducir y se dejó como estaba.} other {Traducido al {language}, pero # líneas no se pudieron traducir y se dejaron como estaban.}}",
+  "0jlko5v": "Completando las líneas que faltaban",
+  "1mp5qkd": "La IA no devolvió ninguna traducción. Vuelve a intentarlo, o elige un modelo más grande u otra IA en Herramientas › Ajustes de IA."
  }
 }

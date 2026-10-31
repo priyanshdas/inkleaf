@@ -375,36 +375,137 @@ export async function summarize(doc: EditorDoc, host: AiHost) {
 
 // --- translation ----------------------------------------------------------------------------
 
-/** Translates lines in batches, keeping them one-for-one. */
-async function translateLines(lines: string[], language: string, host: AiHost, label: string): Promise<string[]> {
-  const out: string[] = new Array(lines.length);
-  // each batch, translated, has to fit in what the AI can handle at once
-  const BATCH = Math.min(6000, Math.floor((await api().aiStatus()).budget / 4));
-  const system = `You are a professional translator. Translate each line of the JSON array into ${language}. Keep numbers, names, codes, email addresses and URLs as they are. Reply with only a JSON array of strings, exactly as long as the input, in the same order. Lines that are only numbers or symbols stay unchanged.`;
-  let start = 0;
-  let batch = 0;
-  const batches = Math.max(1, Math.ceil(lines.join('').length / BATCH));
-  while (start < lines.length) {
-    let end = start, size = 0;
-    while (end < lines.length && end - start < 120 && size < BATCH) size += lines[end++].length + 4;
-    const chunk = lines.slice(start, end);
-    batch++;
-    host.progress(t('{label} ({n} of {total})…', { label, n: Math.min(batch, batches), total: batches }));
-    let result: string[] | null = null;
-    for (let attempt = 0; attempt < 2 && !result; attempt++) {
-      const reply = await api().aiAsk({ system, prompt: `<lines>${JSON.stringify(chunk)}</lines>`, maxTokens: Math.min(16000, size * 3 + 500) });
-      try {
-        const json = JSON.parse(reply.slice(reply.indexOf('['), reply.lastIndexOf(']') + 1));
-        if (Array.isArray(json) && json.length === chunk.length) result = json.map((v) => String(v));
-      } catch {
-        // asked again below
+/** "7| some text" → [7, "some text"], for the numbered lines the AI replies with. */
+const NUMBERED = /^\s*(\d+)\s*[|｜)\]:.-]\s?(.*)$/;
+
+/**
+ * Asks for one batch of lines. Each goes out numbered and comes back with
+ * its number, so a model that drops, merges or garbles a line only loses
+ * that one, not the whole batch. Returns what came back, by position.
+ */
+async function translateBatch(chunk: string[], system: string, maxTokens: number): Promise<(string | undefined)[]> {
+  const prompt = `<lines>\n${chunk.map((line, i) => `${i + 1}| ${line.replace(/\s*\n\s*/g, ' ')}`).join('\n')}\n</lines>`;
+  const reply = await api().aiAsk({ system, prompt, maxTokens });
+  const got: (string | undefined)[] = new Array(chunk.length);
+  for (const line of reply.replace(/<\/?lines>/g, '').split('\n')) {
+    const m = NUMBERED.exec(line);
+    if (!m) continue;
+    const n = Number(m[1]) - 1;
+    const text = m[2].trim();
+    if (n >= 0 && n < chunk.length && got[n] === undefined && text) got[n] = text;
+  }
+  // a model that answered with a JSON list instead
+  if (!got.some((g) => g !== undefined)) {
+    try {
+      const json = JSON.parse(reply.slice(reply.indexOf('['), reply.lastIndexOf(']') + 1));
+      if (Array.isArray(json) && json.length === chunk.length) json.forEach((v, i) => (got[i] = String(v)));
+    } catch {
+      // nothing usable
+    }
+  }
+  return got;
+}
+
+/**
+ * Translates lines in batches, keeping them one-for-one. Lines the AI
+ * missed are asked for again in smaller groups; any still missing stay in
+ * the original language, and `missed` says how many.
+ */
+async function translateLines(lines: string[], language: string, host: AiHost, label: string): Promise<{ lines: string[]; missed: number }> {
+  const out: (string | undefined)[] = new Array(lines.length);
+  const status = await api().aiStatus();
+  // each batch, translated, has to fit in what the AI can handle at once;
+  // a small model on this computer or phone keeps its place better with fewer lines
+  const small = status.provider === 'builtin' || providerById(status.provider).onDevice;
+  const BATCH = small ? Math.min(1500, Math.floor(status.budget / 6)) : Math.min(6000, Math.floor(status.budget / 4));
+  const MAX_LINES = small ? 30 : 100;
+  const system = `You are a professional translator. Translate each numbered line into ${language}. The lines come one after another from the same document, so read them together for meaning, but keep every line separate. Reply with only the translated lines, one per line, each starting with its number and a vertical bar, like "7| translated text". Keep numbers, names, codes, email addresses and URLs as they are. A line that is only numbers, symbols or dots stays as it is.`;
+
+  const todo = lines.map((_, i) => i).filter((i) => {
+    // nothing to translate: keep it as it is
+    if (!/\p{L}/u.test(lines[i])) {
+      out[i] = lines[i];
+      return false;
+    }
+    return true;
+  });
+  const groups = (indices: number[], maxChars: number, maxLines: number) => {
+    const result: number[][] = [];
+    let group: number[] = [], size = 0;
+    for (const i of indices) {
+      if (group.length && (size + lines[i].length > maxChars || group.length >= maxLines)) {
+        result.push(group);
+        group = [];
+        size = 0;
+      }
+      group.push(i);
+      size += lines[i].length + 6;
+    }
+    if (group.length) result.push(group);
+    return result;
+  };
+
+  const first = groups(todo, BATCH, MAX_LINES);
+  let done = 0;
+  for (const group of first) {
+    done++;
+    host.progress(t('{label} ({n} of {total})…', { label, n: done, total: first.length }));
+    const size = group.reduce((n, i) => n + lines[i].length, 0);
+    const got = await translateBatch(group.map((i) => lines[i]), system, Math.min(16000, size * 3 + 300)).catch((err) => {
+      // the AI itself failing (no key, offline...) is worth stopping for
+      if (!group.some((i) => out[i] !== undefined) && done === 1) throw err;
+      return [] as (string | undefined)[];
+    });
+    group.forEach((i, k) => (out[i] = got[k]));
+  }
+
+  // a second go at whatever didn't come back, a few lines at a time
+  const missing = todo.filter((i) => out[i] === undefined);
+  if (missing.length) {
+    const retries = groups(missing, Math.max(400, BATCH / 3), 8);
+    let n = 0;
+    for (const group of retries) {
+      n++;
+      host.progress(t('{label} ({n} of {total})…', { label: t('Filling in missed lines'), n, total: retries.length }));
+      const size = group.reduce((c, i) => c + lines[i].length, 0);
+      const got = await translateBatch(group.map((i) => lines[i]), system, Math.min(4000, size * 3 + 200)).catch(() => [] as (string | undefined)[]);
+      group.forEach((i, k) => (out[i] = got[k]));
+    }
+  }
+
+  const missed = todo.filter((i) => out[i] === undefined).length;
+  if (todo.length && missed === todo.length) {
+    throw new Error(t('The AI didn’t send back a translation. Try again, or pick a bigger model or another AI in Tools › AI settings.'));
+  }
+  return { lines: lines.map((line, i) => out[i] ?? line), missed };
+}
+
+/**
+ * Joins the pieces of each printed line. Many PDFs (anything justified in
+ * Word, for one) place every word separately; translated one word at a
+ * time they'd make no sense, so pieces sitting on the same baseline, close
+ * enough together, become one line.
+ */
+export function joinLines(runs: TextRun[]): TextRun[] {
+  const lines: TextRun[] = [];
+  for (const run of runs) {
+    const line = lines[lines.length - 1];
+    if (line && Math.abs(line.angle - run.angle) < 1 && Math.abs(line.size - run.size) <= line.size * 0.15) {
+      // where this piece starts, measured along and across the line so far
+      const [along, across] = rotateVec(run.x - line.x, run.y - line.y, -line.angle);
+      const gap = along - line.width;
+      if (Math.abs(across) < line.size * 0.35 && gap > -line.size * 0.3 && gap < line.size * 2.5) {
+        const space = gap > line.size * 0.12 && !/\s$/.test(line.str) && !/^\s/.test(run.str) ? ' ' : '';
+        line.str += space + run.str;
+        line.width = Math.max(line.width, along + run.width);
+        line.bold &&= run.bold;
+        line.italic &&= run.italic;
+        continue;
       }
     }
-    // lines that came back garbled stay in the original language
-    chunk.forEach((line, i) => (out[start + i] = result ? result[i] : line));
-    start = end;
+    lines.push({ ...run });
   }
-  return out;
+  return lines;
 }
 
 /** A replacement that puts translated words where the original line was. */
@@ -471,7 +572,7 @@ export async function translate(doc: EditorDoc, host: AiHost) {
         const blocks = pages.flatMap((p) => p.blocks).filter((b) => b.kind !== 'picture') as Extract<PageStructure['blocks'][number], { spans: unknown }>[];
         const texts = blocks.map((b) => b.spans.map((s) => s.text).join('').replace(/\s+/g, ' ').trim());
         if (!texts.join('').trim()) throw new Error(t(NO_TEXT));
-        const translated = await translateLines(texts, target, host, t('Translating into {language}', { language: languageName(target) }));
+        const { lines: translated } = await translateLines(texts, target, host, t('Translating into {language}', { language: languageName(target) }));
         // each block keeps its look, with the translated words in one run
         blocks.forEach((b, i) => {
           const first = b.spans[0];
@@ -488,16 +589,19 @@ export async function translate(doc: EditorDoc, host: AiHost) {
     return;
   }
 
+  let missed = 0;
   const translatedDoc = await host.withBusy(t('Reading the document…'), async () => {
     const bytes = (await exportPdf(doc, pageIds)).bytes;
     const { EditorDoc } = await import('./document');
     const copy = await EditorDoc.open(bytes, `${doc.name.replace(/\.pdf$/i, '')} (${target}).pdf`, null);
     const source = copy.sources.get(copy.mainSource)!;
     const perPage: TextRun[][] = [];
-    for (let i = 0; i < copy.pages.length; i++) perPage.push(await pageRuns(await source.pdf.getPage(i + 1)));
+    for (let i = 0; i < copy.pages.length; i++) perPage.push(joinLines(await pageRuns(await source.pdf.getPage(i + 1))));
     const all = perPage.flat();
     if (!all.some((r) => r.str.trim())) throw new Error(t(NO_TEXT));
-    const translated = await translateLines(all.map((r) => r.str), target, host, t('Translating into {language}', { language: languageName(target) }));
+    const result = await translateLines(all.map((r) => r.str), target, host, t('Translating into {language}', { language: languageName(target) }));
+    const translated = result.lines;
+    missed = result.missed;
     // fonts for the new language (downloaded for Chinese, Japanese and Korean)
     // must be ready before the lines can be fitted
     host.progress(t('Preparing fonts…'));
@@ -515,5 +619,6 @@ export async function translate(doc: EditorDoc, host: AiHost) {
     return copy;
   });
   host.openDoc(translatedDoc);
-  toast(t('Translated into {language}. Check it over, then save it where you like.', { language: languageName(target) }), 'success', 6000);
+  if (missed) toast(t('{count, plural, one {Translated into {language}, but # line couldn’t be translated and was left as it was.} other {Translated into {language}, but # lines couldn’t be translated and were left as they were.}}', { count: missed, language: languageName(target) }), 'info', 9000);
+  else toast(t('Translated into {language}. Check it over, then save it where you like.', { language: languageName(target) }), 'success', 6000);
 }

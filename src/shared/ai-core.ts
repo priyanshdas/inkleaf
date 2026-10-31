@@ -164,9 +164,8 @@ export function mockAnswer(request: AiRequest): string {
   if (lines) {
     // "translation": each line, led by the language's own name, so the
     // tests can see both that it happened and that the script is drawn
-    const list = JSON.parse(lines[1]) as string[];
     const target = LANGUAGES.find((l) => request.system?.includes(`into ${l.name}.`));
-    return JSON.stringify(list.map((l) => `[${target?.native ?? 'T'}] ${l}`));
+    return lines[1].trim().split('\n').map((l) => l.replace(/^(\d+)\| /, `$1| [${target?.native ?? 'T'}] `)).join('\n');
   }
   // "Ask this PDF": echo the question and point at a page, so the tests can follow the link
   const question = request.prompt.match(/\nQuestion: (.*)$/);

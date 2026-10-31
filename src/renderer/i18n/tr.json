@@ -1294,6 +1294,9 @@
   "1hcm8qn": "örn. 1-3, 5",
   "0hl8j8j": "Yazdırılacak sayfalar",
   "0zo8kgv": "Sayfalar:",
-  "0ck1rdo": "Baskı önizleme"
+  "0ck1rdo": "Baskı önizleme",
+  "1tia8vo": "{count, plural, one {{language} diline çevrildi, ama # satır çevrilemedi ve olduğu gibi bırakıldı.} other {{language} diline çevrildi, ama # satır çevrilemedi ve olduğu gibi bırakıldı.}}",
+  "0jlko5v": "Atlanan satırlar tamamlanıyor",
+  "1mp5qkd": "Yapay zekâ bir çeviri göndermedi. Yeniden deneyin ya da Araçlar › Yapay zekâ ayarları'ndan daha büyük bir model veya başka bir yapay zekâ seçin."
  }
 }
