@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.priyanshdas.inkleaf</id>
+  <name>Inkleaf</name>
+  <summary>Free, open-source offline PDF editor</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer id="io.github.priyanshdas">
+    <name>Priyansh Das</name>
+  </developer>
+  <description>
+    <p>Inkleaf edits, signs, fills, converts and organises PDFs. Everything happens on your computer: nothing is uploaded, there are no accounts, and every tool is free.</p>
+  </description>
+  <launchable type="desktop-id">io.github.priyanshdas.inkleaf.desktop</launchable>
+  <url type="homepage">https://github.com/priyanshdas/inkleaf</url>
+  <url type="bugtracker">https://github.com/priyanshdas/inkleaf/issues</url>
+  <provides><mediatype>application/pdf</mediatype></provides>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="3.1.2" date="2026-10-31"/>
+  </releases>
+</component>

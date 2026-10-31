@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Inkleaf
+Comment=Edit, sign, fill, convert and organise PDFs. Everything happens on your computer.
+Exec=inkleaf @@u %U @@
+Terminal=false
+Type=Application
+Icon=io.github.priyanshdas.inkleaf
+StartupWMClass=inkleaf
+MimeType=application/pdf;
+Categories=Office;
