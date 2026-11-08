@@ -10,10 +10,34 @@
   </developer>
   <description>
     <p>Inkleaf edits, signs, fills, converts and organises PDFs. Everything happens on your computer: nothing is uploaded, there are no accounts, and every tool is free.</p>
+    <p>It changes the text that is actually in the file, so the old words are really gone. It also signs documents, fills forms, cleans up scans and handles pages.</p>
   </description>
+  <categories>
+    <category>Office</category>
+    <category>Viewer</category>
+  </categories>
+  <keywords>
+    <keyword>PDF</keyword>
+    <keyword>edit</keyword>
+    <keyword>sign</keyword>
+    <keyword>form</keyword>
+    <keyword>scan</keyword>
+  </keywords>
+  <screenshots>
+    <screenshot type="default">
+      <image type="source" width="1280" height="800">https://raw.githubusercontent.com/priyanshdas/inkleaf/main/packaging/flatpak/screenshots/editor.png</image>
+      <caption>Edit text, mark up and organise pages in one window</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1280" height="800">https://raw.githubusercontent.com/priyanshdas/inkleaf/main/packaging/flatpak/screenshots/form.png</image>
+      <caption>Fill in PDF forms</caption>
+    </screenshot>
+  </screenshots>
   <launchable type="desktop-id">io.github.priyanshdas.inkleaf.desktop</launchable>
   <url type="homepage">https://github.com/priyanshdas/inkleaf</url>
   <url type="bugtracker">https://github.com/priyanshdas/inkleaf/issues</url>
+  <url type="vcs-browser">https://github.com/priyanshdas/inkleaf</url>
+  <url type="donation">https://ko-fi.com/inkleaf</url>
   <provides><mediatype>application/pdf</mediatype></provides>
   <content_rating type="oars-1.1"/>
   <releases>
