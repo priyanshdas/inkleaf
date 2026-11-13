@@ -48,8 +48,10 @@ export async function prepareThumbnails() {
   try {
     const archive = path.join(temp, 'pdfium.tgz');
     fs.writeFileSync(archive, bytes);
-    // tar comes with Windows 10 and later, macOS and Linux
-    execFileSync('tar', ['-xzf', archive, '-C', temp], { stdio: 'inherit' });
+    // tar comes with Windows 10 and later, macOS and Linux. It's run inside
+    // the folder with a plain file name: Git's tar (first on the PATH on
+    // GitHub's Windows machines) reads "C:\…" as a computer called C.
+    execFileSync('tar', ['-xzf', 'pdfium.tgz'], { cwd: temp, stdio: 'inherit' });
     fs.copyFileSync(path.join(temp, 'bin', 'pdfium.dll'), path.join(out, 'pdfium.dll'));
     fs.rmSync(path.join(out, 'licenses'), { recursive: true, force: true });
     fs.cpSync(path.join(temp, 'licenses'), path.join(out, 'licenses'), { recursive: true });
