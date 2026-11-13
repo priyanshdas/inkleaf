@@ -359,6 +359,10 @@ const unsupported: string[] = [
   'new-window', 'devtools', 'fullscreen', 'quit', 'default-app',
   // keyboard shortcuts don't mean much without a keyboard
   'shortcuts',
+  // phones scan with their camera, in Scan to PDF
+  'insert-scan',
+  // starting at sign-in, the tray and File Explorer are the computer's
+  'app-settings',
 ];
 if (platform === 'web') unsupported.push('print', 'web-to-pdf');
 

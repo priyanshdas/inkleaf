@@ -2449,3 +2449,45 @@ html.mobile .lang-option.local-model > .local-progress { margin-inline-start: au
   .print-preview { max-height: 46vh; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
 }
 .modal:has(.print-dialog) { width: min(920px, 100%); }
+
+/* Scan to PDF: the scanner's own row, under the sources */
+.scanner-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: var(--radius); background: var(--panel-3);
+}
+.scanner-bar select { width: auto; min-width: 0; }
+.scanner-bar select:first-child { flex: 1 1 220px; }
+.scanner-bar .btn-primary { margin-inline-start: auto; }
+.scanner-bar .spinner { width: 14px; height: 14px; margin-inline-end: 6px; }
+.scanner-bar .scanner-settings-btn[aria-expanded='true'] { background: var(--panel-2); color: var(--accent); }
+.scanner-settings {
+  flex-basis: 100%;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px 18px;
+  padding: 12px 2px 4px; border-top: 1px solid var(--line);
+}
+.scanner-settings[hidden] { display: none; }
+.scanner-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.scanner-label { flex: none; width: 84px; font-size: 12.5px; color: var(--ink-3); }
+.scanner-field select { flex: 1; min-width: 0; height: 30px; font-size: 12.5px; }
+.scanner-field input[type='range'] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.scanner-value { flex: none; width: 3.2em; text-align: end; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.scanner-custom { display: flex; align-items: center; gap: 4px; }
+.scanner-custom[hidden] { display: none; }
+.scanner-custom input { width: 64px; height: 30px; font-size: 12.5px; }
+.scanner-custom select { width: auto; flex: none; }
+.scanner-settings-hint { grid-column: 1 / -1; }
+.scanner-note { flex-basis: 100%; }
+.scanner-note:empty { display: none; }
+.scan-empty .spinner.large { width: 34px; height: 34px; border-width: 3px; color: var(--accent); }
+
+/* Settings: starting up, downloads, File Explorer */
+.desktop-settings { display: flex; flex-direction: column; gap: 18px; width: 100%; max-width: 100%; }
+.desktop-section h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.desktop-section { display: flex; flex-direction: column; gap: 12px; }
+.desktop-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; margin-top: 0; }
+.desktop-row input { flex: none; margin-top: 3px; }
+.desktop-row > span { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.desktop-row .field-hint { white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
+.desktop-row strong { font-weight: 500; }
+.desktop-note { color: var(--danger); }
+.desktop-note:empty { display: none; }

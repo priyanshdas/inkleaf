@@ -28,7 +28,8 @@ export const HUB: { group: string; tools: HubTool[] }[] = [
       { title: msg('Extract pages'), detail: msg('Save some pages as a new PDF.'), icon: 'file-output', command: 'extract' },
       { title: msg('Organize PDF'), detail: msg('Drag pages into a new order.'), icon: 'layout-grid', command: 'organize' },
       { title: msg('Send to phone'), mobileTitle: msg('Send to computer'), detail: msg('Over your Wi-Fi, encrypted. No cloud.'), icon: 'smartphone', command: 'link-send' },
-      { title: msg('Scan to PDF'), detail: msg('Use your camera or phone photos.'), icon: 'scan-line', command: 'scan-to-pdf', standalone: true },
+      { title: msg('Scan to PDF'), detail: msg('Use a scanner, your camera or phone photos.'), icon: 'scan-line', command: 'scan-to-pdf', standalone: true },
+      { title: msg('Insert from scanner'), detail: msg('Scan pages straight into this PDF.'), icon: 'printer', command: 'insert-scan' },
     ],
   },
   {

@@ -2,7 +2,7 @@
 import { currentLocale, isRtl, msg, t } from '../shared/i18n';
 import { TextToolbar } from './text-toolbar';
 import { onFontsChanged } from './custom-fonts';
-import { CONVERTIBLE, type MenuCommand, type OpenedFile, type RecentFile, type UpdateState } from '../shared/api';
+import { CONVERTIBLE, type CombineRequest, type MenuCommand, type OpenedFile, type RecentFile, type UpdateState } from '../shared/api';
 import { FindBar } from './find';
 import { CommentsPanel, NotePopup } from './notes';
 import { OutlinePanel } from './outline';
@@ -57,6 +57,10 @@ interface Tab {
   scale: number | null;
   scrollTop: number;
   scrollLeft: number;
+  /** The page it was on (from 0), for reopening it next time. */
+  page: number;
+  /** A page to go to the first time it's shown (last session's page). */
+  pendingPage?: number;
 }
 
 const tabs: Tab[] = [];
@@ -317,8 +321,12 @@ function activate(tab: Tab | null) {
   editor.select(null);
   editor.cancelPlacement();
 
-  // remember where we were in the tab we're leaving
-  if (activeTab) {
+  // remember where we were in the tab we're leaving (if it was ever laid out:
+  // one left straight after opening still gets its first fit next time)
+  if (activeTab && activeTab.scale === null) {
+    activeTab.page = activeTab.pendingPage ?? activeTab.page;
+  } else if (activeTab) {
+    activeTab.page = activeTab.pendingPage ?? (doc && viewer.currentPageId ? Math.max(0, doc.pageIndex(viewer.currentPageId)) : activeTab.page);
     activeTab.scale = viewer.scale;
     activeTab.scrollTop = viewer.container.scrollTop;
     activeTab.scrollLeft = viewer.container.scrollLeft;
@@ -326,6 +334,8 @@ function activate(tab: Tab | null) {
 
   activeTab = tab;
   doc = tab?.doc ?? null;
+  // once the page has settled, note what's open for next time
+  setTimeout(reportSession, 800);
   // the Ask panel shows the conversation about this document
   if (askLoaded) void askLoaded.then((m) => m.refreshAsk());
   // each document has its own enhancement (or none)
@@ -344,9 +354,13 @@ function activate(tab: Tab | null) {
     if (tab.scale === null) {
       // first visit: fit the width, but don't blow small pages up to poster size
       requestAnimationFrame(() => {
+        // already switched to another tab: this one is fitted when it's shown again
+        if (tab !== activeTab || tab.scale !== null) return;
         viewer.fitWidth();
         if (viewer.scale > 1.25) viewer.setScale(1.25);
         viewer.container.scrollTop = 0;
+        tab.scale = viewer.scale;
+        goToPendingPage(tab);
         viewer.updateCurrentPage();
         updateChrome();
       });
@@ -355,6 +369,7 @@ function activate(tab: Tab | null) {
       viewer.layout();
       viewer.container.scrollTop = tab.scrollTop;
       viewer.container.scrollLeft = tab.scrollLeft;
+      goToPendingPage(tab);
       viewer.updateCurrentPage();
     }
   } else {
@@ -367,6 +382,33 @@ function activate(tab: Tab | null) {
   updateChrome();
 }
 
+// --- last session ---------------------------------------------------------------------------
+// The files open in this window, and the page each is on, so they can come
+// back next time Inkleaf starts (desktop only; a setting).
+
+let lastSession = '';
+function reportSession() {
+  if (!api.reportSession) return;
+  if (activeTab) activeTab.page = doc && viewer.currentPageId ? Math.max(0, doc.pageIndex(viewer.currentPageId)) : 0;
+  const state = {
+    tabs: tabs.filter((tab) => tab.doc.path).map((tab) => ({ path: tab.doc.path!, page: tab.page })),
+    active: activeTab?.doc.path ?? null,
+  };
+  const json = JSON.stringify(state);
+  if (json === lastSession) return;
+  lastSession = json;
+  api.reportSession(state);
+}
+
+/** Last session's page, the first time its tab is in front. */
+function goToPendingPage(tab: Tab) {
+  if (tab.pendingPage === undefined || tab !== activeTab) return;
+  const page = tab.doc.pages[Math.min(tab.pendingPage, tab.doc.pages.length - 1)];
+  tab.page = tab.pendingPage;
+  tab.pendingPage = undefined;
+  if (page) viewer.scrollToPage(page.id, false);
+}
+
 function addTab(next: EditorDoc) {
   next.addEventListener('change', onDocChange);
   next.addEventListener('history', () => {
@@ -377,7 +419,7 @@ function addTab(next: EditorDoc) {
       textToolbar.update(); // undo can bring back or take away a text box
     }
   });
-  const tab: Tab = { id: newId('t'), doc: next, scale: null, scrollTop: 0, scrollLeft: 0 };
+  const tab: Tab = { id: newId('t'), doc: next, scale: null, scrollTop: 0, scrollLeft: 0, page: 0 };
   const at = activeTab ? tabs.indexOf(activeTab) + 1 : tabs.length;
   tabs.splice(at, 0, tab);
   activate(tab);
@@ -438,12 +480,25 @@ async function rememberThumbnail(opened: EditorDoc) {
   }
 }
 
+/** Files being opened right now, so the same one arriving twice (a download, say) opens once. */
+const opening = new Map<string, Promise<void>>();
+
 async function openFile(file: OpenedFile) {
+  const busy = file.path ? opening.get(file.path) : undefined;
+  if (busy) await busy;
   const existing = file.path ? tabs.find((t) => t.doc.path === file.path) : null;
   if (existing) {
     activate(existing);
+    if (file.then) await run(file.then);
     return;
   }
+  if (!file.path) return openFileNow(file);
+  const done = openFileNow(file).finally(() => opening.delete(file.path!));
+  opening.set(file.path, done);
+  return done;
+}
+
+async function openFileNow(file: OpenedFile) {
   if (!/\.pdf$/i.test(file.name)) {
     // a Word file, spreadsheet, picture…: turn it into a PDF first
     await convertFiles([file]);
@@ -458,7 +513,9 @@ async function openFile(file: OpenedFile) {
       });
     });
     if (!opened) return;
-    addTab(opened);
+    const tab = addTab(opened);
+    // last session's file: back on the page it was on
+    if (file.page) tab.pendingPage = file.page;
     rememberThumbnail(opened);
     // comments already in the file become editable notes
     opened.adoptExistingNotes().then(() => {
@@ -468,6 +525,11 @@ async function openFile(file: OpenedFile) {
       toast(t('This PDF was protected. Inkleaf will save it without the protection.'), 'info', 8000);
     }
     if (await forms.hasFields()) toast(t('This PDF has form fields. Click a field to fill it in.'), 'info');
+    // "Print with Inkleaf" or "Compress with Inkleaf" from File Explorer, once the pages are in place
+    if (file.then) {
+      const then = file.then;
+      requestAnimationFrame(() => setTimeout(() => void run(then), 200));
+    }
   } catch (err) {
     console.error(err);
     if (err instanceof LockedError) {
@@ -687,6 +749,7 @@ const NO_DOC_NEEDED = new Set<Command>([
   'new', 'open', 'about', 'shortcuts', 'close', 'close-tab', 'new-window', 'quit', 'fullscreen', 'devtools',
   'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'default-app', 'receive-code', 'receive-file', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
   'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'language', 'terms', 'privacy', 'link-pair',
+  'app-settings',
 ]);
 
 /** Runs one of the bigger tools, turning failures into a readable dialog. */
@@ -780,6 +843,23 @@ async function run(command: Command) {
       if (files.length) await withBusy(t('Inserting pages…'), () => insertPdfFiles(doc!, files, afterCurrentIndex()));
       return;
     }
+    case 'insert-scan': {
+      // scanned pages go in after the page on screen
+      const target = doc!;
+      const at = afterCurrentIndex();
+      const { scanDialog } = await import('./scan');
+      const scanned = await scanDialog({ insert: true });
+      if (!scanned) return;
+      try {
+        const bytes = await withBusy(t('Making the pages…'), () => scanned.make(progress));
+        await withBusy(t('Inserting pages…'), () => insertPdfFiles(target, [{ name: 'Scan.pdf', data: bytes }], at));
+      } catch (err) {
+        return showError(t('Couldn’t add the scanned pages'), err);
+      }
+      if (target === doc) viewer.scrollToPage(target.pages[at].id);
+      if (scanned.ocr) await tool(t('Text recognition didn’t work'), () => runOcr(target));
+      return;
+    }
     case 'insert-blank': {
       const page = await insertBlankPage(doc!, viewer.currentPageId);
       viewer.scrollToPage(page.id);
@@ -858,6 +938,7 @@ async function run(command: Command) {
       });
     }
     case 'language': return tool(t('Couldn’t change the language'), chooseLanguage);
+    case 'app-settings': return tool(t('Couldn’t open Settings'), async () => (await import('./desktop-settings')).desktopSettingsDialog());
     case 'terms': return tool(t('Couldn’t show the terms'), () => showLegal('terms'));
     case 'privacy': return tool(t('Couldn’t show the privacy policy'), () => showLegal('privacy'));
     case 'pdf-to-images': return tool(t('Couldn’t export the pages'), () => pdfToImages(doc!, toolHost));
@@ -899,6 +980,47 @@ async function run(command: Command) {
 // --- the bigger tools --------------------------------------------------------------------
 
 /** Converts files to PDF and opens each as a new tab. */
+/**
+ * Several files made into one new PDF, in the order given: PDFs as they
+ * are, pictures and documents converted first (File Explorer's "Combine"
+ * and "Make a PDF", or several pictures dropped on Inkleaf's icon).
+ */
+async function combineFiles(request: CombineRequest) {
+  const { convertToPdf } = await import('./to-pdf');
+  const pdfs: { name: string; data: Uint8Array }[] = [];
+  const notes = new Set<string>();
+  for (const file of request.files) {
+    if (/\.pdf$/i.test(file.name)) {
+      pdfs.push(file);
+      continue;
+    }
+    try {
+      const result = await withBusy(t('Converting “{name}”…', { name: file.name }), () => convertToPdf(file, progress));
+      result.notes.forEach((n) => notes.add(n));
+      pdfs.push({ name: file.name.replace(/\.[^.]+$/, '.pdf'), data: result.bytes });
+    } catch (err) {
+      showError(t('Couldn’t convert “{name}”', { name: file.name }), err);
+    }
+  }
+  if (!pdfs.length) return;
+  try {
+    const combined = await withBusy(t('Combining {count, plural, one {# file} other {# files}}…', { count: pdfs.length }), async () => {
+      const first = await withUnlocked(pdfs[0].data, pdfs[0].name, async (bytes) => EditorDoc.open(bytes, request.name, null));
+      if (!first) return null;
+      if (pdfs.length > 1) await insertPdfFiles(first, pdfs.slice(1), first.pages.length);
+      return first;
+    });
+    if (!combined) return;
+    // it only exists in Inkleaf so far: closing should offer to save it
+    combined.markUnsaved();
+    addTab(combined);
+    toast(t('{count, plural, one {# file} other {# files}} combined into “{name}”. Save it to keep it.', { count: pdfs.length, name: request.name }), 'info', 7000);
+  } catch (err) {
+    showError(t('Couldn’t combine the files'), err);
+  }
+  if (notes.size) toast([...notes].join(' '), 'info', 9000);
+}
+
 async function convertFiles(files: { name: string; data: Uint8Array }[]) {
   const { convertToPdf } = await import('./to-pdf');
   const notes = new Set<string>();
@@ -1575,6 +1697,7 @@ const menus: Record<string, () => (MenuItem | 'separator')[]> = {
     return [
       { label: t('Merge another PDF…'), icon: 'file-plus', command: 'insert-pdf', action: () => run('insert-pdf') },
       { label: t('Insert blank page'), icon: 'file-plus-2', command: 'insert-blank', action: () => run('insert-blank') },
+      ...(supports('insert-scan') ? [{ label: t('Insert from scanner…'), icon: 'printer', command: 'insert-scan', action: () => run('insert-scan') }] : []),
       'separator',
       { label: several ? t('Rotate {count} selected pages left', { count }) : t('Rotate current page left'), icon: 'rotate-ccw', command: 'rotate-left', action: () => run('rotate-left') },
       { label: several ? t('Rotate {count} selected pages right', { count }) : t('Rotate current page right'), icon: 'rotate-cw', command: 'rotate-right', action: () => run('rotate-right') },
@@ -2075,7 +2198,14 @@ async function start() {
 
   api.onMenu((command: MenuCommand) => run(command));
   api.onSaveBeforeClose(() => saveAllBeforeClose());
-  api.onOpenFile((file) => openFile(file));
+  api.onCombine?.((request) => void combineFiles(request));
+  // one after another, so several files (last session's, say) keep their order
+  let opened = Promise.resolve();
+  api.onOpenFile((file) => {
+    opened = opened.then(() => openFile(file)).catch(() => {});
+  });
+  // which files are open here, for next time: on every change, and now and then for the page
+  if (api.reportSession) setInterval(reportSession, 3000);
   offerRecovery();
 
   if (api.engine) await startEngineMode();

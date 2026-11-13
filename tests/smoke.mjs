@@ -11,7 +11,10 @@
 import { _electron as electron } from 'playwright-core';
 import { startFakeRelay } from './fake-relay.mjs';
 import { startFakeLlamaDownloads } from './fake-llama.mjs';
-import { execFileSync } from 'node:child_process';
+import { makeFakeScanner, png as fakePng } from './fake-scanner.mjs';
+import { makeFakeEscl } from './fake-escl.mjs';
+import { execFileSync, spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -1925,10 +1928,279 @@ print(px[len(px) // 2])`, plain, auto);
   await quit(clean.app, clean.win);
 }
 
+async function scannerTest() {
+  console.log('\nscanner: insert pages from a scanner (stand-ins for SANE and a network scanner)');
+  const fake = makeFakeScanner();
+  // a network (eSCL) scanner on this computer, answering Bonjour like a printer would
+  const network = await makeFakeEscl({ jpeg: fakePng(850, 1100, (x, y) => (y > 200 && y < 230 && x > 100 && x < 700 ? [20, 40, 160] : [250, 250, 250])) });
+  const { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'), { env: { PATH: `${fake.dir}${path.delimiter}${process.env.PATH}` } });
+  await waitForPages(win);
+  const options = () => win.evaluate(() => [...document.querySelectorAll('.scanner-pick option')].map((o) => ({ id: o.value, name: o.textContent })));
+  const openDialog = async (way) => {
+    await win.evaluate(() => { void window.__inkleaf.run('insert-scan'); });
+    await win.waitForSelector('.scanner-bar:not([hidden])', { timeout: 10000 });
+    await win.waitForFunction((w) => [...document.querySelectorAll('.scanner-pick option')].some((o) => o.value.startsWith(w)), way, { timeout: 15000 });
+    const id = (await options()).find((o) => o.id.startsWith(way)).id;
+    await win.selectOption('.scanner-pick', id);
+    if (await win.locator('.scanner-settings').isHidden()) await win.click('.scanner-settings-btn');
+    return id;
+  };
+  const scanAndWait = async (n) => {
+    await win.click('.scanner-go');
+    await win.waitForFunction((k) => document.querySelectorAll('.scan-thumb').length === k, n, { timeout: 60000 });
+    await win.waitForFunction(() => !document.querySelector('.scanner-go').disabled, null, { timeout: 10000 });
+  };
+  const insert = async (total) => {
+    await win.click('.modal button:has-text("Insert pages")');
+    return win.waitForFunction((k) => window.__inkleaf.getDoc().pages.length === k, total, { timeout: 30000 }).then(() => true, () => false);
+  };
+
+  // 1. two pages from the glass, in greyscale at 150 dpi
+  const sane = await openDialog('sane:hpaio:');
+  check('it opens on the scanner', await win.locator('.modal-title, .modal h2').first().innerText().then((t) => /scan/i.test(t)));
+  check('the scanner is found by name', /HP LaserJet M1005/.test((await options()).find((o) => o.id === sane).name));
+  await win.selectOption('.scanner-color', 'gray');
+  await win.selectOption('.scanner-dpi', '150');
+  await scanAndWait(1);
+  await scanAndWait(2);
+  const scans = fake.scans();
+  check('two pages scanned, in greyscale at 150 dpi', scans.length === 2 && scans.every((s) => s.includes('--mode=Gray') && s.includes('--resolution=150')), scans.join(' / '));
+  check('the next-page hint shows', /Page 2 scanned/.test(await win.locator('.scanner-note').innerText()));
+  await win.screenshot({ path: path.join(out, 'scanner.png') });
+  await insert(5);
+  const order = await win.evaluate(() => window.__inkleaf.getDoc().pages.map((p) => `${p.src === window.__inkleaf.getDoc().mainSource ? 'old' : 'scan'}${p.index + 1}`));
+  check('the scans go in after the current page', order.join(' ') === 'old1 scan1 scan2 old2 old3', order.join(' '));
+
+  // 2. the network scanner, in colour at 300 dpi
+  const escl = await openDialog('escl:');
+  check('a network scanner is found too', (await options()).find((o) => o.id === escl).name === 'HP OfficeJet Pro 9010');
+  await win.selectOption('.scanner-color', 'color');
+  await win.selectOption('.scanner-dpi', '300');
+  await scanAndWait(1);
+  const job = network.log.find((l) => l.method === 'POST');
+  check('it scans over the network, in colour at 300 dpi, after waiting out "busy"',
+    !!job && /<scan:ColorMode>RGB24</.test(job.body) && /XResolution>300</.test(job.body) && /InputSource>Platen</.test(job.body) && network.log.filter((l) => /NextDocument/.test(l.url)).length === 2,
+    network.log.map((l) => `${l.method} ${l.url}`).join(' | '));
+  check('the network scan is added', await insert(6));
+
+  // 3. a stack from the feeder, cut to a custom size
+  await openDialog('sane:hpaio:');
+  check('each scanner keeps its own settings', await win.inputValue('.scanner-color') === 'gray' && await win.inputValue('.scanner-dpi') === '150');
+  await win.selectOption('.scanner-source', 'feeder');
+  check('the button says it scans several pages', /Scan pages/.test(await win.locator('.scanner-go').innerText()));
+  await win.selectOption('.scanner-size', 'custom');
+  await win.fill('.scanner-width', '100');
+  await win.fill('.scanner-height', '50');
+  await win.locator('.scanner-height').dispatchEvent('change');
+  await scanAndWait(3);
+  const batch = fake.scans().at(-1);
+  check('the feeder is used, and every sheet in it comes in', /--source=ADF( |$)/.test(batch) && /--batch=/.test(batch), batch);
+  check('the note says how many came from the feeder', /3 pages scanned from the feeder/.test(await win.locator('.scanner-note').innerText()));
+  const shape = await win.evaluate(() => [...document.querySelectorAll('.scan-thumb img')].map((img) => img.naturalWidth / img.naturalHeight));
+  check('each page is cut to 100 × 50 mm', shape.length === 3 && shape.every((r) => Math.abs(r - 2) < 0.08), shape.map((r) => r.toFixed(2)).join(' '));
+  // inches: the same size, in the other unit
+  await win.selectOption('.scanner-unit', 'in');
+  check('switching to inches converts the size', await win.inputValue('.scanner-width') === '3.94' && await win.inputValue('.scanner-height') === '1.97');
+  check('the feeder pages are added', await insert(9));
+
+  // 4. both sides from the network scanner's feeder, then lighter contrast on what came in
+  await openDialog('escl:');
+  check('the network scanner still has its own settings', await win.inputValue('.scanner-dpi') === '300' && await win.inputValue('.scanner-source') === 'glass');
+  await win.selectOption('.scanner-source', 'duplex');
+  await scanAndWait(6);
+  const duplex = network.log.filter((l) => l.method === 'POST').at(-1);
+  check('both sides of three sheets come in as six pages', /InputSource>Feeder</.test(duplex.body) && /<scan:Duplex>true</.test(duplex.body), duplex.body.replace(/\s+/g, ' ').slice(0, 300));
+  const lightness = () => win.evaluate(() => {
+    const img = document.querySelector('.scan-thumb.active img');
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1] + d[i + 2];
+    return sum / (d.length / 4) / 3;
+  });
+  const before = await lightness();
+  const oldThumb = await win.getAttribute('.scan-thumb.active img', 'src');
+  await win.locator('.scanner-contrast').fill('-60');
+  await win.waitForFunction((src) => document.querySelector('.scan-thumb.active img')?.getAttribute('src') !== src, oldThumb, { timeout: 5000 });
+  await win.waitForFunction(() => document.querySelector('.scan-thumb.active img')?.complete, null, { timeout: 5000 });
+  const after = await lightness();
+  check('turning contrast down shows on the page straight away', after < before - 15, `${before.toFixed(0)} → ${after.toFixed(0)}`);
+  check('and the slider shows its value', await win.locator('.scanner-value').nth(1).innerText() === '-60');
+  await win.screenshot({ path: path.join(out, 'scanner-settings.png') });
+  check('six more pages added', await insert(15));
+
+  // remembered for next time, scanner by scanner
+  const stored = await win.evaluate(() => JSON.parse(localStorage.getItem('inkleaf.scanner') ?? '{}'));
+  check('settings are remembered for each scanner',
+    stored.last === escl && stored.scanners?.[sane]?.color === 'gray' && stored.scanners?.[sane]?.source === 'feeder' && stored.scanners?.[sane]?.unit === 'in'
+      && stored.scanners?.[escl]?.source === 'duplex' && stored.scanners?.[escl]?.contrast === -60,
+    JSON.stringify(stored));
+  check('no errors', errors.length === 0, errors.join('\n'));
+  await quit(app, win);
+  await network.close();
+}
+
+/** Starts Inkleaf a second time, the way File Explorer or a double-click does; it hands over to the first and exits. */
+function secondStart(profile, args, env = {}) {
+  const electronPath = createRequire(import.meta.url)('electron');
+  return new Promise((resolve) => {
+    const child = spawn(electronPath, ['--no-sandbox', root, ...args], { cwd: root, env: { ...process.env, INKLEAF_USER_DATA: profile, ...env }, stdio: 'ignore' });
+    child.on('exit', resolve);
+    setTimeout(() => { child.kill(); resolve(-1); }, 20000);
+  });
+}
+
+async function desktopTest() {
+  console.log('\ndesktop: starting up, the tray, downloads, last session, File Explorer');
+  const home = fs.mkdtempSync(path.join(out, 'desktop-'));
+  const downloads = path.join(home, 'Downloads');
+  const config = path.join(home, 'config');
+  fs.mkdirSync(downloads);
+  const env = { INKLEAF_TEST_DOWNLOADS: downloads, XDG_CONFIG_HOME: config };
+  const profile = fs.mkdtempSync(path.join(out, 'profile-'));
+  const tabNames = (win) => win.evaluate(() => window.__inkleaf.allDocs().map((d) => d.name));
+  const waitForTab = (win, name, timeout = 15000) => win.waitForFunction((n) => window.__inkleaf.allDocs().some((d) => d.name === n), name, { timeout }).then(() => true, () => false);
+
+  // 1. Settings
+  let { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'), { env, profile });
+  await waitForPages(win);
+  await win.evaluate(() => { void window.__inkleaf.run('app-settings'); });
+  await win.waitForSelector('.desktop-settings', { timeout: 5000 });
+  const boxes = await win.evaluate(() => [...document.querySelectorAll('.desktop-settings input[type=checkbox]')].map((b) => `${b.className}=${b.checked}`));
+  check('Settings lists the desktop switches, with their defaults', boxes.join(' ') === 'desktop-startAtLogin=false desktop-keepInTray=false desktop-reopenSession=true desktop-openDownloads=true', boxes.join(' '));
+  check('no File Explorer menu switch off Windows', await win.locator('.desktop-explorerMenu').count() === 0);
+  await win.click('.desktop-startAtLogin');
+  await win.waitForFunction(() => document.querySelector('.desktop-keepInTray')?.checked && !document.querySelector('.desktop-startAtLogin')?.disabled, null, { timeout: 5000 });
+  const autostart = path.join(config, 'autostart', 'inkleaf.desktop');
+  const entry = fs.existsSync(autostart) ? fs.readFileSync(autostart, 'utf8') : '';
+  check('starting at sign-in adds an autostart entry that starts hidden', /^Exec=.*--hidden$/m.test(entry), entry);
+  check('and keeps Inkleaf in the tray too', await win.isChecked('.desktop-keepInTray'));
+  await win.click('.desktop-startAtLogin');
+  await win.waitForFunction(() => !document.querySelector('.desktop-startAtLogin')?.checked && !document.querySelector('.desktop-startAtLogin')?.disabled, null, { timeout: 5000 });
+  check('switching it off takes the entry away', !fs.existsSync(autostart));
+  await win.click('.desktop-keepInTray');
+  await win.waitForFunction(() => !document.querySelector('.desktop-keepInTray')?.checked && !document.querySelector('.desktop-keepInTray')?.disabled, null, { timeout: 5000 });
+  await win.screenshot({ path: path.join(out, 'desktop-settings.png') });
+  await win.click('.modal button:has-text("Done")');
+
+  // 2. downloads
+  // a browser writes under a temporary name, then renames it when it's done
+  const part = path.join(downloads, 'Unconfirmed 81233.crdownload');
+  fs.copyFileSync(path.join(fixtures, 'table.pdf'), part);
+  await win.waitForTimeout(500);
+  fs.renameSync(part, path.join(downloads, 'invoice.pdf'));
+  check('a finished download opens in a new tab', await waitForTab(win, 'invoice.pdf'));
+  // Firefox: an empty placeholder first, then the real file over it
+  fs.writeFileSync(path.join(downloads, 'statement.pdf'), '');
+  fs.copyFileSync(path.join(fixtures, 'form.pdf'), path.join(downloads, 'statement.pdf.part'));
+  await win.waitForTimeout(800);
+  fs.renameSync(path.join(downloads, 'statement.pdf.part'), path.join(downloads, 'statement.pdf'));
+  check('so does one that starts as an empty placeholder', await waitForTab(win, 'statement.pdf'));
+  // an old PDF moved in isn't a download
+  const old = path.join(home, 'old.pdf');
+  fs.copyFileSync(path.join(fixtures, 'chrome.pdf'), old);
+  const lastWeek = new Date(Date.now() - 7 * 86400_000);
+  fs.utimesSync(old, lastWeek, lastWeek);
+  fs.renameSync(old, path.join(downloads, 'old.pdf'));
+  // and neither is a PDF Inkleaf saves there itself (if it were taken for a download, its tab would come to the front)
+  const before = (await tabNames(win)).length;
+  await win.evaluate(() => window.__inkleaf.run('next-tab'));
+  const front = await win.evaluate(() => window.__inkleaf.getDoc().name);
+  await win.evaluate(async (target) => {
+    const { exportPdf, allDocs } = window.__inkleaf;
+    await window.inkleaf.save(target, (await exportPdf(allDocs().find((d) => d.name === 'invoice.pdf'))).bytes);
+  }, path.join(downloads, 'invoice.pdf'));
+  await win.waitForTimeout(4000);
+  const names = await tabNames(win);
+  check('old files moved in, and Inkleaf’s own saves, aren’t opened', front !== 'invoice.pdf' && !names.includes('old.pdf') && names.length === before
+    && await win.evaluate(() => window.__inkleaf.getDoc().name) === front, `${names.join(', ')} · front ${front}`);
+
+  // 3. last session: these files, on these pages, come back
+  // the one in front: a longer one, on its third page, and not the last tab
+  for (let i = 0; i < 6 && await win.evaluate(() => window.__inkleaf.getDoc().name) !== 'sample.pdf'; i++) await win.evaluate(() => window.__inkleaf.run('next-tab'));
+  const active = await win.evaluate(() => window.__inkleaf.getDoc().name);
+  await win.evaluate(() => {
+    const { getDoc, viewer } = window.__inkleaf;
+    viewer.scrollToPage(getDoc().pages[2].id, false);
+  });
+  await win.waitForTimeout(4000);
+  const wasOpen = await tabNames(win);
+  await quit(app, win);
+  ({ app, win, errors } = await launch(null, { env, profile }));
+  const allBack = await win.waitForFunction((n) => window.__inkleaf.allDocs().length === n, wasOpen.length, { timeout: 20000 }).then(() => true, () => false);
+  check('starting without a file brings back last session’s files', allBack && JSON.stringify(await tabNames(win)) === JSON.stringify(wasOpen), (await tabNames(win)).join(', '));
+  // the one in front is switched to once all of them are open
+  check('with the same one in front', await win.waitForFunction((n) => window.__inkleaf.getDoc()?.name === n, active, { timeout: 8000 }).then(() => true, () => false),
+    await win.evaluate(() => window.__inkleaf.getDoc()?.name));
+  const page = await win.waitForFunction(() => {
+    const { getDoc, viewer } = window.__inkleaf;
+    return getDoc() && viewer.currentPageId && getDoc().pageIndex(viewer.currentPageId) === 2;
+  }, null, { timeout: 8000 }).then(() => true, () => false);
+  check('on the page it was on', page, String(await win.evaluate(() => window.__inkleaf.getDoc().pageIndex(window.__inkleaf.viewer.currentPageId))));
+
+  // 4. File Explorer's verbs: one start per file, gathered back up
+  const pagesOf = (file) => Number(execFileSync('python3', ['-c', 'import pypdf,sys;print(len(pypdf.PdfReader(sys.argv[1]).pages))', file]).toString().trim());
+  const count = await tabNames(win).then((n) => n.length);
+  await Promise.all([
+    secondStart(profile, ['--merge', path.join(fixtures, 'table.pdf')], env),
+    secondStart(profile, ['--merge', path.join(fixtures, 'sample.pdf')], env),
+  ]);
+  check('"Combine" makes one new PDF from the files picked', await waitForTab(win, 'Combined.pdf', 20000));
+  const combinedPages = await win.evaluate(() => window.__inkleaf.allDocs().find((d) => d.name === 'Combined.pdf')?.pages.length);
+  check('with every page, in name order', combinedPages === pagesOf(path.join(fixtures, 'sample.pdf')) + pagesOf(path.join(fixtures, 'table.pdf'))
+    && await win.evaluate(() => window.__inkleaf.allDocs().find((d) => d.name === 'Combined.pdf').dirty), String(combinedPages));
+  // pictures dropped on the icon (or "Make a PDF" on them) become one PDF
+  const pic = (name, colour) => {
+    const file = path.join(home, name);
+    fs.writeFileSync(file, fakePng(300, 400, () => colour));
+    return file;
+  };
+  await secondStart(profile, [pic('page-2.png', [200, 30, 30]), pic('page-10.png', [30, 30, 200])], env);
+  check('several pictures at once become one PDF', await waitForTab(win, 'Pictures.pdf', 20000));
+  check('one page each', await win.evaluate(() => window.__inkleaf.allDocs().find((d) => d.name === 'Pictures.pdf')?.pages.length) === 2);
+  check('nothing else opened alongside', (await tabNames(win)).length === count + 2, (await tabNames(win)).join(', '));
+  // "Print with Inkleaf" opens the print preview
+  await secondStart(profile, ['--print', path.join(fixtures, 'form.pdf')], env);
+  check('"Print with Inkleaf" opens the file and its print preview', await win.waitForSelector('.print-sheet', { timeout: 15000 }).then(() => true, () => false)
+    && await win.evaluate(() => window.__inkleaf.getDoc().name) === 'form.pdf');
+  await win.screenshot({ path: path.join(out, 'desktop-print.png') });
+  await win.keyboard.press('Escape');
+  check('no errors', errors.length === 0, errors.join('\n'));
+  await quit(app, win);
+
+  // 5. started at sign-in: no window, until it's needed; then it stays in the tray
+  fs.writeFileSync(path.join(profile, 'session.json'), '{}');
+  const hidden = await electron.launch({ args: ['--no-sandbox', root, '--hidden'], cwd: root, env: { ...process.env, INKLEAF_USER_DATA: profile, ...env } });
+  await new Promise((r) => setTimeout(r, 3000));
+  check('started at sign-in, it opens no window', hidden.windows().length === 0);
+  // a downloaded PDF still opens, in a new window
+  fs.copyFileSync(path.join(fixtures, 'sample.pdf'), path.join(downloads, 'Unconfirmed 1.crdownload'));
+  const firstWindow = hidden.waitForEvent('window', { timeout: 20000 }).catch(() => null);
+  fs.renameSync(path.join(downloads, 'Unconfirmed 1.crdownload'), path.join(downloads, 'ticket.pdf'));
+  const shown = await firstWindow;
+  if (shown) await shown.waitForFunction(() => window.__inkleaf?.allDocs().some((d) => d.name === 'ticket.pdf'), null, { timeout: 15000 }).catch(() => {});
+  check('a download opens a window then', !!shown && await shown.evaluate(() => window.__inkleaf.allDocs().map((d) => d.name).join()) === 'ticket.pdf');
+  // closing it leaves Inkleaf running, ready for the next PDF
+  await shown?.evaluate(() => window.close());
+  await new Promise((r) => setTimeout(r, 1500));
+  const stillRunning = await hidden.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length).then((n) => n === 0, () => false);
+  check('closing the window leaves Inkleaf in the tray', stillRunning);
+  const nextWindow = hidden.waitForEvent('window', { timeout: 20000 }).catch(() => null);
+  await secondStart(profile, [path.join(fixtures, 'table.pdf')], env);
+  const again = await nextWindow;
+  if (again) await again.waitForFunction(() => window.__inkleaf?.allDocs().some((d) => d.name === 'table.pdf'), null, { timeout: 15000 }).catch(() => {});
+  check('and the next PDF opens straight away', !!again && await again.evaluate(() => window.__inkleaf.getDoc()?.name) === 'table.pdf');
+  await hidden.evaluate(({ app }) => app.quit()).catch(() => {});
+  await hidden.close().catch(() => {});
+}
+
 // ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

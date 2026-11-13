@@ -1,0 +1,4 @@
+LIBRARY inkleaf-thumbs
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE

@@ -59,7 +59,7 @@ const iconNames = [
   'key-round', 'lock', 'image-up', 'panel-left-open', 'panel-left-close', 'message-circle-question',
   'smartphone', 'qr-code', 'share-2', 'send', 'menu', 'more-vertical', 'shield-check', 'git-compare', 'droplets', 'file-image', 'images', 'file-type', 'hash', 'wrench', 'refresh-cw',
   'arrow-up', 'arrow-down', 'book-open', 'rectangle-vertical', 'columns-2', 'case-sensitive', 'pen-tool', 'download', 'contrast',
-  'scan-line', 'camera', 'aperture', 'maximize', 'sparkles', 'languages', 'file-minus', 'layout-grid', 'sheet', 'archive', 'list-ordered',
+  'scan-line', 'camera', 'aperture', 'maximize', 'sliders-horizontal', 'sparkles', 'languages', 'file-minus', 'layout-grid', 'sheet', 'archive', 'list-ordered',
 ];
 
 function writeIcons() {
@@ -138,6 +138,8 @@ function writeLegal() {
 
 function copyStatic() {
   const renderer = path.join(out, 'renderer');
+  // the tray icon (src/main/desktop.ts)
+  copy(r('build', 'icon.png'), path.join(out, 'icon.png'));
   copy(r('src', 'renderer', 'index.html'), path.join(renderer, 'index.html'));
   copy(r('src', 'renderer', 'styles.css'), path.join(renderer, 'styles.css'));
   copy(r('src', 'renderer', 'assets'), path.join(renderer, 'assets'));
@@ -227,6 +229,8 @@ const targets = [
     format: 'cjs',
     // the updater ships as a normal dependency and is loaded from node_modules
     external: ['electron', 'electron-updater', '@vercel/blob', '@vercel/blob/client'],
+    // the TWAIN scanner code is C#, compiled on the person's computer by PowerShell
+    loader: { '.cs': 'text' },
   },
   {
     ...common,

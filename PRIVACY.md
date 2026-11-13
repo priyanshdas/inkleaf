@@ -1,6 +1,6 @@
 # Inkleaf Privacy Policy
 
-Last updated: 28 October 2026
+Last updated: 13 November 2026
 
 Short version: Inkleaf doesn't collect anything about you. There's no
 account, no tracking, no analytics, no ads and no crash reports sent
@@ -35,11 +35,52 @@ own private storage on your phone (and nowhere else):
   your operating system's secure storage;
 - on a phone, the PDFs you open, save or receive, in Inkleaf's own library;
 - the phones or computer you've paired, with the secret key each pair
-  shares (encrypted with the system's secure storage where it has one).
+  shares (encrypted with the system's secure storage where it has one);
+- which files you had open, and on which page, so they can reopen next
+  time (switch this off in Settings);
+- the scanner you used last, and the settings you chose for each scanner
+  (colour, resolution, page size, brightness and contrast).
 
 You can delete any of this by removing a file from the recent list,
 clearing the backups folder, removing your API keys in AI settings, or
 uninstalling Inkleaf and deleting its folder.
+
+## On your computer
+
+These all happen on your own computer, and none of them sends anything
+anywhere:
+
+- **Downloads.** If "Open PDFs as soon as they're downloaded" is on (it is
+  unless you switch it off in Settings), Inkleaf watches your Downloads
+  folder while it's running and opens new PDFs that arrive there. It only
+  notices files ending in .pdf, and only looks at the folder on your own
+  computer.
+- **Starting when you sign in**, and staying in the tray, are off unless
+  you switch them on in Settings. Starting at sign-in adds Inkleaf to your
+  system's list of startup apps (on Windows, the same list Task Manager
+  shows), and switching it off takes it away again.
+- **File Explorer** (Windows): Inkleaf's right-click menu entries, its
+  thumbnails of PDFs, and the preview pane all work on the file you're
+  looking at, on your computer. The thumbnail maker reads a PDF only when
+  File Explorer asks it for a picture, keeps nothing, and has no way to
+  connect to the internet.
+- **Taskbar and tray:** your recent files appear in the menus of Inkleaf's
+  taskbar button and tray icon. They come from Inkleaf's own recent list
+  (remove a file there and it goes from both). The taskbar's list also
+  follows Windows' own setting for showing recently opened items.
+
+## Scanners and cameras
+
+- **Scanners** connected by USB are reached through their own driver on
+  your computer. To find **network scanners**, Inkleaf asks your local
+  network (with Bonjour, the way printers announce themselves) when you
+  open the scanner; it doesn't go past your own network. Scanned pages go
+  straight from the scanner to Inkleaf, and are only saved where you save
+  them.
+- **Cameras:** Scan to PDF uses your computer's webcam, or your phone's
+  camera, only while it's open. The phone app also uses the camera to scan
+  a pairing code. Pictures are only kept as the pages you add, and aren't
+  sent anywhere.
 
 ## Phone and computer link
 
@@ -57,8 +98,6 @@ through any server of mine.
   the phone) and the computer stops listening once no devices are paired.
 - On the phone, Inkleaf only checks for files from your computer while the
   app is on screen.
-- The phone app asks for the camera only to scan the pairing code. Pictures
-  from the camera aren't saved or sent anywhere.
 
 ## Sharing securely
 

@@ -33,6 +33,44 @@ export interface OpenedFile {
   path: string | null;
   name: string;
   data: Uint8Array;
+  /** Go to this page (from 0) once it's open: reopening last session's files. */
+  page?: number;
+  /** Then run this: "Print with Inkleaf" or "Compress with Inkleaf" in File Explorer. */
+  then?: 'print' | 'compress';
+}
+
+/** Several files to make into one new PDF (File Explorer's "Combine" and "Make a PDF"). */
+export interface CombineRequest {
+  name: string;
+  files: OpenedFile[];
+}
+
+/** One window's open files, so they can come back next time. */
+export interface SessionState {
+  tabs: { path: string; page: number }[];
+  active: string | null;
+}
+
+/** How Inkleaf fits in with the computer (desktop.ts). */
+export interface DesktopSettings {
+  /** Start, hidden in the tray, when signing in. */
+  startAtLogin: boolean;
+  /** Stay in the tray when the last window closes. */
+  keepInTray: boolean;
+  /** Open PDFs as soon as a browser finishes downloading them. */
+  openDownloads: boolean;
+  /** Start with the files that were open last time. */
+  reopenSession: boolean;
+  /** Combine, Print, Compress and Make a PDF in File Explorer's right-click menu. */
+  explorerMenu: boolean;
+}
+
+export interface DesktopSettingsState extends DesktopSettings {
+  /** Starting at sign-in was switched off in the system's own settings. */
+  startupBlocked: boolean;
+  supports: { startAtLogin: boolean; tray: boolean; explorerMenu: boolean };
+  platform: string;
+  downloads: string;
 }
 
 export interface PickedFile {
@@ -44,7 +82,7 @@ export type MenuCommand =
   | 'new' | 'open' | 'save' | 'save-as' | 'close'
   | 'undo' | 'redo' | 'copy' | 'cut' | 'paste' | 'delete' | 'duplicate' | 'select-all-pages'
   | 'zoom-in' | 'zoom-out' | 'zoom-reset' | 'zoom-fit-width' | 'zoom-fit-page' | 'toggle-sidebar'
-  | 'insert-pdf' | 'insert-blank' | 'extract' | 'split' | 'rotate-left' | 'rotate-right' | 'delete-pages'
+  | 'insert-pdf' | 'insert-blank' | 'insert-scan' | 'extract' | 'split' | 'rotate-left' | 'rotate-right' | 'delete-pages'
   | 'shortcuts' | 'about' | 'next-tab' | 'prev-tab' | 'close-tab'
   | 'theme-system' | 'theme-light' | 'theme-dark' | 'toggle-inspector'
   | 'find' | 'print' | 'enhance' | 'compress' | 'protect' | 'ocr' | 'compare' | 'decor' | 'remove-decor'
@@ -53,7 +91,7 @@ export type MenuCommand =
   | 'toggle-autosave' | 'open-backups' | 'open-github' | 'report-problem' | 'donate'
   | 'convert-to-pdf' | 'convert-from-pdf' | 'web-to-pdf' | 'scan-to-pdf' | 'repair' | 'pdf-to-pdfa'
   | 'ai-summarize' | 'ai-translate' | 'ai-ask' | 'ai-settings' | 'all-tools' | 'unlock' | 'language' | 'terms' | 'privacy'
-  | 'link-pair' | 'link-send' | 'share';
+  | 'link-pair' | 'link-send' | 'share' | 'app-settings';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
@@ -180,6 +218,13 @@ export interface InkleafApi {
   localAiDownload?(id: string): Promise<void>;
   localAiCancelDownload?(): Promise<void>;
   localAiRemove?(id: string): Promise<void>;
+  /** Scanners connected to this computer (Windows and Linux). */
+  listScanners?(): Promise<{ ok: true; scanners: { id: string; name: string }[] } | { ok: false; unsupported?: boolean; message?: string }>;
+  /**
+   * Scans from a scanner: one page from the glass, or every page in the
+   * document feeder. The pages as image files, and the resolution they came at.
+   */
+  scanPages?(id: string, options: { dpi: number; color: 'color' | 'gray' | 'bw'; source: 'glass' | 'feeder' | 'duplex' }): Promise<{ ok: true; pages: Uint8Array[]; dpi: number } | { ok: false; message: string }>;
   onLocalAiEvent?(listener: (event: LocalAiEvent) => void): () => void;
   /** Shows the system print dialog for the current page contents. */
   print(): Promise<{ ok: boolean; reason?: string }>;
@@ -267,6 +312,12 @@ export interface InkleafApi {
 
   onMenu(handler: (command: MenuCommand) => void): void;
   onOpenFile(handler: (file: OpenedFile) => void): void;
+  /** Files to combine into one new PDF. */
+  onCombine?(handler: (request: CombineRequest) => void): void;
+  /** Tells the app which files this window has open, for next time. */
+  reportSession?(state: SessionState): void;
+  getDesktopSettings?(): Promise<DesktopSettingsState>;
+  setDesktopSettings?(change: Partial<DesktopSettings>): Promise<DesktopSettingsState>;
   /** Main asks us to save before the window closes. Resolve true once saved. */
   onSaveBeforeClose(handler: () => Promise<boolean>): void;
 }

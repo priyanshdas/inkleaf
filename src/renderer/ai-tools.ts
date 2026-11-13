@@ -13,9 +13,9 @@ import { BASELINE, lineWidth, prepareFonts } from './fonts';
 import { setHanScript } from './script-fonts';
 import { LANGUAGES as ALL_LANGUAGES, languageLabel, languageName } from '../shared/languages';
 import { newId, rotateVec } from './geometry';
-import type { PDFDocumentProxy } from './pdf';
+import type { PDFDocumentProxy, PDFPageProxy } from './pdf';
 import type { PageStructure } from './pdf-structure';
-import { pageRuns, runBox, TextRun } from './text-finder';
+import { colorsAround, pageRuns, runBox, type RGB, TextRun } from './text-finder';
 import type { ReplaceAnnot } from './types';
 import { h, icon, modal, toast } from './ui';
 import { AI_PROVIDERS, LOCAL_SERVERS, providerById } from '../shared/ai-providers';
@@ -509,7 +509,34 @@ export function joinLines(runs: TextRun[]): TextRun[] {
 }
 
 /** A replacement that puts translated words where the original line was. */
-function overlay(run: TextRun, text: string): ReplaceAnnot {
+/**
+ * Draws a page off screen, so the colours behind and in each line can be
+ * read: a translated line then sits on the same background, in the same ink,
+ * as the words it replaces (a white strip across a coloured heading looks
+ * like a mistake).
+ */
+async function pageColors(page: PDFPageProxy) {
+  const viewport = page.getViewport({ scale: 1.5 });
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true })!;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+  const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  canvas.width = canvas.height = 0;
+  const sample = (x: number, y: number): RGB => {
+    const px = Math.max(0, Math.min(width - 1, Math.round(x)));
+    const py = Math.max(0, Math.min(height - 1, Math.round(y)));
+    const i = (py * width + px) * 4;
+    return [data[i], data[i + 1], data[i + 2]];
+  };
+  const toPixels = (x: number, y: number) => viewport.convertToViewportPoint(x, y) as [number, number];
+  return (run: TextRun) => colorsAround(sample, toPixels, runBox(run));
+}
+
+function overlay(run: TextRun, text: string, colors?: { background: string; ink: string }): ReplaceAnnot {
   const style = { font: run.font, bold: run.bold, italic: run.italic };
   let size = Math.round(run.size * 10) / 10;
   const natural = lineWidth(style, text, size);
@@ -518,8 +545,8 @@ function overlay(run: TextRun, text: string): ReplaceAnnot {
   const [dx, dy] = rotateVec(0, size * BASELINE, run.angle);
   return {
     id: newId('r'), type: 'replace', x: run.x + dx, y: run.y + dy, angle: run.angle,
-    text, original: run.str, size, ...style, color: '#1a1a1a',
-    cover: { ...runBox(run), color: '#ffffff' },
+    text, original: run.str, size, ...style, color: colors?.ink ?? '#1a1a1a',
+    cover: { ...runBox(run), color: colors?.background ?? '#ffffff' },
   };
 }
 
@@ -596,7 +623,13 @@ export async function translate(doc: EditorDoc, host: AiHost) {
     const copy = await EditorDoc.open(bytes, `${doc.name.replace(/\.pdf$/i, '')} (${target}).pdf`, null);
     const source = copy.sources.get(copy.mainSource)!;
     const perPage: TextRun[][] = [];
-    for (let i = 0; i < copy.pages.length; i++) perPage.push(joinLines(await pageRuns(await source.pdf.getPage(i + 1))));
+    const colorsOn: (((run: TextRun) => { background: string; ink: string }) | null)[] = [];
+    for (let i = 0; i < copy.pages.length; i++) {
+      const page = await source.pdf.getPage(i + 1);
+      // drawn first: that also loads its fonts, whose names say which lines are bold or italic
+      colorsOn.push(await pageColors(page).catch(() => null));
+      perPage.push(joinLines(await pageRuns(page)));
+    }
     const all = perPage.flat();
     if (!all.some((r) => r.str.trim())) throw new Error(t(NO_TEXT));
     const result = await translateLines(all.map((r) => r.str), target, host, t('Translating into {language}', { language: languageName(target) }));
@@ -608,12 +641,10 @@ export async function translate(doc: EditorDoc, host: AiHost) {
     await prepareFonts({ font: 'sans', bold: false, italic: false }, translated.join('\n'));
     await prepareFonts({ font: 'sans', bold: true, italic: false }, translated.join('\n'));
     let k = 0;
-    perPage.forEach((runs, i) => {
-      for (const run of runs) {
-        const text = translated[k++];
-        if (text && text.trim() !== run.str.trim()) copy.addAnnot(copy.pages[i].id, overlay(run, text));
-      }
-    });
+    for (let i = 0; i < perPage.length; i++) {
+      const changed = perPage[i].map((run) => ({ run, text: translated[k++] })).filter(({ run, text }) => text && text.trim() !== run.str.trim());
+      for (const { run, text } of changed) copy.addAnnot(copy.pages[i].id, overlay(run, text, colorsOn[i]?.(run)));
+    }
     copy.commit();
     copy.markUnsaved();
     return copy;

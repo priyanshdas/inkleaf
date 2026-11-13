@@ -1,7 +1,7 @@
 {
   "name": "inkleaf",
   "productName": "Inkleaf",
-  "version": "3.1.2",
+  "version": "3.2.0",
   "description": "A free, open-source, offline PDF editor: edit text, annotate, sign, fill and build forms, OCR, compress, compare and convert.",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/priyanshdas/inkleaf",
@@ -120,6 +120,12 @@
         "nsis",
         "portable"
       ],
+      "extraResources": [
+        {
+          "from": "build/thumbnails",
+          "to": "thumbnails"
+        }
+      ],
       "icon": "build/icon.png",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
@@ -130,8 +136,12 @@
       "publisherDisplayName": "Priyansh Das",
       "displayName": "Inkleaf",
       "backgroundColor": "#111111",
-      "showNameOnTiles": false
+      "showNameOnTiles": false,
+      "minVersion": "10.0.19041.0",
+      "maxVersionTested": "10.0.26100.0"
     },
+    "appxManifestCreated": "build/appx-manifest.js",
+    "beforePack": "build/before-pack.cjs",
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

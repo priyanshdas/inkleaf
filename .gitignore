@@ -10,6 +10,12 @@ keys/
 tests/bench/big.pdf
 build/installer-terms.txt
 build/license_en.txt
+# File Explorer thumbnails: PDFium is downloaded at build time (scripts/thumbnails.mjs)
+build/thumbnails/
+native/thumbnails/*.exe
+# one-off checks run on a developer's own Windows PC
+check-thumbnails.*
+fix-thumbnails.*
 
 # phone apps: generated web files and native build output
 mobile/www/

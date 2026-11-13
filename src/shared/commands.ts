@@ -96,6 +96,7 @@ export const MENU: MenuSection[] = [
       { label: msg('Light Theme'), command: 'theme-light' },
       { label: msg('Dark Theme'), command: 'theme-dark' },
       { label: msg('Language…'), command: 'language' },
+      { label: msg('Settings…'), command: 'app-settings', key: 'Mod+,' },
       'separator',
       { label: msg('Full Screen'), command: 'fullscreen', key: 'F11', macKey: 'Ctrl+Mod+F' },
       { label: msg('Developer Tools'), command: 'devtools', key: 'Mod+Shift+I', devOnly: true },
@@ -106,6 +107,7 @@ export const MENU: MenuSection[] = [
     items: [
       { label: msg('Insert PDF…'), command: 'insert-pdf' },
       { label: msg('Insert Blank Page'), command: 'insert-blank' },
+      { label: msg('Insert from Scanner…'), command: 'insert-scan' },
       'separator',
       { label: msg('Rotate Left'), command: 'rotate-left', key: 'Mod+Shift+L' },
       { label: msg('Rotate Right'), command: 'rotate-right', key: 'Mod+Shift+R' },

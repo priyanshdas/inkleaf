@@ -53,6 +53,8 @@ const api: InkleafApi = {
   localAiDownload: (id) => ipcRenderer.invoke('local-ai:download', id),
   localAiCancelDownload: () => ipcRenderer.invoke('local-ai:cancel-download'),
   localAiRemove: (id) => ipcRenderer.invoke('local-ai:remove', id),
+  listScanners: () => ipcRenderer.invoke('scan:list'),
+  scanPages: (id, options) => ipcRenderer.invoke('scan:pages', id, options),
   onLocalAiEvent: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, e: LocalAiEvent) => handler(e);
     ipcRenderer.on('local-ai:event', listener);
@@ -120,6 +122,12 @@ const api: InkleafApi = {
   onLinkEvent: (handler) => {
     ipcRenderer.on('link:event', (_event, e) => handler(e));
   },
+  onCombine: (handler) => {
+    ipcRenderer.on('combine-files', (_event, request) => handler(request));
+  },
+  reportSession: (state) => ipcRenderer.send('session:report', state),
+  getDesktopSettings: () => ipcRenderer.invoke('desktop:get'),
+  setDesktopSettings: (change) => ipcRenderer.invoke('desktop:set', change),
   onOpenFile: (handler) => {
     ipcRenderer.on('open-file', (_event, file: OpenedFile) => handler(file));
     // Main holds on to files from the command line or Finder until the page

@@ -56,7 +56,8 @@ If one of them already does what you need, it's a fine choice.
   editable notes, and the sidebar lists every one.
 - **Stamps.** Approved, Paid, Received, Rejected, Confidential and others (or
   your own words), with today's date if you like.
-- **Find (Ctrl+F)**, **Print (Ctrl+P)**, **bookmarks** (read, add, rename,
+- **Find (Ctrl+F)**, **Print (Ctrl+P)** with a preview of every page and a
+  choice of which to print, **bookmarks** (read, add, rename,
   delete; saved with the file), **crop pages**, and continuous, two-page and
   one-page reading modes.
 - **Text recognition (OCR).** Makes scans searchable and editable in 56
@@ -101,10 +102,19 @@ If one of them already does what you need, it's a fine choice.
   standard: fonts built in, colour profile, XMP metadata).
 - **Web page to PDF:** type an address and the page is printed onto A4,
   loaded privately without your logins or cookies.
-- **Scan to PDF:** take pictures of paper with your webcam, or add photos
-  from your phone. Inkleaf finds the page, lets you drag its corners,
-  straightens it, and whitens the paper (or makes it black and white).
-  Text recognition can run straight after.
+- **Scan to PDF:** scan from a scanner or all-in-one printer, take
+  pictures of paper with your webcam, or add photos from your phone.
+  Inkleaf finds the page, lets you drag its corners, straightens it, and
+  whitens the paper (or makes it black and white). Text recognition can
+  run straight after. Pages › Insert from Scanner adds scanned pages to the
+  open PDF.
+- **Scanners:** Inkleaf talks to scanners through WIA and TWAIN on
+  Windows, SANE on Linux, and eSCL (AirScan) over the network on every
+  system, so most flatbeds, all-in-ones and network printers work without
+  extra software beyond their own driver. The scanner settings cover the
+  glass or the document feeder (one side or both), resolution, page size
+  (A4, A5, Letter, Legal or your own), brightness and contrast, and are
+  remembered for each scanner.
 - **Repair PDF:** rebuilds a broken index, reads back what it can from
   cut-off files, and as a last resort redraws the pages. Offered
   automatically when a file won't open.
@@ -133,7 +143,9 @@ If one of them already does what you need, it's a fine choice.
   your document anywhere, and only when you run it; Ask this PDF sends only
   the parts of the document that match the question. Translation goes into
   any of 56 languages and either lays the new words over a copy of the
-  pages, keeping the layout, or makes a Word document.
+  pages, keeping the layout, or makes a Word document. Words that a PDF
+  stores one by one (anything justified in Word) are joined back into lines
+  first, and any line the AI misses is asked for again.
 - **All tools** (Ctrl+K or ⌘K): every tool on one searchable page, grouped
   as Organize, Optimize, Convert, Edit, Security and Intelligence.
 - Several PDFs open at once in tabs, a recent-files home screen, and a
@@ -175,8 +187,23 @@ If one of them already does what you need, it's a fine choice.
 - **Default PDF app.** The start screen offers once to make Inkleaf the app
   that opens PDFs (also under Help › Make Inkleaf the Default PDF App). On
   Linux it's set straight away; Windows only lets you choose that yourself,
-  so Inkleaf opens Settings on its own entry for you to confirm. The
-  portable version and the AppImage aren't installed, so they don't offer it.
+  so Inkleaf opens Settings on its own entry for you to confirm, and notices
+  when you have. File Explorer's preview pane keeps showing PDFs once
+  Inkleaf opens them (the Microsoft Store version too), and its icons
+  become pictures of each PDF's first page: Inkleaf installs its own
+  thumbnail maker for File Explorer, drawn with PDFium. The portable
+  version and the AppImage aren't installed, so they don't offer it.
+- **Fits in with your computer** (View › Settings, Ctrl+,):
+  - starts when you sign in, waiting in the tray, so PDFs open straight
+    away; or just stays in the tray when you close its windows;
+  - opens PDFs as soon as your browser finishes downloading them;
+  - reopens the files you had open last time, on the page you were reading;
+  - on Windows, right-click PDFs in File Explorer to **combine** several
+    into one, **print** or **compress** them, or right-click pictures and
+    documents to **make a PDF** (installed version; on Windows 11 under
+    "Show more options");
+  - recent files, "New window" and "Open a PDF" on the taskbar button;
+  - drop several pictures on Inkleaf's icon and they become one PDF.
 - Updates itself (installed version) when a new release is published.
 - Unlimited undo, light and dark mode, keyboard shortcuts for every tool
   (press Ctrl+/ or ⌘/ to see them).
@@ -498,6 +525,11 @@ files), saves, and then checks the saved files with poppler and pypdf rather
 than trusting the app's own state. Set `INKLEAF_SHOTS=/some/folder` to keep
 screenshots.
 
+
+The Windows thumbnail maker's drawing code has its own check, which needs a
+C++ compiler and PDFium (`pip install pypdfium2`): `node tests/thumbnails.mjs`.
+The DLL itself is rebuilt with `native/thumbnails/build.sh` (MinGW-w64);
+PDFium is downloaded at a fixed version when a Windows build is made.
 ## Performance
 
 `tests/bench/` has two benchmarks that drive the real app on a 300-page PDF
@@ -540,10 +572,12 @@ Things that keep it fast, worth preserving when changing the viewer:
 - **Translating over the page** replaces each line where it was. Longer
   translations are shrunk to fit the original line, so check the result;
   for long documents the Word option often reads better.
-- **Small local models** (a few billion parameters) summarize well but
-  can stumble on Translate PDF, which needs the answer back in a strict
-  line-by-line format. If a translation fails or comes out patchy, try a
-  larger model or a cloud provider.
+- **Small models** (the built-in AI's Quick model, or a few-billion-parameter
+  model in Ollama) summarize and answer questions well, and translate
+  line by line; their translations are plainer than a cloud model's. If
+  some lines come back untranslated, Inkleaf says how many; try Better or a
+  cloud provider for those documents. On a phone the built-in AI reads less
+  of the document per question, so answers stay quick on its processor.
 - **Language packs** (OCR models and the Chinese, Japanese and Korean fonts)
   need an internet connection the first time each one is used. They come
   from jsDelivr; your pages are never sent anywhere.
@@ -552,6 +586,17 @@ Things that keep it fast, worth preserving when changing the viewer:
   language, please open an issue or a pull request.
 - **Scan to PDF** finds the page by looking for the bright sheet on a darker
   background. On a white desk, drag the corners into place yourself.
+- **Scanners:** Inkleaf uses the scanner's own driver, so some scanners need
+  their maker's full software installed (not just the printer driver).
+  Older drivers sometimes show their own scan window even when Inkleaf asks
+  them not to. Scanning from a scanner on a Mac works with network scanners
+  (eSCL/AirScan) only, for now.
+- **File Explorer** (Windows): the thumbnails and preview pane only apply
+  while Inkleaf is your default PDF app. Thumbnails of PDFs locked with a
+  password show Inkleaf's icon. The right-click menu entries need the
+  installed version; on Windows 11 they're under "Show more options".
+- **Opening downloads** only works while Inkleaf is running; switch on
+  "Start Inkleaf when I sign in" in Settings to have it always ready.
 - **PDF/A** output is PDF/A-2b. Files with transparency groups or unusual
   fonts may still need a dedicated tool to pass a strict validator; Inkleaf
   lists anything it couldn't fix.
@@ -600,8 +645,9 @@ merged.
 
 **Privacy.** Inkleaf doesn't send any information to other networked
 systems unless you ask it to: when you use the AI tools, Web page to PDF,
-send or receive a file with a pickup code, download a language pack or
-check for updates. See the
+send or receive a file with a pickup code, download a language pack, check
+for updates, or open the scanner (which looks for network scanners on your
+own network only). See the
 [Privacy Policy](PRIVACY.md) for exactly what is sent, and to whom.
 
 ## Terms and privacy
@@ -610,7 +656,10 @@ Using Inkleaf means agreeing to the [Terms of Use](TERMS.md) and
 [Privacy Policy](PRIVACY.md). The installer shows both before installing,
 the portable and Linux builds ask once on first start, and both are under
 Help in the app. In short: Inkleaf is provided as is, with no warranty and
-no liability for how it's used, and it collects nothing about you.
+no liability for how it's used, and it collects nothing about you. Both
+also list what Inkleaf changes on your computer (startup, File Explorer's
+menu and thumbnails) and what it does on it (opening downloaded PDFs,
+finding scanners), all of which you can switch off in Settings.
 
 ## Licence
 

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Scan to PDF: take pictures of paper with a webcam (or pick photos from a
-// phone), straighten each page from its four corners, clean it up so it
-// looks scanned rather than photographed, and make a PDF.
+// Scan to PDF: scan pages on a scanner or all-in-one printer, take pictures
+// of paper with a webcam, or pick photos from a phone; straighten each page
+// from its four corners, clean it up so it looks scanned rather than
+// photographed, and make a PDF (or add the pages to the open one).
 
 import { t } from '../shared/i18n';
 import { embeddable } from './tools';
@@ -18,6 +19,11 @@ interface ScanPage {
   mode: Mode;
   /** Quarter turns applied after straightening. */
   turns: number;
+  /** -100 to 100; 0 leaves the page as it is. */
+  brightness: number;
+  contrast: number;
+  /** Came from a scanner, so the scanner settings' sliders adjust it. */
+  scanned?: boolean;
   thumb: string;
 }
 
@@ -220,8 +226,24 @@ function rotated(img: ImageData, turns: number): OffscreenCanvas {
   return c;
 }
 
+/** The browser's own brightness and contrast filters, scaled so the sliders' ends stay usable. */
+const lightFilter = (brightness: number, contrast: number) =>
+  brightness || contrast ? `brightness(${100 + brightness * 0.6}%) contrast(${100 + contrast * 0.8}%)` : 'none';
+
+/** Brightness and contrast, before any clean-up, so black & white takes them into account. */
+function adjust(img: ImageData, brightness: number, contrast: number): ImageData {
+  if (!brightness && !contrast) return img;
+  const from = new OffscreenCanvas(img.width, img.height);
+  from.getContext('2d')!.putImageData(img, 0, 0);
+  const to = new OffscreenCanvas(img.width, img.height);
+  const ctx = to.getContext('2d')!;
+  ctx.filter = lightFilter(brightness, contrast);
+  ctx.drawImage(from, 0, 0);
+  return ctx.getImageData(0, 0, img.width, img.height);
+}
+
 async function finished(page: ScanPage, maxSide?: number): Promise<OffscreenCanvas> {
-  return rotated(enhance(straighten(page, maxSide), page.mode), page.turns);
+  return rotated(enhance(adjust(straighten(page, maxSide), page.brightness, page.contrast), page.mode), page.turns);
 }
 
 async function canvasBytes(c: OffscreenCanvas, type: 'image/jpeg' | 'image/png', quality = 0.85) {
@@ -261,8 +283,61 @@ export interface Scanned {
   ocr: boolean;
 }
 
-/** The scanning dialog. Resolves to the pages taken, or null if cancelled. */
-export async function scanDialog(): Promise<Scanned | null> {
+// --- scanner settings --------------------------------------------------------------------------
+
+type PaperSize = 'glass' | 'a4' | 'a5' | 'letter' | 'legal' | 'custom';
+interface ScannerSettings {
+  color: 'color' | 'gray' | 'bw';
+  dpi: number;
+  source: 'glass' | 'feeder' | 'duplex';
+  size: PaperSize;
+  /** A custom size, in `unit`. */
+  width: number;
+  height: number;
+  unit: 'mm' | 'in';
+  brightness: number;
+  contrast: number;
+}
+const DEFAULTS: ScannerSettings = { color: 'color', dpi: 200, source: 'glass', size: 'glass', width: 210, height: 297, unit: 'mm', brightness: 0, contrast: 0 };
+/** Paper sizes in millimetres. */
+const PAPER: Record<Exclude<PaperSize, 'glass' | 'custom'>, [number, number]> = { a4: [210, 297], a5: [148, 210], letter: [215.9, 279.4], legal: [215.9, 355.6] };
+const RESOLUTIONS = [75, 100, 150, 200, 300, 400, 600];
+
+const SCANNER_KEY = 'inkleaf.scanner';
+/** The scanner used last, and each scanner's settings from last time. */
+interface Stored { last?: string; scanners: Record<string, Partial<ScannerSettings>> }
+function loadStored(): Stored {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SCANNER_KEY) ?? '{}');
+    // before scanners had their own settings: one scanner, colour and resolution
+    if (typeof raw.id === 'string') return { last: raw.id, scanners: { [raw.id]: { color: raw.color, dpi: raw.dpi } } };
+    return { last: typeof raw.last === 'string' ? raw.last : undefined, scanners: raw.scanners && typeof raw.scanners === 'object' ? raw.scanners : {} };
+  } catch {
+    return { scanners: {} };
+  }
+}
+
+/** The part of a scan that's the chosen paper size, from the glass's top corner where paper goes. */
+function paperCorners(s: ScannerSettings, bitmap: ImageBitmap, dpi: number): [Pt, Pt, Pt, Pt] {
+  let w = bitmap.width, hgt = bitmap.height;
+  const mm = s.size === 'custom'
+    ? [s.width, s.height].map((v) => (s.unit === 'in' ? v * 25.4 : v))
+    : s.size === 'glass' ? null : PAPER[s.size];
+  if (mm && mm[0] > 0 && mm[1] > 0) {
+    w = Math.min(w, Math.round((mm[0] / 25.4) * dpi));
+    hgt = Math.min(hgt, Math.round((mm[1] / 25.4) * dpi));
+  }
+  return [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: hgt }, { x: 0, y: hgt }];
+}
+
+/**
+ * The scanning dialog. Resolves to the pages taken, or null if cancelled.
+ * `insert` is for adding pages to the open document: the dialog says so, and
+ * starts on the scanner.
+ */
+export async function scanDialog(options: { insert?: boolean } = {}): Promise<Scanned | null> {
+  const api = window.inkleaf;
+  const hasScanner = !!api.listScanners && !!api.scanPages;
   const pages: ScanPage[] = [];
   let current: ScanPage | null = null;
   let stream: MediaStream | null = null;
@@ -276,6 +351,125 @@ export async function scanDialog(): Promise<Scanned | null> {
   const cameraBtn = h('button', { class: 'btn' }, icon('camera'), t('Use camera'));
   const captureBtn = h('button', { class: 'btn btn-primary', hidden: true }, icon('aperture'), t('Take picture'));
   const photosBtn = h('button', { class: 'btn' }, icon('images'), t('Add photos…'));
+
+  // a scanner or all-in-one printer
+  const scannerBtn = h('button', { class: 'btn', hidden: !hasScanner }, icon('printer'), t('Use scanner'));
+  const scannerPick = h('select', { class: 'field-input scanner-pick', 'aria-label': t('Scanner') }) as HTMLSelectElement;
+  const scannerColor = h('select', { class: 'field-input scanner-color', 'aria-label': t('Colour') },
+    new Option(t('Colour'), 'color'), new Option(t('Greyscale'), 'gray'), new Option(t('Black & white'), 'bw')) as HTMLSelectElement;
+  const scanBtn = h('button', { class: 'btn btn-primary scanner-go' }, icon('scan-line'), t('Scan page')) as HTMLButtonElement;
+  const findBtn = h('button', { class: 'btn small btn-ghost', title: t('Look for scanners again') }, icon('refresh-cw'));
+  const settingsBtn = h('button', { class: 'btn small btn-ghost scanner-settings-btn', title: t('Scanner settings'), 'aria-expanded': 'false' }, icon('sliders-horizontal'), t('Settings')) as HTMLButtonElement;
+  const scannerNote = h('span', { class: 'field-hint scanner-note' });
+
+  // the settings: where the paper is, resolution, paper size, brightness and contrast
+  const sourcePick = h('select', { class: 'field-input scanner-source' },
+    new Option(t('Glass'), 'glass'), new Option(t('Document feeder'), 'feeder'), new Option(t('Feeder, both sides'), 'duplex')) as HTMLSelectElement;
+  const dpiPick = h('select', { class: 'field-input scanner-dpi' }, ...RESOLUTIONS.map((n) => new Option(
+    n === 150 ? t('Draft (150 dpi)') : n === 200 ? t('Standard (200 dpi)') : n === 300 ? t('Fine (300 dpi)') : t('{n} dpi', { n }), String(n)))) as HTMLSelectElement;
+  const sizePick = h('select', { class: 'field-input scanner-size' },
+    new Option(t('Whole glass'), 'glass'), new Option('A4', 'a4'), new Option('A5', 'a5'),
+    new Option(t('Letter'), 'letter'), new Option(t('Legal'), 'legal'), new Option(t('Custom size'), 'custom')) as HTMLSelectElement;
+  const widthIn = h('input', { class: 'field-input scanner-width', type: 'number', min: '10', step: 'any', 'aria-label': t('Width') }) as HTMLInputElement;
+  const heightIn = h('input', { class: 'field-input scanner-height', type: 'number', min: '10', step: 'any', 'aria-label': t('Height') }) as HTMLInputElement;
+  const unitPick = h('select', { class: 'field-input scanner-unit', 'aria-label': t('Unit') }, new Option('mm', 'mm'), new Option('in', 'in')) as HTMLSelectElement;
+  const customSize = h('span', { class: 'scanner-custom' }, widthIn, h('span', {}, '×'), heightIn, unitPick);
+  const slider = (cls: string) => h('input', { class: `scanner-${cls}`, type: 'range', min: '-100', max: '100', step: '1' }) as HTMLInputElement;
+  const brightness = slider('brightness');
+  const contrast = slider('contrast');
+  const brightnessOut = h('output', { class: 'scanner-value' });
+  const contrastOut = h('output', { class: 'scanner-value' });
+  const resetLight = h('button', { class: 'btn small btn-ghost', title: t('Reset brightness and contrast') }, icon('rotate-ccw'));
+  const field = (label: string, ...controls: Node[]) => h('label', { class: 'scanner-field' }, h('span', { class: 'scanner-label' }, label), ...controls);
+  const settingsPanel = h('div', { class: 'scanner-settings', hidden: true },
+    field(t('Paper'), sourcePick),
+    field(t('Resolution'), dpiPick),
+    field(t('Page size'), sizePick, customSize),
+    field(t('Brightness'), brightness, brightnessOut),
+    field(t('Contrast'), contrast, contrastOut, resetLight),
+    h('span', { class: 'field-hint scanner-settings-hint' }, t('Brightness and contrast also change the page you’re looking at, if it came from the scanner.')),
+  );
+  const scannerBar = h('div', { class: 'scanner-bar', hidden: true }, scannerPick, scannerColor, settingsBtn, findBtn, scanBtn, settingsPanel, scannerNote);
+
+  const stored = loadStored();
+  const settingsFor = (id: string): ScannerSettings => ({ ...DEFAULTS, ...(stored.scanners[id] ?? {}) });
+  const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
+  const show = (s: ScannerSettings) => {
+    scannerColor.value = s.color;
+    sourcePick.value = s.source;
+    dpiPick.value = String(RESOLUTIONS.includes(s.dpi) ? s.dpi : DEFAULTS.dpi);
+    sizePick.value = s.size;
+    widthIn.value = String(s.width);
+    heightIn.value = String(s.height);
+    unitPick.value = s.unit;
+    brightness.value = String(s.brightness);
+    contrast.value = String(s.contrast);
+    refreshControls();
+  };
+  const read = (): ScannerSettings => ({
+    color: scannerColor.value as ScannerSettings['color'],
+    dpi: Number(dpiPick.value),
+    source: sourcePick.value as ScannerSettings['source'],
+    size: sizePick.value as PaperSize,
+    width: Number(widthIn.value) || DEFAULTS.width,
+    height: Number(heightIn.value) || DEFAULTS.height,
+    unit: unitPick.value as 'mm' | 'in',
+    brightness: Number(brightness.value),
+    contrast: Number(contrast.value),
+  });
+  function refreshControls() {
+    customSize.hidden = sizePick.value !== 'custom';
+    brightnessOut.textContent = signed(Number(brightness.value));
+    contrastOut.textContent = signed(Number(contrast.value));
+    const feeder = sourcePick.value !== 'glass';
+    scanBtn.replaceChildren(icon('scan-line'), feeder ? t('Scan pages') : t('Scan page'));
+  }
+  const remember = () => {
+    refreshControls();
+    if (!scannerPick.value) return;
+    stored.last = scannerPick.value;
+    stored.scanners[scannerPick.value] = read();
+    try {
+      localStorage.setItem(SCANNER_KEY, JSON.stringify(stored));
+    } catch {
+      // only a convenience
+    }
+  };
+  show(settingsFor(stored.last ?? ''));
+  scannerPick.addEventListener('change', () => { show(settingsFor(scannerPick.value)); remember(); });
+  [scannerColor, sourcePick, dpiPick, sizePick, widthIn, heightIn, unitPick].forEach((el) => el.addEventListener('change', remember));
+  // inches and millimetres: keep the same size when the unit changes
+  let unitWas = unitPick.value;
+  unitPick.addEventListener('change', () => {
+    const k = unitPick.value === 'in' && unitWas === 'mm' ? 1 / 25.4 : unitPick.value === 'mm' && unitWas === 'in' ? 25.4 : 1;
+    unitWas = unitPick.value;
+    widthIn.value = String(Math.round(Number(widthIn.value) * k * 100) / 100);
+    heightIn.value = String(Math.round(Number(heightIn.value) * k * 100) / 100);
+    remember();
+  });
+  settingsBtn.addEventListener('click', () => {
+    settingsPanel.hidden = !settingsPanel.hidden;
+    settingsBtn.setAttribute('aria-expanded', String(!settingsPanel.hidden));
+  });
+  // the sliders show their effect straight away on a page from the scanner
+  let thumbTimer = 0;
+  const light = () => {
+    remember();
+    if (!current?.scanned) return;
+    current.brightness = Number(brightness.value);
+    current.contrast = Number(contrast.value);
+    draw();
+    clearTimeout(thumbTimer);
+    const p = current;
+    thumbTimer = window.setTimeout(() => void updateThumb(p), 250);
+  };
+  brightness.addEventListener('input', light);
+  contrast.addEventListener('input', light);
+  resetLight.addEventListener('click', (e) => {
+    e.preventDefault();
+    brightness.value = contrast.value = '0';
+    light();
+  });
   const mode = h('select', { class: 'field-input scan-mode', title: t('How the page is cleaned up') },
     new Option(t('Document (whiter paper, sharper ink)'), 'document'),
     new Option(t('Black & white'), 'bw'),
@@ -292,6 +486,70 @@ export async function scanDialog(): Promise<Scanned | null> {
     captureBtn.hidden = true;
     cameraBtn.hidden = false;
   };
+
+  const findScanners = async () => {
+    scannerPick.replaceChildren(new Option(t('Looking for scanners…'), ''));
+    scannerPick.disabled = scanBtn.disabled = true;
+    scannerNote.textContent = '';
+    const found = await api.listScanners!().catch(() => ({ ok: false as const, message: t('Inkleaf couldn’t look for scanners.') }));
+    scannerPick.disabled = false;
+    if (!found.ok || !found.scanners.length) {
+      scannerPick.replaceChildren(new Option(t('No scanner found'), ''));
+      scannerNote.textContent = found.ok
+        ? t('Check the scanner is switched on and connected. Some printers need their maker’s full software for scanning, not just the printer driver.')
+        : (found.message ?? '');
+      return;
+    }
+    scannerPick.replaceChildren(...found.scanners.map((s) => new Option(s.name, s.id)));
+    if (stored.last && found.scanners.some((s) => s.id === stored.last)) scannerPick.value = stored.last;
+    show(settingsFor(scannerPick.value));
+    scanBtn.disabled = false;
+  };
+  const openScanner = () => {
+    if (stream) stopCamera();
+    scannerBar.hidden = false;
+    scannerBtn.hidden = true;
+    if (!pages.length) stage.replaceChildren(h('div', { class: 'scan-empty' }, icon('printer'), h('p', {}, t('Put the page face down on the scanner’s glass, close the lid, then press Scan page.'))));
+    void findScanners();
+  };
+  scannerBtn.addEventListener('click', openScanner);
+  findBtn.addEventListener('click', () => void findScanners());
+  scanBtn.addEventListener('click', async () => {
+    if (!scannerPick.value) return;
+    const settings = read();
+    const feeder = settings.source !== 'glass';
+    scanBtn.disabled = true;
+    scanBtn.replaceChildren(h('span', { class: 'spinner' }), t('Scanning…'));
+    scannerNote.textContent = '';
+    stage.replaceChildren(h('div', { class: 'scan-empty' }, h('span', { class: 'spinner large' }),
+      h('p', {}, feeder ? t('Scanning the pages in the feeder…') : t('Scanning… keep the lid closed until it’s done.'))));
+    try {
+      const result = await api.scanPages!(scannerPick.value, { dpi: settings.dpi, color: settings.color, source: settings.source });
+      if (!result.ok) {
+        scannerNote.textContent = result.message;
+        select(current);
+        return;
+      }
+      let last: ScanPage | null = null;
+      for (const data of result.pages) {
+        const bitmap = await createImageBitmap(new Blob([data as BlobPart]));
+        // a scan is already straight and square: keep the paper size asked
+        // for, and its colours, unless the person picks a clean-up for the page
+        const p = await addBitmap(bitmap, { corners: paperCorners(settings, bitmap, result.dpi), mode: settings.color === 'bw' ? 'bw' : 'original', brightness: settings.brightness, contrast: settings.contrast, scanned: true });
+        last = p;
+      }
+      select(last);
+      scannerNote.textContent = feeder
+        ? t('{count, plural, one {# page} other {# pages}} scanned from the feeder.', { count: result.pages.length })
+        : t('Page {n} scanned. Put the next page on the glass and press Scan page again.', { n: pages.length });
+    } catch {
+      scannerNote.textContent = t('The scan couldn’t be read. Try again.');
+      select(current);
+    } finally {
+      scanBtn.disabled = false;
+      refreshControls();
+    }
+  });
 
   const refreshStrip = () => {
     strip.replaceChildren(...pages.map((p, i) => {
@@ -326,7 +584,9 @@ export async function scanDialog(): Promise<Scanned | null> {
     const src = current.source;
     const scale = Math.min((bw - 24) / src.width, (bh - 24) / src.height);
     fit = { scale, ox: (bw - src.width * scale) / 2, oy: (bh - src.height * scale) / 2 };
+    ctx.filter = lightFilter(current.brightness, current.contrast);
     ctx.drawImage(src, fit.ox, fit.oy, src.width * scale, src.height * scale);
+    ctx.filter = 'none';
     const pts = current.corners.map((p) => ({ x: fit.ox + p.x * scale, y: fit.oy + p.y * scale }));
     // dim everything outside the page
     ctx.save();
@@ -400,8 +660,8 @@ export async function scanDialog(): Promise<Scanned | null> {
     refreshStrip();
   }
 
-  const addBitmap = async (bitmap: ImageBitmap) => {
-    const p: ScanPage = { id: nextId++, source: bitmap, corners: findPage(bitmap), mode: (mode.value as Mode) || 'document', turns: 0, thumb: '' };
+  const addBitmap = async (bitmap: ImageBitmap, from?: Partial<ScanPage>) => {
+    const p: ScanPage = { id: nextId++, source: bitmap, corners: findPage(bitmap), mode: (mode.value as Mode) || 'document', turns: 0, brightness: 0, contrast: 0, thumb: '', ...from };
     pages.push(p);
     await updateThumb(p);
     return p;
@@ -417,6 +677,8 @@ export async function scanDialog(): Promise<Scanned | null> {
     }
     current = null;
     pageTools.hidden = true;
+    scannerBar.hidden = true;
+    scannerBtn.hidden = !hasScanner;
     video.srcObject = stream;
     stage.replaceChildren(video);
     cameraBtn.hidden = true;
@@ -473,17 +735,19 @@ export async function scanDialog(): Promise<Scanned | null> {
   window.addEventListener('resize', onResize);
 
   const body = h('div', { class: 'scan' },
-    h('div', { class: 'scan-bar' }, cameraBtn, captureBtn, photosBtn, h('span', { class: 'spacer' }), count),
+    h('div', { class: 'scan-bar' }, scannerBtn, cameraBtn, captureBtn, photosBtn, h('span', { class: 'spacer' }), count),
+    scannerBar,
     stage,
     pageTools,
     strip,
     h('label', { class: 'check' }, ocr, h('span', {}, t('Recognise the text afterwards, so it can be searched and copied'))),
   );
+  if (options.insert && hasScanner) openScanner();
   const choice = await modal({
-    title: t('Scan to PDF'),
+    title: options.insert ? t('Insert scanned pages') : t('Scan to PDF'),
     wide: true,
     body,
-    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Make PDF'), value: 'ok', primary: true }],
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: options.insert ? t('Insert pages') : t('Make PDF'), value: 'ok', primary: true }],
     validate: async (value) => {
       if (value === 'ok' && !pages.length) {
         toast(t('Add at least one page first.'), 'info');

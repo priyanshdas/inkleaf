@@ -104,7 +104,7 @@ export function runBox(run: TextRun, pad = 0.6): Box {
   return unionBox([corner(-pad, bottom), corner(run.width + pad, bottom), corner(-pad, top), corner(run.width + pad, top)]);
 }
 
-type RGB = [number, number, number];
+export type RGB = [number, number, number];
 
 const hex = ([r, g, b]: RGB) => `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 const distance = (p: RGB, q: RGB) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
@@ -115,10 +115,21 @@ const distance = (p: RGB, q: RGB) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] -
  * run's box, the ink is whatever inside differs from it the most.
  */
 function sampleColors(viewer: Viewer, view: PageView, box: Box): { background: string; ink: string } {
-  const corners = [
-    viewer.toLocal(view, box.x, box.y),
-    viewer.toLocal(view, box.x + box.w, box.y + box.h),
-  ];
+  return colorsAround((x, y) => view.sample(x, y), (x, y) => viewer.toLocal(view, x, y), box);
+}
+
+/**
+ * The same, for any picture of a page: `sample` reads a pixel, `toPixels`
+ * turns a point on the page (user space) into that picture's coordinates.
+ * Translate PDF uses it on pages drawn off screen.
+ */
+export function colorsAround(
+  sample: (x: number, y: number) => RGB,
+  toPixels: (x: number, y: number) => [number, number],
+  box: Box,
+): { background: string; ink: string } {
+  const view = { sample };
+  const corners = [toPixels(box.x, box.y), toPixels(box.x + box.w, box.y + box.h)];
   const x0 = Math.min(corners[0][0], corners[1][0]), x1 = Math.max(corners[0][0], corners[1][0]);
   const y0 = Math.min(corners[0][1], corners[1][1]), y1 = Math.max(corners[0][1], corners[1][1]);
 

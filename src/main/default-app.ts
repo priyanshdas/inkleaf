@@ -80,10 +80,11 @@ async function windowsIsDefault(): Promise<boolean> {
 
 // --- the preview pane and thumbnails in File Explorer ------------------------------------------------
 //
-// Explorer finds a file's previewer through the app that opens it. Edge (or
-// Acrobat) registers one for PDFs on its own ProgID, so once Inkleaf is the
-// default the preview pane goes blank. Inkleaf doesn't ship a previewer of
-// its own, so it borrows whichever one is already on the computer, by
+// Explorer finds a file's previewer and thumbnail maker through the app that
+// opens it. Thumbnails are Inkleaf's own (native/thumbnails, registered by
+// the installer). For the preview pane, Edge (or Acrobat) registers one for
+// PDFs on its own ProgID, so once Inkleaf is the default the pane would go
+// blank; Inkleaf borrows whichever one is already on the computer, by
 // pointing its ProgID at the same handler. Only for this user (HKCU), and
 // checked each time Inkleaf starts, in case the other app moves its handler.
 
@@ -91,6 +92,8 @@ const PREVIEW = '{8895b1c6-b41f-4c1c-a562-0d564250836f}';
 const THUMBNAIL = '{e357fccd-a995-4576-b01f-234630154e96}';
 /** Edge's PDF previewer, used when no app has one registered on its ProgID. */
 const EDGE_PDF_PREVIEW = '{3A84F9C2-6164-485C-A7D9-4B27F8AC009E}';
+/** Inkleaf's own thumbnail maker (native/thumbnails/inkleaf-thumbs.cpp). */
+const INKLEAF_THUMBNAILS = '{1EBEB7F8-27A7-4B2A-A890-88C35591D436}';
 
 async function regValueNames(key: string): Promise<string[]> {
   try {
@@ -116,12 +119,19 @@ async function borrowedHandler(kind: string): Promise<string | null> {
   return null;
 }
 
-/** Makes sure File Explorer can still preview PDFs when Inkleaf opens them. */
+/** Makes sure File Explorer can still preview PDFs, and show their thumbnails, when Inkleaf opens them. */
 export async function keepPdfPreviews(): Promise<void> {
   if (process.platform !== 'win32' || !app.isPackaged || isPortable() || process.windowsStore) return;
+  // Inkleaf's own thumbnails, when the installer has set them up: an older
+  // version may have borrowed another app's in their place
+  const ownThumbnails = existsSync(path.join(process.resourcesPath, 'thumbnails', 'inkleaf-thumbs.dll')) && (await clsidExists(INKLEAF_THUMBNAILS));
   for (const kind of [PREVIEW, THUMBNAIL]) {
     const key = `HKCU\\Software\\Classes\\Inkleaf.pdf\\ShellEx\\${kind}`;
     const current = await regValue(key, null);
+    if (kind === THUMBNAIL && ownThumbnails) {
+      if (current?.toUpperCase() !== INKLEAF_THUMBNAILS) await run('reg', ['add', key, '/ve', '/d', INKLEAF_THUMBNAILS, '/f']).catch(() => {});
+      continue;
+    }
     if (current && (await clsidExists(current))) continue;
     const clsid = await borrowedHandler(kind);
     if (!clsid) continue;

@@ -5,7 +5,7 @@ import os from 'node:os';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { OpenedFile, RecentFile, ThemeSetting } from '../shared/api';
+import type { CombineRequest, DesktopSettings, OpenedFile, RecentFile, SessionState, ThemeSetting } from '../shared/api';
 import type { WindowCommand } from '../shared/commands';
 import { buildMenu } from './menu';
 import { catalog, loadLocale } from './locale';
@@ -17,7 +17,12 @@ import { cancelDownload, downloadModel, removeModel, shutdownLocalAi } from './l
 import { forget as forgetDevice, linkStatus, sendToDevice, startLink, startPairing } from './link';
 import { checkForUpdates, installUpdate, startUpdates } from './updates';
 import { defaultAppState, keepPdfPreviews, makeDefaultApp } from './default-app';
+import { listScanners, scanningSupported, scanPages, type ScanOptions } from './scanner';
 import { openForThisDevice, receiveCode } from './device-key';
+import {
+  announceTray, applyDesktopSettings, Batcher, byName, desktopSettings, desktopState, isImage, markOwnWrite,
+  parseLaunch, refreshJumpList, refreshTray, startDesktop, startedAtLogin, type Launch,
+} from './desktop';
 import { fetchPickup, forgetPickup, startSending, stopSending } from './pickup';
 
 // Lets tests run with a clean profile. Ignored in packaged builds.
@@ -105,6 +110,10 @@ interface WindowContext {
   closeConfirmed: boolean;
   ready: boolean;
   pendingFiles: OpenedFile[];
+  /** Files to combine, held like pendingFiles until the page is listening. */
+  pendingCombines: CombineRequest[];
+  /** Menu commands to run once the page is listening ("Open a PDF…" from the taskbar). */
+  pendingMenu: string[];
 }
 
 const windows = new Map<number, WindowContext>();
@@ -169,6 +178,9 @@ function rememberRecent(filePath: string) {
   const entry: RecentFile = { path: filePath, name: path.basename(filePath), openedAt: Date.now(), thumb: old?.thumb ?? null };
   writeJson(recentFile(), [entry, ...previous.filter((r) => r.path !== filePath)].slice(0, MAX_RECENT));
   app.addRecentDocument(filePath);
+  // the taskbar button's list and the tray menu show recent files too
+  refreshJumpList();
+  refreshTray();
 }
 
 function loadBounds(): Electron.Rectangle | null {
@@ -233,6 +245,8 @@ function createWindow(fileToOpen?: OpenedFile): BrowserWindow {
     closeConfirmed: false,
     ready: false,
     pendingFiles: fileToOpen ? [fileToOpen] : [],
+    pendingCombines: [],
+    pendingMenu: [],
   };
   const id = win.webContents.id;
   windows.set(id, ctx);
@@ -273,8 +287,81 @@ function createWindow(fileToOpen?: OpenedFile): BrowserWindow {
     }
   });
 
-  win.on('closed', () => windows.delete(id));
+  win.on('closed', () => {
+    windows.delete(id);
+    // a window closed on its own: its files no longer count as open. The
+    // last one's are kept, so they come back next time.
+    if (sessions.has(id) && windows.size > 0 && !quitting) {
+      sessions.delete(id);
+      saveSession();
+    } else {
+      sessions.delete(id);
+    }
+    if (windows.size === 0 && !quitting && keepsRunning()) {
+      refreshTray(true);
+      announceTray();
+    }
+  });
   return win;
+}
+
+// --- last session --------------------------------------------------------------------------
+
+const sessionFile = () => path.join(app.getPath('userData'), 'session.json');
+/** Each open window's files, by window. */
+const sessions = new Map<number, SessionState>();
+let quitting = false;
+
+function saveSession() {
+  const open = [...windows.keys()].map((id) => sessions.get(id)).filter((s): s is SessionState => !!s && s.tabs.length > 0);
+  writeJson(sessionFile(), { windows: open, savedAt: Date.now() });
+}
+
+/** Opens last session's files, a window for each window there was. False if there was nothing to bring back. */
+async function restoreSession(): Promise<boolean> {
+  const saved = readJson<{ windows?: SessionState[] }>(sessionFile(), {}).windows ?? [];
+  let restored = false;
+  for (const state of saved) {
+    const files: OpenedFile[] = [];
+    for (const tab of state.tabs ?? []) {
+      if (typeof tab?.path !== 'string' || !/\.pdf$/i.test(tab.path) || !existsSync(tab.path)) continue;
+      try {
+        const data = await fs.readFile(tab.path);
+        files.push({ path: tab.path, name: path.basename(tab.path), data: new Uint8Array(data), page: Math.max(0, Number(tab.page) || 0) });
+      } catch {
+        // moved or unreadable since: skip it
+      }
+    }
+    if (!files.length) continue;
+    const win = createWindow();
+    const ctx = windows.get(win.webContents.id)!;
+    for (const file of files) {
+      ctx.allowedPaths.add(file.path!);
+      deliver(ctx, file);
+    }
+    // the tab that was in front comes to the front again (opening a file that's already open just switches to it)
+    const active = files.find((f) => f.path === state.active);
+    if (active && active !== files[files.length - 1]) deliver(ctx, { path: active.path, name: active.name, data: new Uint8Array(0) });
+    restored = true;
+  }
+  return restored;
+}
+
+/** Inkleaf stays running without a window: in the tray. */
+const keepsRunning = () => process.platform !== 'darwin' && (desktopSettings().keepInTray || startedHidden);
+let startedHidden = false;
+
+/** Brings a window forward: the last one used, or a new one (with last session's files, if that's on). */
+async function showSomeWindow() {
+  const ctx = [...windows.values()].find((c) => !c.win.isDestroyed());
+  if (ctx) {
+    if (ctx.win.isMinimized()) ctx.win.restore();
+    ctx.win.show();
+    ctx.win.focus();
+    return;
+  }
+  if (desktopSettings().reopenSession && (await restoreSession())) return;
+  createWindow();
 }
 
 async function readPdf(filePath: string): Promise<OpenedFile> {
@@ -305,8 +392,8 @@ function openFromPhone(file: OpenedFile) {
   }
 }
 
-/** Opens a file from the OS (double-click, command line, dock). */
-async function openFromSystem(filePath: string) {
+/** Opens a file from the OS (double-click, command line, dock, a download), then prints or compresses it if asked. */
+async function openFromSystem(filePath: string, then?: 'print' | 'compress') {
   let file: OpenedFile;
   try {
     file = await readPdf(filePath);
@@ -314,17 +401,12 @@ async function openFromSystem(filePath: string) {
     dialog.showErrorBox(t('Couldn’t open file'), `${filePath}\n\n${(err as Error).message}`);
     return;
   }
+  if (then) file.then = then;
   // Open it as a new tab in the window you were last using.
-  const focused = BrowserWindow.getFocusedWindow();
-  const target = (focused && windows.get(focused.webContents.id)) ?? [...windows.values()].find((c) => !c.win.isDestroyed());
-  if (target) {
-    if (file.path) target.allowedPaths.add(file.path);
-    deliver(target, file);
-    if (target.win.isMinimized()) target.win.restore();
-    target.win.focus();
-  } else {
-    createWindow(file);
-  }
+  const target = targetWindow();
+  if (file.path) target.allowedPaths.add(file.path);
+  deliver(target, file);
+  if (!target.win.isFocused()) target.win.flashFrame(true);
 }
 
 function deliver(ctx: WindowContext, file: OpenedFile) {
@@ -332,19 +414,86 @@ function deliver(ctx: WindowContext, file: OpenedFile) {
   else ctx.pendingFiles.push(file);
 }
 
-function pdfArgs(argv: string[]): string[] {
-  return argv
-    .slice(app.isPackaged ? 1 : 2)
-    .filter((arg) => {
-      const ext = path.extname(arg).toLowerCase().slice(1);
-      return !arg.startsWith('-') && (ext === 'pdf' || CONVERTIBLE.includes(ext)) && existsSync(arg);
-    });
+/** The window to open something in: the one in use, or a new one. */
+function targetWindow(): WindowContext {
+  const focused = BrowserWindow.getFocusedWindow();
+  const found = (focused && windows.get(focused.webContents.id)) ?? [...windows.values()].find((c) => !c.win.isDestroyed());
+  if (found) {
+    if (found.win.isMinimized()) found.win.restore();
+    found.win.show();
+    found.win.focus();
+    return found;
+  }
+  return windows.get(createWindow().webContents.id)!;
 }
+
+/** Makes one new PDF out of several files (PDFs, pictures, documents), in name order. */
+async function combine(paths: string[]) {
+  const files: OpenedFile[] = [];
+  for (const p of byName(paths)) {
+    try {
+      const data = await fs.readFile(p);
+      files.push({ path: null, name: path.basename(p), data: new Uint8Array(data) });
+    } catch (err) {
+      dialog.showErrorBox(t('Couldn’t open file'), `${p}\n\n${(err as Error).message}`);
+    }
+  }
+  if (!files.length) return;
+  const allPictures = paths.every(isImage);
+  const request: CombineRequest = { name: allPictures ? t('Pictures.pdf') : t('Combined.pdf'), files };
+  const ctx = targetWindow();
+  if (ctx.ready) ctx.win.webContents.send('combine-files', request);
+  else ctx.pendingCombines.push(request);
+}
+
+// File Explorer starts Inkleaf once per selected file; these gather each lot back up
+const combining = new Batcher(900, (files) => void combine(files));
+const pictures = new Batcher(600, (files) => (files.length > 1 ? void combine(files) : files.forEach((f) => void openFromSystem(f))));
+
+/** Does what Inkleaf was started (or started again) with. */
+async function handleLaunch(launch: Launch, firstStart: boolean) {
+  if (launch.newWindow) createWindow();
+  if (launch.openDialog) {
+    const ctx = targetWindow();
+    if (ctx.ready) ctx.win.webContents.send('menu', 'open');
+    else ctx.pendingMenu.push('open');
+  }
+  const { intent, files } = launch;
+  if (intent === 'merge' || intent === 'combine') {
+    if (files.length) combining.add(files);
+    return;
+  }
+  if (intent === 'print' || intent === 'compress') {
+    for (const f of files) void openFromSystem(f, intent);
+    return;
+  }
+  // several pictures at once (dropped on Inkleaf's icon, say) become one PDF
+  const images = files.filter(isImage);
+  if (images.length) pictures.add(images);
+  for (const f of files.filter((f) => !isImage(f))) await openFromSystem(f);
+  if (firstStart && !files.length && !launch.newWindow && !launch.openDialog) {
+    if (startedAtLogin(launch)) {
+      // signed in: wait quietly in the tray
+      startedHidden = true;
+      refreshTray(true);
+      return;
+    }
+    await showSomeWindow();
+  } else if (!firstStart && !files.length && !launch.newWindow && !launch.openDialog) {
+    // started again with nothing to open (clicking its shortcut): show it
+    await showSomeWindow();
+  }
+}
+
+/** Inkleaf's own arguments start after the program (and, from source, after the app's folder). */
+const argStart = () => (app.isPackaged ? 1 : 2);
 
 async function writeFileSafely(target: string, data: Uint8Array) {
   // Write next to the target first so a crash or full disk never leaves the
   // user with half a PDF where their document used to be.
   const temp = `${target}.inkleaf-${process.pid}.tmp`;
+  // so a PDF saved into Downloads isn't taken for a new download
+  markOwnWrite(target);
   await fs.writeFile(temp, data);
   try {
     await fs.rename(temp, target);
@@ -392,7 +541,7 @@ function runWindowCommand(command: WindowCommand, win: BrowserWindow | null) {
 // The Windows installer and the macOS disk image show the terms before
 // installing. The portable and Linux builds have no such page, so the app
 // asks once on first start instead. Bump this when the terms change.
-const TERMS_VERSION = '2026-10-26';
+const TERMS_VERSION = '2026-11-13';
 const legalFile = () => path.join(app.getPath('userData'), 'legal.json');
 
 function needsAgreement(): boolean {
@@ -511,6 +660,23 @@ function registerIpc() {
   });
   ipcMain.handle('local-ai:cancel-download', () => cancelDownload());
   ipcMain.handle('local-ai:remove', (_event, id: string) => removeModel(String(id)));
+
+  // scanners: errors come back as a sentence to show, not as a failed call
+  ipcMain.handle('scan:list', async () => {
+    if (!scanningSupported()) return { ok: false, unsupported: true };
+    try {
+      return { ok: true, scanners: await listScanners(t) };
+    } catch (err) {
+      return { ok: false, message: (err as Error).message };
+    }
+  });
+  ipcMain.handle('scan:pages', async (_event, id: unknown, options: Partial<ScanOptions> | undefined) => {
+    try {
+      return { ok: true, ...(await scanPages(String(id), options ?? {}, t)) };
+    } catch (err) {
+      return { ok: false, message: (err as Error).message };
+    }
+  });
 
   ipcMain.handle('file:pick-pdfs', async (event, title?: unknown) => {
     const ctx = contextFor(event.sender);
@@ -733,10 +899,12 @@ function registerIpc() {
   });
   // "Make Inkleaf my default PDF app": whether it is, and whether the start
   // screen should still offer it (not once someone has said "Not now")
-  ipcMain.handle('default-app:state', async () => ({
-    state: await defaultAppState(),
-    dismissed: !!readJson<{ defaultAppDismissed?: boolean }>(settingsFile(), {}).defaultAppDismissed,
-  }));
+  ipcMain.handle('default-app:state', async () => {
+    const state = await defaultAppState();
+    // just made the default: make sure File Explorer can still preview PDFs, without waiting for a restart
+    if (state === 'default') void keepPdfPreviews().catch(() => {});
+    return { state, dismissed: !!readJson<{ defaultAppDismissed?: boolean }>(settingsFile(), {}).defaultAppDismissed };
+  });
   ipcMain.handle('default-app:make', () => makeDefaultApp());
   // PDFs locked to this computer (shared/lock.ts)
   ipcMain.handle('lock:receive-code', () => receiveCode());
@@ -784,7 +952,24 @@ function registerIpc() {
     const ctx = contextFor(event.sender);
     ctx.ready = true;
     for (const file of ctx.pendingFiles.splice(0)) ctx.win.webContents.send('open-file', file);
+    for (const request of ctx.pendingCombines.splice(0)) ctx.win.webContents.send('combine-files', request);
+    for (const command of ctx.pendingMenu.splice(0)) ctx.win.webContents.send('menu', command);
   });
+
+  // which files each window has open, so they can come back next time
+  ipcMain.on('session:report', (event, state: unknown) => {
+    const ctx = windows.get(event.sender.id);
+    if (!ctx || !state || typeof state !== 'object') return;
+    const s = state as SessionState;
+    const tabs = Array.isArray(s.tabs)
+      ? s.tabs.filter((tab) => typeof tab?.path === 'string' && ctx.allowedPaths.has(tab.path)).map((tab) => ({ path: tab.path, page: Math.max(0, Math.floor(Number(tab.page) || 0)) }))
+      : [];
+    sessions.set(event.sender.id, { tabs, active: typeof s.active === 'string' ? s.active : null });
+    saveSession();
+  });
+
+  ipcMain.handle('desktop:get', () => desktopState());
+  ipcMain.handle('desktop:set', (_event, change: Partial<DesktopSettings>) => applyDesktopSettings(change ?? {}));
 
   ipcMain.on('window:save-before-close-done', (event, saved: boolean) => {
     const ctx = contextFor(event.sender);
@@ -810,21 +995,15 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', (_event, argv) => {
-    const files = pdfArgs(argv);
-    if (files.length) files.forEach(openFromSystem);
-    else {
-      const first = [...windows.values()][0]?.win;
-      if (first) {
-        if (first.isMinimized()) first.restore();
-        first.focus();
-      } else createWindow();
-    }
+    void handleLaunch(parseLaunch(argv, argStart()), false);
   });
 
   app.whenReady().then(async () => {
     // tests on a Linux box without a keychain still need to store AI keys
     if (!app.isPackaged && process.env.INKLEAF_TEST_PLAIN_KEYS && process.platform === 'linux') safeStorage.setUsePlainTextEncryption(true);
     protocol.handle('app', serveAppFile);
+    // the installer's shortcuts carry this id; Windows needs it to show Inkleaf's notifications
+    if (process.platform === 'win32' && !process.windowsStore) app.setAppUserModelId('io.github.priyanshdas.inkleaf');
     // File Explorer's preview pane for PDFs, which needs a nudge once Inkleaf is the default
     void keepPdfPreviews().catch(() => {});
     // Our own pages may list the fonts installed on this computer (for the
@@ -854,24 +1033,34 @@ if (!app.requestSingleInstanceLock()) {
       for (const ctx of windows.values()) if (!ctx.win.isDestroyed()) ctx.win.webContents.send('update', state);
     });
 
-    const files = [...openQueue.splice(0), ...pdfArgs(process.argv)];
-    if (files.length === 0) createWindow();
-    for (const file of files) {
-      try {
-        createWindow(await readPdf(file));
-      } catch (err) {
-        dialog.showErrorBox(t('Couldn’t open file'), `${file}\n\n${(err as Error).message}`);
-      }
-    }
-    if (windows.size === 0) createWindow();
+    startDesktop({
+      read: () => readJson<Record<string, unknown>>(settingsFile(), {}),
+      write: (values) => writeJson(settingsFile(), { ...readJson(settingsFile(), {}), ...values }),
+      show: () => void showSomeWindow(),
+      openDialog: () => void handleLaunch({ hidden: false, newWindow: false, openDialog: true, intent: 'open', files: [] }, false),
+      newWindow: () => createWindow(),
+      openFiles: (paths) => paths.forEach((p) => void openFromSystem(p)),
+      recent: () => recentList().filter((r) => existsSync(r.path)),
+      windowCount: () => windows.size,
+    });
+
+    const launch = parseLaunch(process.argv, argStart());
+    launch.files.unshift(...openQueue.splice(0));
+    await handleLaunch(launch, true);
+    if (desktopSettings().keepInTray) refreshTray();
 
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      if (BrowserWindow.getAllWindows().length === 0) void showSomeWindow();
     });
   });
 
+  app.on('before-quit', () => {
+    quitting = true;
+  });
+
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    // in the tray: PDFs opened later open straight away
+    if (process.platform !== 'darwin' && !keepsRunning()) app.quit();
   });
   // let llama.cpp release the model before the process ends
   app.on('will-quit', () => void shutdownLocalAi());

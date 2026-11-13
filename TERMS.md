@@ -1,6 +1,6 @@
 # Inkleaf Terms of Use
 
-Last updated: 27 October 2026
+Last updated: 13 November 2026
 
 Inkleaf is a free, open-source PDF editor made by Priyansh Das ("EPD",
 "I", "me"). These terms apply to anyone who downloads, installs or uses
@@ -41,7 +41,12 @@ In particular, I don't promise that:
 - files sent between a paired phone and computer will always arrive, or
   that the link will work on every network. Some networks (such as public,
   office or hotel Wi-Fi) stop devices from reaching each other. Keep the
-  original until you've checked the copy arrived.
+  original until you've checked the copy arrived;
+- every scanner will work with Inkleaf, or scan exactly as its maker's own
+  software does. Inkleaf uses the scanner's own driver (or its network
+  scanning), so what it can do depends on the scanner and its driver;
+- File Explorer's thumbnails and preview of PDFs will appear for every
+  file, or look exactly like the page.
 
 ## 3. Your responsibility
 
@@ -59,7 +64,11 @@ responsible for:
   to send the files to, and removing a paired device you no longer use;
 - checking the results before relying on them, and keeping backups of
   anything important. Inkleaf makes backups when it auto-saves, but you
-  should not rely on them alone.
+  should not rely on them alone;
+- the PDFs you download. With "Open PDFs as soon as they're downloaded"
+  switched on (Settings), any PDF that lands in your Downloads folder
+  while Inkleaf is running opens straight away, wherever it came from.
+  Switch it off if you'd rather open downloads yourself.
 
 ## 4. No liability
 
@@ -74,7 +83,9 @@ fines or penalties, arising out of or in any way connected with:
 - your use of, or inability to use, Inkleaf;
 - any file, document or result produced, changed or damaged with Inkleaf;
 - anything you do, or anyone else does, with Inkleaf or its output;
-- any third-party service Inkleaf connects to (section 6);
+- any third-party service or software Inkleaf connects to or includes
+  (section 7), including scanner drivers;
+- a file opened automatically from your Downloads folder;
 
 however caused and on any theory of liability, whether contract, tort
 (including negligence), strict liability or otherwise, even if advised of
@@ -93,7 +104,27 @@ demand, loss, liability or expense (including reasonable legal fees)
 arising from your use of Inkleaf, the files you process with it, or your
 breach of these terms or of any law.
 
-## 6. Third-party services
+## 6. Changes Inkleaf makes to your computer
+
+Besides its own folder, Inkleaf changes only these, and only for your user
+account:
+
+- **When it's installed** (the Windows installer): it registers itself as
+  an app that can open PDFs, and adds its own thumbnail maker so File
+  Explorer can show the first page of each PDF. Uninstalling removes both.
+  The Microsoft Store version declares the same in its package.
+- **When you switch it on in Settings:** an entry so Inkleaf starts when
+  you sign in, and Inkleaf's entries in File Explorer's right-click menu
+  (Windows installer only; on by default, and off again in Settings).
+  Switching a setting off removes its entry; uninstalling removes them all.
+- **When Inkleaf is your default PDF app:** it points File Explorer's
+  preview pane for PDFs at the previewer already on your computer (the
+  one Microsoft Edge installs).
+
+Choosing the app that opens PDFs is always up to you: Inkleaf only opens
+the system's own settings for you to make that choice.
+
+## 7. Third-party services and software
 
 Inkleaf works on your own devices, but some optional features connect to
 other services. They are run by other companies under their own terms and
@@ -111,11 +142,19 @@ privacy policies, and I'm not responsible for them:
 - **Updates** are checked for and downloaded from GitHub.
 - **Links** such as "Buy me a coffee" (Ko-fi) and GitHub open in your web
   browser.
+- **Scanners** are reached through their maker's driver (WIA or TWAIN on
+  Windows, SANE on Linux) or, for network scanners, over your own network.
+  That software is the scanner maker's, under its own terms.
+- **Open-source components** come with Inkleaf under their own licences,
+  which are included with it: for example PDF.js, pdf-lib, Tesseract,
+  llama.cpp, and on Windows PDFium (the PDF engine Inkleaf's File Explorer
+  thumbnails are drawn with). Nothing in those licences limits your rights
+  under the GPL.
 
 Donations through Ko-fi are voluntary gifts. They don't buy a licence,
 support, features or any promise from me.
 
-## 7. Changes and ending
+## 8. Changes and ending
 
 I may update these terms in a later version of Inkleaf; the date at the
 top will change. Using a newer version means you accept its terms. You
@@ -126,14 +165,14 @@ or the App Store). Those stores' own terms apply to how you get the app
 from them; they aren't responsible for Inkleaf itself, and these terms
 still apply to your use of it.
 
-## 8. Law
+## 9. Law
 
 These terms are governed by the laws of India. Any dispute will be dealt
 with by the courts of Ranchi, Jharkhand, India, unless the law where you
 live gives you a right to bring it somewhere else. If any part of these
 terms can't be enforced, the rest still applies.
 
-## 9. Contact
+## 10. Contact
 
 Questions about these terms: open an issue at
 https://github.com/priyanshdas/inkleaf/issues
