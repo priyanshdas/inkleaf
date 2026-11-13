@@ -189,8 +189,8 @@ If one of them already does what you need, it's a fine choice.
   Linux it's set straight away; Windows only lets you choose that yourself,
   so Inkleaf opens Settings on its own entry for you to confirm, and notices
   when you have. File Explorer's preview pane keeps showing PDFs once
-  Inkleaf opens them (the Microsoft Store version too), and its icons
-  become pictures of each PDF's first page: Inkleaf installs its own
+  Inkleaf opens them (in the installed version), and its icons become
+  pictures of each PDF's first page (the Microsoft Store version too): Inkleaf installs its own
   thumbnail maker for File Explorer, drawn with PDFium. The portable
   version and the AppImage aren't installed, so they don't offer it.
 - **Fits in with your computer** (View › Settings, Ctrl+,):
