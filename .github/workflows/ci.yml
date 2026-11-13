@@ -54,6 +54,9 @@ jobs:
           java-version: 21
 
       - run: npm ci
+      
+      - name: Android NDK and CMake for the built-in AI
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;29.0.14206865" "cmake;3.31.6" > /dev/null
 
       - name: Build the phone app
         run: node scripts/android.mjs
