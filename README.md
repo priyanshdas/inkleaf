@@ -11,7 +11,7 @@ every tool is free. Built by EPD.
 
 **Download:**
 [Microsoft Store](https://apps.microsoft.com/detail/9NKC5ZQ6P2JR) (Windows) ·
-[releases page](https://github.com/priyanshdas/inkleaf/releases) (Windows,
+[releases page](https://github.com/priyanshdas/inkleaf-releases/releases) (Windows,
 macOS, Linux and the Android APK).
 
 ## Why another PDF editor?
