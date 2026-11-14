@@ -60,6 +60,11 @@
   </provides>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="3.3.1" date="2026-11-14">
+      <description>
+        <p>Fixes for the Flatpak: the app menu entry opens files correctly.</p>
+      </description>
+    </release>
     <release version="3.3.0" date="2026-11-14">
       <description>
         <p>Inkleaf is now called InkLeaf PDF.</p>
