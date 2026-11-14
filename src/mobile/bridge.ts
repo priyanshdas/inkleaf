@@ -216,7 +216,7 @@ async function downloadPack(name: string, onProgress: (received: number) => void
   const bytes = await readData(partial);
   if (bytes.length !== entry.size || (await sha256(bytes)) !== entry.sha256) {
     await Filesystem.deleteFile({ path: partial, directory: Directory.Data }).catch(() => {});
-    throw new Error(window.inkleafT('The downloaded language pack didn’t match what Inkleaf expected, so it wasn’t kept. Please try again.'));
+    throw new Error(window.inkleafT('The downloaded language pack didn’t match what InkLeaf PDF expected, so it wasn’t kept. Please try again.'));
   }
   await Filesystem.rename({ from: partial, to: `${PACKS}/${name}`, directory: Directory.Data, toDirectory: Directory.Data });
   onProgress(entry.size);
@@ -428,7 +428,7 @@ const api: InkleafApi & {
   pickPdfs: () => pick(['application/pdf'], true),
 
   async save(path, data) {
-    if (!path.startsWith(`${LIBRARY}/`)) throw new Error('Inkleaf can only save into its own library here.');
+    if (!path.startsWith(`${LIBRARY}/`)) throw new Error('InkLeaf PDF can only save into its own library here.');
     await writeData(path, data);
     remember(path, baseName(path));
   },

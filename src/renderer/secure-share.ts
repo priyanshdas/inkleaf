@@ -65,8 +65,8 @@ function codePanel(code: string, name: string) {
 
 export async function secureShareDialog(doc: EditorDoc, host: ToolHost) {
   const who = choices('share-who', [
-    { value: 'code', title: t('Anyone with the code'), detail: t('Whoever has the code can open it, in Inkleaf or any PDF app.') },
-    { value: 'device', title: t('Only one person’s device'), detail: t('Locked to their receive code, so it opens only in Inkleaf on their phone or computer. Nothing to leak.') },
+    { value: 'code', title: t('Anyone with the code'), detail: t('Whoever has the code can open it, in InkLeaf PDF or any PDF app.') },
+    { value: 'device', title: t('Only one person’s device'), detail: t('Locked to their receive code, so it opens only in InkLeaf PDF on their phone or computer. Nothing to leak.') },
   ], 'code');
   const how = choices('share-how', [
     { value: 'pickup', title: t('Send with a pickup code'), detail: isMobile()
@@ -80,7 +80,7 @@ export async function secureShareDialog(doc: EditorDoc, host: ToolHost) {
     body: h('div', { class: 'share' },
       h('h3', { class: 'share-heading' }, t('Who can open it')), who.el,
       h('h3', { class: 'share-heading' }, t('How they’ll get it')), how.el,
-      h('p', { class: 'field-hint' }, icon('shield-check'), t('Inkleaf locks a copy. The document you have open isn’t changed.'))),
+      h('p', { class: 'field-hint' }, icon('shield-check'), t('InkLeaf PDF locks a copy. The document you have open isn’t changed.'))),
     buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Continue'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;
@@ -101,7 +101,7 @@ async function shareWithCode(doc: EditorDoc, host: ToolHost) {
       codePanel(code, doc.name),
       h('p', { class: 'field-hint' }, icon('shield-check'),
         t('Send the PDF and the code by different routes, for example the file by email and the code by text message. Anyone who has both can open it.')),
-      h('p', { class: 'field-hint warn' }, icon('info'), t('Inkleaf doesn’t keep the code. Copy it or save the QR picture before you close this.'))),
+      h('p', { class: 'field-hint warn' }, icon('info'), t('InkLeaf PDF doesn’t keep the code. Copy it or save the QR picture before you close this.'))),
     buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Save locked PDF…'), value: 'ok', primary: true }],
   });
   if (go !== 'ok') return;
@@ -139,7 +139,7 @@ async function shareWithDevice(doc: EditorDoc, host: ToolHost, pickup: boolean) 
   const isReceiveCode = (text: string) => text.toLowerCase().startsWith('inkleaf-to:') || cleanCode(text).length === 55;
   const scan = h('button', { class: 'btn', type: 'button' }, icon('camera'), t('Scan their QR code'));
   scan.addEventListener('click', async () => {
-    const text = await scanQr(t('Scan their receive code'), t('Point the camera at the QR code in their Inkleaf (Tools › My Receive Code).'), isReceiveCode);
+    const text = await scanQr(t('Scan their receive code'), t('Point the camera at the QR code in their InkLeaf PDF (Tools › My Receive Code).'), isReceiveCode);
     if (text) {
       input.value = groupCode(cleanCode(text));
       await check();
@@ -161,13 +161,13 @@ async function shareWithDevice(doc: EditorDoc, host: ToolHost, pickup: boolean) 
     wide: true,
     body: h('div', { class: 'share' },
       h('ol', { class: 'share-steps' },
-        h('li', {}, t('Ask them to open Inkleaf and choose Tools › My Receive Code.')),
+        h('li', {}, t('Ask them to open InkLeaf PDF and choose Tools › My Receive Code.')),
         h('li', {}, t('Scan the QR code it shows, or paste the code they send you.'))),
       h('label', { class: 'field' }, h('span', { class: 'field-label' }, t('Their receive code')), input),
       h('div', { class: 'share-code-actions' }, scan, picture),
       status, error,
       h('p', { class: 'field-hint' }, icon('shield-check'),
-        t('Only Inkleaf on their phone or computer can open the locked copy. Not even you can open it, so keep your original.'))),
+        t('Only InkLeaf PDF on their phone or computer can open the locked copy. Not even you can open it, so keep your original.'))),
     buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: pickup ? t('Lock and send…') : t('Save locked PDF…'), value: 'ok', primary: true }],
     validate: async () => {
       await check();
@@ -185,7 +185,7 @@ async function shareWithDevice(doc: EditorDoc, host: ToolHost, pickup: boolean) 
     return;
   }
   const path = await api().saveCopy(bytes, `${baseName(doc.name)} (locked).pdf`, 'pdf');
-  if (path) toast(t('Saved. Only the person with that receive code can open it, in Inkleaf.'), 'success', 6000);
+  if (path) toast(t('Saved. Only the person with that receive code can open it, in InkLeaf PDF.'), 'success', 6000);
 }
 
 // --- pickup codes -------------------------------------------------------------------------------
@@ -198,7 +198,7 @@ async function sendWithPickup(name: string, file: Uint8Array) {
   const link = pickupLink(pickup, nearby);
 
   const wifi = h('li', { class: nearby.length ? 'ready' : 'off' },
-    nearby.length ? t('On your Wi-Fi: ready while Inkleaf is open.') : t('On your Wi-Fi: not available (no network).'));
+    nearby.length ? t('On your Wi-Fi: ready while InkLeaf PDF is open.') : t('On your Wi-Fi: not available (no network).'));
   // a phone sends through the internet only, so there's no Wi-Fi line to show
   if (isMobile() && !nearby.length) wifi.hidden = true;
   const internet = h('li', {}, t('Anywhere: uploading…'));
@@ -225,7 +225,7 @@ async function sendWithPickup(name: string, file: Uint8Array) {
   const copyLink = h('button', { class: 'btn', type: 'button' }, icon('copy'), t('Copy link'));
   copyLink.addEventListener('click', () => {
     void navigator.clipboard.writeText(link);
-    toast(t('Link copied. Opening it downloads the file, in Inkleaf or a web browser.'), 'success', 3500);
+    toast(t('Link copied. Opening it downloads the file, in InkLeaf PDF or a web browser.'), 'success', 3500);
   });
   const choice = await modal({
     title: t('Pickup code'),
@@ -239,7 +239,7 @@ async function sendWithPickup(name: string, file: Uint8Array) {
           h('div', { class: 'share-code-actions' }, copy, copyLink, qrSaveButton(link, pickup.code, `${baseName(name)} (pickup code).png`)))),
       h('ul', { class: 'share-status' }, wifi, internet),
       h('p', { class: 'field-hint' }, icon('shield-check'),
-        t('They choose Receive a File in Inkleaf and type the code or scan the QR code. Without Inkleaf, scanning the QR code with a phone downloads it in the browser. The file is encrypted, and only this code can unlock it.'))),
+        t('They choose Receive a File in InkLeaf PDF and type the code or scan the QR code. Without InkLeaf PDF, scanning the QR code with a phone downloads it in the browser. The file is encrypted, and only this code can unlock it.'))),
     buttons: [{ label: t('Stop sharing'), value: 'stop' }, { label: t('Done'), value: 'ok', primary: true }],
   });
   stop();
@@ -315,20 +315,20 @@ export class LockedError extends Error {}
 async function wrapLocked(data: Uint8Array): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle('Locked PDF');
-  pdf.setProducer('Inkleaf');
+  pdf.setProducer('InkLeaf PDF');
   const page = pdf.addPage([595.28, 841.89]);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const ink = rgb(0.08, 0.13, 0.11), soft = rgb(0.35, 0.4, 0.37), green = rgb(0.07, 0.23, 0.18);
   page.drawRectangle({ x: 0, y: 841.89 - 120, width: 595.28, height: 120, color: green });
-  page.drawText('Inkleaf', { x: 64, y: 841.89 - 74, size: 22, font: bold, color: rgb(0.96, 0.95, 0.92) });
+  page.drawText('InkLeaf PDF', { x: 64, y: 841.89 - 74, size: 22, font: bold, color: rgb(0.96, 0.95, 0.92) });
   page.drawText('This PDF is locked', { x: 64, y: 620, size: 28, font: bold, color: ink });
   const lines = [
-    'It was locked with Inkleaf so that only one person\'s device can open it.',
-    'If it was sent to you, open it in Inkleaf on your phone or computer and it',
+    'It was locked with InkLeaf PDF so that only one person\'s device can open it.',
+    'If it was sent to you, open it in InkLeaf PDF on your phone or computer and it',
     'will open normally. Other PDF apps can only show this page.',
     '',
-    'Inkleaf is free and open source: priyanshdas.github.io/inkleaf',
+    'InkLeaf PDF is free and open source: priyanshdas.github.io/inkleaf',
   ];
   lines.forEach((line, i) => page.drawText(line, { x: 64, y: 570 - i * 22, size: 13, font: regular, color: i === 4 ? soft : ink }));
   pdf.catalog.set(PDFName.of(MARK), pdf.context.register(pdf.context.stream(data)));
@@ -392,12 +392,12 @@ export async function receiveCodeDialog() {
         h('div', { class: 'share-code-side' },
           h('span', { class: 'field-label' }, t('Your receive code')),
           h('output', { class: 'share-code-text small' }, shown),
-          h('div', { class: 'share-code-actions' }, copy, qrSaveButton(qrText, t('Inkleaf receive code'), 'Inkleaf receive code.png')))),
+          h('div', { class: 'share-code-actions' }, copy, qrSaveButton(qrText, t('InkLeaf PDF receive code'), 'InkLeaf PDF receive code.png')))),
       h('p', { class: 'field-hint' }, icon('shield-check'), t('It’s safe to share: it can only lock files for you, never open them.')),
       h('p', { class: 'field-hint warn' }, icon('info'),
         isMobile()
-          ? t('Files locked to this code open only in Inkleaf on this phone. If you reset this phone or move to a new one, they can’t be opened there, so ask for a new copy.')
-          : t('Files locked to this code open only in Inkleaf on this computer, signed in as you. If you reset this computer or move to a new one, they can’t be opened there, so ask for a new copy.'))),
+          ? t('Files locked to this code open only in InkLeaf PDF on this phone. If you reset this phone or move to a new one, they can’t be opened there, so ask for a new copy.')
+          : t('Files locked to this code open only in InkLeaf PDF on this computer, signed in as you. If you reset this computer or move to a new one, they can’t be opened there, so ask for a new copy.'))),
     buttons: [{ label: t('Done'), value: 'ok', primary: true }],
   });
 }

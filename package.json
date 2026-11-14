@@ -1,7 +1,7 @@
 {
   "name": "inkleaf",
   "productName": "Inkleaf",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "A free, open-source, offline PDF editor: edit text, annotate, sign, fill and build forms, OCR, compress, compare and convert.",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/priyanshdas/inkleaf",
@@ -134,7 +134,7 @@
       "identityName": "PriyanshDas.InkLeaf",
       "publisher": "CN=6862D623-F74B-49DF-80AE-FB42001FAFC6",
       "publisherDisplayName": "Priyansh Das",
-      "displayName": "Inkleaf",
+      "displayName": "InkLeaf PDF",
       "backgroundColor": "#111111",
       "showNameOnTiles": false,
       "minVersion": "10.0.19041.0",
@@ -147,6 +147,8 @@
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
       "artifactName": "${productName}-Setup.${ext}",
+      "shortcutName": "InkLeaf PDF",
+      "uninstallDisplayName": "InkLeaf PDF ${version}",
       "license": "build/installer-terms.txt"
     },
     "mac": {
@@ -174,7 +176,8 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
-        "NSCameraUsageDescription": "Inkleaf uses the camera only when you choose Scan to PDF, to photograph paper pages. The pictures stay on your Mac."
+        "CFBundleDisplayName": "InkLeaf PDF",
+        "NSCameraUsageDescription": "InkLeaf PDF uses the camera only when you choose Scan to PDF, to photograph paper pages. The pictures stay on your Mac."
       }
     },
     "linux": {
@@ -208,6 +211,11 @@
       "description": "Edit, sign, fill, convert and organise PDFs. Everything happens on your computer.",
       "maintainer": "Priyansh Das <75964362+priyanshdas@users.noreply.github.com>",
       "syncDesktopName": true,
+      "desktop": {
+        "entry": {
+          "Name": "InkLeaf PDF"
+        }
+      },
       "mimeTypes": [
         "application/pdf"
       ]

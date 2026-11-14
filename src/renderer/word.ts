@@ -39,7 +39,7 @@ export async function structureToWord(pages: PageStructure[]): Promise<Uint8Arra
   });
 
   const doc = new Document({
-    creator: 'Inkleaf',
+    creator: 'InkLeaf PDF',
     styles: { default: { document: { run: { font: 'Calibri', size: 22 } } } },
     sections: [{
       properties: {

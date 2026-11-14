@@ -75,7 +75,7 @@ export async function pdfToHtml(pdf: PDFDocumentProxy, title: string, progress: 
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="generator" content="Inkleaf">
+<meta name="generator" content="InkLeaf PDF">
 <title>${escapeHtml(title)}</title>
 <style>
   body { max-width: 46rem; margin: 2rem auto; padding: 0 1rem; font: 16px/1.6 system-ui, sans-serif; color: #1a1a1a; }
@@ -163,7 +163,7 @@ export function asNumber(text: string): number | null {
 export async function pdfToExcel(pdf: PDFDocumentProxy, progress: Progress): Promise<Uint8Array> {
   const ExcelJS = (await import('exceljs')).default;
   const book = new ExcelJS.Workbook();
-  book.creator = 'Inkleaf';
+  book.creator = 'InkLeaf PDF';
   for (let n = 1; n <= pdf.numPages; n++) {
     progress(n, pdf.numPages);
     const page = await pdf.getPage(n);
@@ -196,7 +196,7 @@ export async function pdfToExcel(pdf: PDFDocumentProxy, progress: Progress): Pro
 export async function pdfToPowerPoint(pdf: PDFDocumentProxy, title: string, progress: Progress): Promise<Uint8Array> {
   const PptxGenJS = (await import('pptxgenjs')).default;
   const pres = new PptxGenJS();
-  pres.author = 'Inkleaf';
+  pres.author = 'InkLeaf PDF';
   pres.title = title;
   const first = (await pdf.getPage(1)).getViewport({ scale: 1 });
   // slides are sized in inches, like the PDF's first page

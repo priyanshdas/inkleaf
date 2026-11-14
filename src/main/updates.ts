@@ -5,7 +5,8 @@
 //
 // Only the installed Windows/macOS/Linux builds can update themselves. The
 // portable .exe and runs from source just report that updates aren't
-// available, so "Check for updates" can say something useful.
+// available, so "Check for updates" can say something useful; the Microsoft
+// Store and Flatpak versions are updated by the Store and by Flatpak.
 
 import { t } from '../shared/i18n';
 import { app } from 'electron';
@@ -21,6 +22,7 @@ let ready = false;
 function why(): string | null {
   if (!app.isPackaged) return t('Updates only work in the installed app.');
   if (process.windowsStore) return t('Updates for the Microsoft Store version are handled by Microsoft Store.');
+  if (process.env.FLATPAK_ID) return t('Updates for the Flatpak version are handled by Flatpak.');
   if (process.env.PORTABLE_EXECUTABLE_DIR) return t('The portable version can’t update itself. Download the new version from the releases page instead.');
   return null;
 }

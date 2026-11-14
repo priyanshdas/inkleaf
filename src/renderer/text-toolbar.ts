@@ -35,11 +35,16 @@ function guessStandard(name: string): FontFamily {
   return 'sans';
 }
 
+/** Stands in for a text box when the docked bar has none: its settings are the next box's. */
+const DEFAULTS_ID = '__defaults';
+
 export class TextToolbar {
   private el: HTMLDivElement;
   private pop: HTMLElement | null = null;
   private signature = '';
   private frame = 0;
+  /** In the ribbon's Font group rather than floating over the page. */
+  private docked = false;
 
   constructor(private editor: Editor, private viewer: Viewer, private getDoc: () => EditorDoc | null) {
     this.el = h('div', { class: 'text-toolbar', role: 'toolbar', 'aria-label': t('Text formatting'), hidden: true });
@@ -80,9 +85,35 @@ export class TextToolbar {
     return active as { pageId: string; annot: TextLike };
   }
 
+  /**
+   * Puts the bar in the ribbon (`slot`), where it stays put and, with no
+   * text box chosen, sets up the next one; or, with null, back to floating
+   * over the box being edited.
+   */
+  dock(slot: HTMLElement | null) {
+    this.docked = !!slot;
+    this.hide();
+    this.el.classList.toggle('docked', this.docked);
+    this.el.style.transform = '';
+    this.el.style.visibility = '';
+    (slot ?? document.body).append(this.el);
+    this.update();
+  }
+
   /** Shows, hides or refreshes the bar, then keeps it glued to the box. */
   update() {
     const target = this.target();
+    if (this.docked) {
+      const a = target?.annot ?? ({ ...this.editor.styles.text, id: DEFAULTS_ID, type: 'text' } as unknown as TextLike);
+      const signature = JSON.stringify([a.id, a.font, a.family, a.size, a.bold, a.italic, a.underline, a.color, a.background, a.align, a.opacity, a.type]);
+      if (signature !== this.signature) {
+        this.signature = signature;
+        this.render(a);
+      }
+      this.el.hidden = false;
+      this.el.classList.toggle('for-next', !target);
+      return;
+    }
     if (!target) {
       this.hide();
       return;
@@ -98,7 +129,7 @@ export class TextToolbar {
   }
 
   private hide() {
-    this.el.hidden = true;
+    this.el.hidden = !this.docked;
     this.closePop();
     this.signature = '';
     cancelAnimationFrame(this.frame);
@@ -108,6 +139,7 @@ export class TextToolbar {
   /** Repositions every frame while visible: cheap, and catches scrolls, zooms and drags. */
   private follow = () => {
     this.frame = 0;
+    if (this.docked) return;
     const target = this.target();
     if (!target) {
       this.hide();
@@ -213,7 +245,7 @@ export class TextToolbar {
     const opacity = h('button', { class: 'tt-btn tt-opacity', title: t('Opacity') }, `${Math.round((a.opacity ?? 1) * 100)}%`);
     opacity.addEventListener('click', () => this.togglePop(opacity, () => this.opacityPop(a.opacity ?? 1)));
 
-    const remove = h('button', { class: 'tt-btn danger', title: a.type === 'replace' ? t('Undo this edit (puts the original text back)') : t('Delete text box') }, icon('trash-2'));
+    const remove = h('button', { class: 'tt-btn danger', title: a.type === 'replace' ? t('Undo this edit (puts the original text back)') : t('Delete text box'), hidden: a.id === DEFAULTS_ID }, icon('trash-2'));
     remove.addEventListener('click', () => this.remove(a));
 
     const sep = () => h('span', { class: 'tt-sep' });

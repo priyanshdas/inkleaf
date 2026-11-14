@@ -71,7 +71,12 @@ async function windowsIsDefault(): Promise<boolean> {
     return !!aumid && aumid.toLowerCase().startsWith(STORE_IDENTITY.toLowerCase());
   }
   if (progId === 'Inkleaf.pdf') return true;
-  // picked with "Open with › Choose another app" instead: Applications\Inkleaf.exe
+  // electron-builder's own "PDF Document", or picked with "Open with › Choose another app"
+  return opensWithInkleaf(progId);
+}
+
+/** True if this file type (ProgID) opens with this copy of Inkleaf. */
+async function opensWithInkleaf(progId: string): Promise<boolean> {
   const command = await regValue(`HKCR\\${progId}\\shell\\open\\command`, null);
   if (!command) return false;
   const exe = command.toLowerCase();
@@ -81,19 +86,20 @@ async function windowsIsDefault(): Promise<boolean> {
 // --- the preview pane and thumbnails in File Explorer ------------------------------------------------
 //
 // Explorer finds a file's previewer and thumbnail maker through the app that
-// opens it. Thumbnails are Inkleaf's own (native/thumbnails, registered by
-// the installer). For the preview pane, Edge (or Acrobat) registers one for
-// PDFs on its own ProgID, so once Inkleaf is the default the pane would go
-// blank; Inkleaf borrows whichever one is already on the computer, by
-// pointing its ProgID at the same handler. Only for this user (HKCU), and
-// checked each time Inkleaf starts, in case the other app moves its handler.
+// opens it. Both are Inkleaf's own (native/thumbnails, registered by the
+// installer), and each start makes sure every ProgID that opens Inkleaf
+// points at them, for this user (HKCU): an older version may have pointed
+// them elsewhere. Without Inkleaf's own (an install from before they were
+// added), it borrows whichever another PDF app has registered, such as Edge's.
 
 const PREVIEW = '{8895b1c6-b41f-4c1c-a562-0d564250836f}';
 const THUMBNAIL = '{e357fccd-a995-4576-b01f-234630154e96}';
 /** Edge's PDF previewer, used when no app has one registered on its ProgID. */
 const EDGE_PDF_PREVIEW = '{3A84F9C2-6164-485C-A7D9-4B27F8AC009E}';
-/** Inkleaf's own thumbnail maker (native/thumbnails/inkleaf-thumbs.cpp). */
+/** Inkleaf's own thumbnail maker and previewer (native/thumbnails/inkleaf-thumbs.cpp). */
 const INKLEAF_THUMBNAILS = '{1EBEB7F8-27A7-4B2A-A890-88C35591D436}';
+const INKLEAF_PREVIEW = '{426761B5-11FE-448D-8071-7EAC4FBFAED9}';
+const OURS = new Set([INKLEAF_THUMBNAILS, INKLEAF_PREVIEW]);
 
 async function regValueNames(key: string): Promise<string[]> {
   try {
@@ -107,35 +113,81 @@ async function regValueNames(key: string): Promise<string[]> {
 const clsidExists = async (clsid: string) => (await regValue(`HKCR\\CLSID\\${clsid}`, null)) !== null
   || (await regValueNames(`HKCR\\CLSID\\${clsid}`)).length > 0;
 
+/** Every text value in a key, with its data. */
+async function regValues(key: string): Promise<{ name: string; data: string }[]> {
+  try {
+    const out = await run('reg', ['query', key]);
+    return out.split(/\r?\n/)
+      .map((l) => /^\s+(.+?)\s+REG_(?:EXPAND_)?SZ\s+(.*)$/.exec(l))
+      .filter((m): m is RegExpExecArray => !!m)
+      .map((m) => ({ name: m[1].trim(), data: m[2].trim() }));
+  } catch {
+    return [];
+  }
+}
+
+const isClsid = (s: string | null | undefined): s is string => !!s && /^\{[0-9a-f-]{36}\}$/i.test(s);
+
 /** A handler of the given kind that another PDF app has registered, if any. */
-async function borrowedHandler(kind: string): Promise<string | null> {
-  const progIds = ['MSEdgePDF', ...(await regValueNames('HKCR\\.pdf\\OpenWithProgids'))].filter((p) => p !== 'Inkleaf.pdf');
-  const places = ['HKCR\\.pdf', ...[...new Set(progIds)].map((p) => `HKCR\\${p}`)];
+async function borrowedHandler(kind: string, ours: string[]): Promise<string | null> {
+  const progIds = ['MSEdgePDF', ...(await regValueNames('HKCR\\.pdf\\OpenWithProgids'))].filter((p) => !ours.includes(p));
+  const places = ['HKCR\\.pdf', 'HKCR\\SystemFileAssociations\\.pdf', ...[...new Set(progIds)].map((p) => `HKCR\\${p}`)];
   for (const place of places) {
     const clsid = await regValue(`${place}\\ShellEx\\${kind}`, null);
-    if (clsid && /^\{[0-9a-f-]{36}\}$/i.test(clsid) && (await clsidExists(clsid))) return clsid;
+    if (isClsid(clsid) && !OURS.has(clsid.toUpperCase()) && (await clsidExists(clsid))) return clsid;
   }
-  if (kind === PREVIEW && (await clsidExists(EDGE_PDF_PREVIEW))) return EDGE_PDF_PREVIEW;
+  if (kind !== PREVIEW) return null;
+  if (await clsidExists(EDGE_PDF_PREVIEW)) return EDGE_PDF_PREVIEW;
+  // Windows keeps a list of every preview handler on the computer, by name:
+  // Edge's, Acrobat's, PowerToys'… whichever says it's for PDFs will do
+  for (const list of ['HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\PreviewHandlers', 'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\PreviewHandlers']) {
+    for (const { name, data } of await regValues(list)) {
+      if (isClsid(name) && !OURS.has(name.toUpperCase()) && /\bpdf\b/i.test(data) && (await clsidExists(name))) return name;
+    }
+  }
   return null;
+}
+
+/**
+ * The file types (ProgIDs) that open PDFs with Inkleaf: its own, the one
+ * electron-builder's installer registers ("PDF Document"), and whichever the
+ * person's choice points at, if that opens Inkleaf. Explorer looks for
+ * thumbnails and previews on the one actually chosen, so each gets them.
+ */
+async function inkleafProgIds(): Promise<string[]> {
+  const ids = new Set(['Inkleaf.pdf']);
+  if (await opensWithInkleaf('PDF Document')) ids.add('PDF Document');
+  const chosen = await chosenPdfProgId();
+  if (chosen && !/^AppX/i.test(chosen) && !ids.has(chosen) && (await opensWithInkleaf(chosen))) ids.add(chosen);
+  return [...ids];
 }
 
 /** Makes sure File Explorer can still preview PDFs, and show their thumbnails, when Inkleaf opens them. */
 export async function keepPdfPreviews(): Promise<void> {
   if (process.platform !== 'win32' || !app.isPackaged || isPortable() || process.windowsStore) return;
-  // Inkleaf's own thumbnails, when the installer has set them up: an older
-  // version may have borrowed another app's in their place
-  const ownThumbnails = existsSync(path.join(process.resourcesPath, 'thumbnails', 'inkleaf-thumbs.dll')) && (await clsidExists(INKLEAF_THUMBNAILS));
-  for (const kind of [PREVIEW, THUMBNAIL]) {
-    const key = `HKCU\\Software\\Classes\\Inkleaf.pdf\\ShellEx\\${kind}`;
-    const current = await regValue(key, null);
-    if (kind === THUMBNAIL && ownThumbnails) {
-      if (current?.toUpperCase() !== INKLEAF_THUMBNAILS) await run('reg', ['add', key, '/ve', '/d', INKLEAF_THUMBNAILS, '/f']).catch(() => {});
-      continue;
+  // Inkleaf's own, when the installer has set them up
+  const dll = existsSync(path.join(process.resourcesPath, 'thumbnails', 'inkleaf-thumbs.dll'));
+  const own = new Map<string, string | null>([
+    [THUMBNAIL, dll && (await clsidExists(INKLEAF_THUMBNAILS)) ? INKLEAF_THUMBNAILS : null],
+    [PREVIEW, dll && (await clsidExists(INKLEAF_PREVIEW)) ? INKLEAF_PREVIEW : null],
+  ]);
+  const progIds = await inkleafProgIds();
+  const borrowed = new Map<string, string | null>();
+  for (const progId of progIds) {
+    for (const kind of [PREVIEW, THUMBNAIL]) {
+      const key = `HKCU\\Software\\Classes\\${progId}\\ShellEx\\${kind}`;
+      // what Explorer sees now, from this user's settings or the computer's
+      const current = (await regValue(key, null)) ?? (await regValue(`HKCR\\${progId}\\ShellEx\\${kind}`, null));
+      const ours = own.get(kind);
+      if (ours) {
+        if (current?.toUpperCase() !== ours) await run('reg', ['add', key, '/ve', '/d', ours, '/f']).catch(() => {});
+        continue;
+      }
+      if (isClsid(current) && (await clsidExists(current))) continue;
+      if (!borrowed.has(kind)) borrowed.set(kind, await borrowedHandler(kind, progIds));
+      const clsid = borrowed.get(kind);
+      if (clsid) await run('reg', ['add', key, '/ve', '/d', clsid, '/f']).catch(() => {});
     }
-    if (current && (await clsidExists(current))) continue;
-    const clsid = await borrowedHandler(kind);
-    if (!clsid) continue;
-    await run('reg', ['add', key, '/ve', '/d', clsid, '/f']).catch(() => {});
   }
 }
 

@@ -264,7 +264,7 @@ export async function scansToPdf(pages: ScanPage[], progress: (m: string) => voi
     const ph = (pw * c.height) / c.width;
     out.addPage([pw, ph]).drawImage(img, { x: 0, y: 0, width: pw, height: ph });
   }
-  out.setProducer('Inkleaf');
+  out.setProducer('InkLeaf PDF');
   out.setTitle('Scan');
   return out.save();
 }
@@ -491,7 +491,7 @@ export async function scanDialog(options: { insert?: boolean } = {}): Promise<Sc
     scannerPick.replaceChildren(new Option(t('Looking for scanners…'), ''));
     scannerPick.disabled = scanBtn.disabled = true;
     scannerNote.textContent = '';
-    const found = await api.listScanners!().catch(() => ({ ok: false as const, message: t('Inkleaf couldn’t look for scanners.') }));
+    const found = await api.listScanners!().catch(() => ({ ok: false as const, message: t('InkLeaf PDF couldn’t look for scanners.') }));
     scannerPick.disabled = false;
     if (!found.ok || !found.scanners.length) {
       scannerPick.replaceChildren(new Option(t('No scanner found'), ''));
@@ -672,7 +672,7 @@ export async function scanDialog(options: { insert?: boolean } = {}): Promise<Sc
       stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 3840 }, height: { ideal: 2160 }, facingMode: 'environment' }, audio: false });
     } catch (err) {
       const name = (err as DOMException).name;
-      toast(name === 'NotFoundError' || name === 'OverconstrainedError' ? t('No camera was found. You can add photos instead.') : t('Inkleaf couldn’t use the camera. Check that no other app is using it, and that camera access is allowed in your system settings.'), 'error', 7000);
+      toast(name === 'NotFoundError' || name === 'OverconstrainedError' ? t('No camera was found. You can add photos instead.') : t('InkLeaf PDF couldn’t use the camera. Check that no other app is using it, and that camera access is allowed in your system settings.'), 'error', 7000);
       return;
     }
     current = null;

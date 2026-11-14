@@ -80,7 +80,7 @@ export async function unlock(bytes: Uint8Array, name: string, force = false): Pr
   try {
     info = await core.inspect(bytes);
   } catch (err) {
-    throw new Error(t('“{name}” doesn’t look like a PDF Inkleaf can read. {message}', { name, message: (err as Error).message }));
+    throw new Error(t('“{name}” doesn’t look like a PDF InkLeaf PDF can read. {message}', { name, message: (err as Error).message }));
   }
   if (!info.encrypted) return { bytes, wasProtected: deviceLocked };
 
@@ -116,7 +116,7 @@ async function passwordPrompt(name: string, wrong: boolean): Promise<string | nu
       input.value = code;
       closeModal('ok');
     } else if (text !== null) {
-      note.textContent = t('That QR code doesn’t hold an Inkleaf code.');
+      note.textContent = t('That QR code doesn’t hold an InkLeaf PDF code.');
     }
   };
   const scan = h('button', { class: 'btn btn-ghost small', type: 'button' }, icon('camera'), t('Scan QR code'));

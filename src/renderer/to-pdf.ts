@@ -135,7 +135,7 @@ export async function convertToPdf(file: { name: string; data: Uint8Array }, pro
     return { bytes: await api.officeToPdf(file.name, file.data), notes: [] };
   }
 
-  const builtIn = t('Converted with Inkleaf’s built-in converter. For an exact copy of the layout, install LibreOffice (free) and convert again.');
+  const builtIn = t('Converted with InkLeaf PDF’s built-in converter. For an exact copy of the layout, install LibreOffice (free) and convert again.');
   progress(t('Converting “{name}”…', { name: file.name }));
   switch (kind) {
     case 'docx': {
@@ -174,7 +174,7 @@ export async function convertToPdf(file: { name: string; data: Uint8Array }, pro
       return { bytes: await api.htmlToPdf(decode(file.data)), notes: [t('Web pages are printed without running their scripts or loading anything from the internet, so pictures that live online won’t appear.')] };
     default: {
       const names: Record<string, string> = { doc: t('Old Word (.doc)'), odt: t('OpenDocument text'), rtf: t('RTF'), xls: t('Old Excel (.xls)'), ods: t('OpenDocument spreadsheet'), ppt: t('Old PowerPoint (.ppt)'), odp: t('OpenDocument presentation') };
-      throw new Error(t('{format} files need LibreOffice to convert. It’s free from libreoffice.org; once it’s installed, Inkleaf uses it automatically. Or save the file as .docx, .xlsx or .pptx and convert that.', { format: names[kind] ?? `.${kind}` }));
+      throw new Error(t('{format} files need LibreOffice to convert. It’s free from libreoffice.org; once it’s installed, InkLeaf PDF uses it automatically. Or save the file as .docx, .xlsx or .pptx and convert that.', { format: names[kind] ?? `.${kind}` }));
     }
   }
 }

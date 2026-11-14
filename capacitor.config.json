@@ -1,6 +1,6 @@
 {
   "appId": "io.github.priyanshdas.inkleaf",
-  "appName": "Inkleaf",
+  "appName": "InkLeaf PDF",
   "webDir": "mobile/www",
   "android": {
     "path": "mobile/android"

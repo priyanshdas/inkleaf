@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Runs before electron-builder packs the app ("beforePack" in package.json).
 // Windows builds (installer, portable and Microsoft Store) get File
-// Explorer's PDF thumbnail maker and PDFium (scripts/thumbnails.mjs).
+// Explorer's PDF thumbnail maker and previewer, and PDFium (scripts/thumbnails.mjs).
 
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');

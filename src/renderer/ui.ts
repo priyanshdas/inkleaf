@@ -61,7 +61,7 @@ export function localizeStatic(root: HTMLElement = document.body) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const text = node.nodeValue?.trim();
-    if (text && /[A-Za-z]/.test(text) && text !== 'Inkleaf' && !node.parentElement?.closest('script, style')) {
+    if (text && /[A-Za-z]/.test(text) && text !== 'InkLeaf PDF' && !node.parentElement?.closest('script, style')) {
       node.nodeValue = node.nodeValue!.replace(text, t(text));
     }
   }

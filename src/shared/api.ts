@@ -87,7 +87,7 @@ export type MenuCommand =
   | 'theme-system' | 'theme-light' | 'theme-dark' | 'toggle-inspector'
   | 'find' | 'print' | 'enhance' | 'compress' | 'protect' | 'ocr' | 'compare' | 'decor' | 'remove-decor'
   | 'images-to-pdf' | 'pdf-to-images' | 'pdf-to-word' | 'crop' | 'uncrop-page' | 'uncrop-all' | 'form-builder'
-  | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'check-updates' | 'default-app' | 'secure-share' | 'receive-code' | 'receive-file' | 'show-comments' | 'show-bookmarks'
+  | 'combine-files' | 'toggle-ribbon' | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'reading-rtl' | 'check-updates' | 'default-app' | 'secure-share' | 'receive-code' | 'receive-file' | 'show-comments' | 'show-bookmarks'
   | 'toggle-autosave' | 'open-backups' | 'open-github' | 'report-problem' | 'donate'
   | 'convert-to-pdf' | 'convert-from-pdf' | 'web-to-pdf' | 'scan-to-pdf' | 'repair' | 'pdf-to-pdfa'
   | 'ai-summarize' | 'ai-translate' | 'ai-ask' | 'ai-settings' | 'all-tools' | 'unlock' | 'language' | 'terms' | 'privacy'

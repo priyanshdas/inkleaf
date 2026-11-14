@@ -124,9 +124,9 @@ namespace Inkleaf
             legacy = useLegacy;
             app = new TwIdentity();
             app.MajorNum = 3; app.MinorNum = 1; app.Language = 2; app.Country = 1;
-            app.Info = "Inkleaf"; app.ProtocolMajor = 2; app.ProtocolMinor = 3;
+            app.Info = "InkLeaf PDF"; app.ProtocolMajor = 2; app.ProtocolMinor = 3;
             app.SupportedGroups = DG_CONTROL | DG_IMAGE;
-            app.Manufacturer = "EPD"; app.ProductFamily = "Inkleaf"; app.ProductName = "Inkleaf";
+            app.Manufacturer = "EPD"; app.ProductFamily = "InkLeaf PDF"; app.ProductName = "InkLeaf PDF";
             // a real (hidden) window: some drivers hang their own windows off it
             window = CreateWindowExW(0, "STATIC", "Inkleaf scanning", 0, 0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
             if (Parent(MSG_OPENDSM) != RC_SUCCESS) throw new Exception("dsm");

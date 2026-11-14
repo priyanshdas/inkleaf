@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Inkleaf</title>
+  <title>InkLeaf PDF</title>
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./app.js"></script>
 </head>
@@ -19,19 +19,19 @@
           <path class="brand-vein" d="M32 18v30M32 48l-5 6M32 48l5 6"/>
           <circle class="brand-nib" cx="32" cy="30" r="3"/>
         </svg>
-        <span class="brand-name">Inkleaf</span>
+        <span class="brand-name">InkLeaf PDF</span>
         <i data-icon="chevron-down"></i>
       </button>
       <div id="tabs" class="tabs" role="tablist" aria-label="Open documents"></div>
       <button class="tab-add" data-command="open" title="Open a PDF in a new tab (Ctrl+O)"><i data-icon="plus"></i></button>
       <span class="titlebar-drag"></span>
-      <button class="coffee-chip" data-command="donate" title="Inkleaf is free. If it helps you, you can buy me a coffee on Ko-fi"><i data-icon="coffee"></i><span>Buy me a coffee</span></button>
+      <button class="coffee-chip" data-command="donate" title="InkLeaf PDF is free. If it helps you, you can buy me a coffee on Ko-fi"><i data-icon="coffee"></i><span>Buy me a coffee</span></button>
     </header>
 
     <!-- Command bar: file actions on the left, page and zoom in the middle -->
     <header id="commandbar" class="commandbar needs-doc">
       <div class="cmd-group">
-        <button class="cmd" data-command="open" title="Open (Ctrl+O)"><i data-icon="folder-open"></i></button>
+        <button class="cmd cmd-open" data-menu="open" aria-haspopup="menu" title="Open, recent files and new PDFs"><i data-icon="folder-open"></i><i data-icon="chevron-down"></i></button>
         <button class="cmd" data-command="save" title="Save (Ctrl+S)"><i data-icon="save"></i></button>
         <button class="cmd" data-command="print" title="Print (Ctrl+P)"><i data-icon="printer"></i></button>
         <span class="cmd-sep"></span>

@@ -128,6 +128,21 @@ export const byName = (files: string[]) =>
 
 const STORE_TASK = 'InkleafStartup';
 
+/**
+ * The Flatpak can't write to ~/.config/autostart, so it asks the desktop
+ * through the Background portal instead, which writes the entry for it.
+ * The answer comes back later and there's no way to read the entry, so
+ * Inkleaf's own setting is taken as the state.
+ */
+const inFlatpak = () => process.platform === 'linux' && !!process.env.FLATPAK_ID;
+
+async function flatpakAutostart(on: boolean): Promise<void> {
+  const reason = t('Opens PDFs straight away. InkLeaf PDF waits in the tray.').replace(/'/g, '’').replace(/\\/g, ' ');
+  const options = `{'reason': <'${reason}'>, 'autostart': <${on}>, 'commandline': <['inkleaf', '--hidden']>, 'dbus-activatable': <false>}`;
+  await run('gdbus', ['call', '--session', '--dest', 'org.freedesktop.portal.Desktop', '--object-path', '/org/freedesktop/portal/desktop',
+    '--method', 'org.freedesktop.portal.Background.RequestBackground', '', options]);
+}
+
 /** Linux: a desktop entry in ~/.config/autostart, the place every desktop looks. */
 function autostartFile() {
   const config = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
@@ -167,6 +182,7 @@ async function loginState(): Promise<{ on: boolean; blocked: boolean }> {
     // switched off in Task Manager's Startup apps
     return { on: s.openAtLogin && s.executableWillLaunchAtLogin !== false, blocked: s.openAtLogin && s.executableWillLaunchAtLogin === false };
   }
+  if (inFlatpak()) return { on: desktopSettings().startAtLogin, blocked: false };
   if (process.platform === 'linux') return { on: existsSync(autostartFile()), blocked: false };
   if (process.platform === 'darwin') return { on: app.getLoginItemSettings().openAtLogin, blocked: false };
   return { on: false, blocked: false };
@@ -187,6 +203,10 @@ async function setLogin(on: boolean): Promise<void> {
     app.setLoginItemSettings({ openAtLogin: on });
     return;
   }
+  if (inFlatpak()) {
+    await flatpakAutostart(on);
+    return;
+  }
   if (process.platform === 'linux') {
     const file = autostartFile();
     if (!on) {
@@ -197,8 +217,8 @@ async function setLogin(on: boolean): Promise<void> {
     writeFileSync(file, [
       '[Desktop Entry]',
       'Type=Application',
-      'Name=Inkleaf',
-      `Comment=${t('Opens PDFs straight away. Inkleaf waits in the tray.')}`,
+      'Name=InkLeaf PDF',
+      `Comment=${t('Opens PDFs straight away. InkLeaf PDF waits in the tray.')}`,
       `Exec=${linuxCommand()}`,
       'Terminal=false',
       'X-GNOME-Autostart-enabled=true',
@@ -238,7 +258,7 @@ function trayMenu(): Menu {
   const s = desktopSettings();
   const recent = host.recent().slice(0, 8);
   return Menu.buildFromTemplate([
-    { label: t('Open Inkleaf'), click: () => host.show() },
+    { label: t('Open InkLeaf PDF'), click: () => host.show() },
     { label: t('Open a PDF…'), click: () => host.openDialog() },
     { label: t('New Window'), click: () => host.newWindow() },
     { type: 'separator' },
@@ -249,9 +269,9 @@ function trayMenu(): Menu {
     },
     { type: 'separator' },
     { label: t('Open PDFs as soon as they’re downloaded'), type: 'checkbox', checked: s.openDownloads, click: (item) => void applyDesktopSettings({ openDownloads: item.checked }) },
-    { label: t('Start Inkleaf when I sign in'), type: 'checkbox', checked: s.startAtLogin, click: (item) => void applyDesktopSettings({ startAtLogin: item.checked }) },
+    { label: t('Start InkLeaf PDF when I sign in'), type: 'checkbox', checked: s.startAtLogin, click: (item) => void applyDesktopSettings({ startAtLogin: item.checked }) },
     { type: 'separator' },
-    { label: t('Quit Inkleaf'), click: () => app.quit() },
+    { label: t('Quit InkLeaf PDF'), click: () => app.quit() },
   ]);
 }
 
@@ -266,7 +286,7 @@ export function refreshTray(force = false) {
   }
   if (!tray) {
     tray = new Tray(trayIcon());
-    tray.setToolTip('Inkleaf');
+    tray.setToolTip('InkLeaf PDF');
     // a click opens Inkleaf; the menu is on right-click (and on every click on Linux)
     tray.on('click', () => host.show());
   }
@@ -277,7 +297,7 @@ export function refreshTray(force = false) {
 export function announceTray() {
   if (host.read().trayExplained) return;
   host.write({ trayExplained: true });
-  const title = t('Inkleaf is still running');
+  const title = t('InkLeaf PDF is still running');
   const content = t('It’s in the tray, so PDFs open straight away. To quit, right-click its icon.');
   if (isWindows && tray) tray.displayBalloon({ title, content, iconType: 'info' });
   else if (Notification.isSupported()) new Notification({ title, body: content, silent: true }).show();
@@ -448,10 +468,10 @@ function explorerMenuReg(on: boolean): Buffer {
   if (!on) return regFile(remove);
   return regFile([
     ...remove,
-    ...verbLines('.pdf', 'Combine', t('Combine into one PDF with Inkleaf'), '--merge'),
-    ...verbLines('.pdf', 'Print', t('Print with Inkleaf'), '--print'),
-    ...verbLines('.pdf', 'Compress', t('Compress with Inkleaf'), '--compress'),
-    ...MAKE_PDF_ON.flatMap((w) => verbLines(w, 'MakePdf', t('Make a PDF with Inkleaf'), '--combine')),
+    ...verbLines('.pdf', 'Combine', t('Combine into one PDF with InkLeaf PDF'), '--merge'),
+    ...verbLines('.pdf', 'Print', t('Print with InkLeaf PDF'), '--print'),
+    ...verbLines('.pdf', 'Compress', t('Compress with InkLeaf PDF'), '--compress'),
+    ...MAKE_PDF_ON.flatMap((w) => verbLines(w, 'MakePdf', t('Make a PDF with InkLeaf PDF'), '--combine')),
   ]);
 }
 
@@ -491,7 +511,7 @@ export function refreshJumpList() {
       {
         type: 'tasks',
         items: [
-          { type: 'task', title: t('New Window'), description: t('Opens another Inkleaf window'), program: exe, args: '--new-window', iconPath: exe, iconIndex: 0 },
+          { type: 'task', title: t('New Window'), description: t('Opens another InkLeaf PDF window'), program: exe, args: '--new-window', iconPath: exe, iconIndex: 0 },
           { type: 'task', title: t('Open a PDF…'), description: t('Pick a PDF to open'), program: exe, args: '--open', iconPath: exe, iconIndex: 0 },
         ],
       },

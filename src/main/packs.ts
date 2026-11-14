@@ -77,7 +77,7 @@ async function download(name: string, onProgress: (received: number) => void) {
     }
     await new Promise<void>((resolve, reject) => out.end((err?: Error | null) => (err ? reject(err) : resolve())));
     if (received !== entry.size || hash.digest('hex') !== entry.sha256) {
-      throw new Error(t('The downloaded language pack didn’t match what Inkleaf expected, so it wasn’t kept. Please try again.'));
+      throw new Error(t('The downloaded language pack didn’t match what InkLeaf PDF expected, so it wasn’t kept. Please try again.'));
     }
     await fs.rename(partial, target);
     onProgress(received);

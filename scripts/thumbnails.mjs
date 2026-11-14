@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Gathers what Windows builds need for File Explorer's PDF thumbnails into
-// build/thumbnails/, which electron-builder copies into the app's resources
-// (see "extraResources" in package.json, and build/before-pack.cjs, which
-// runs this before every Windows build):
+// Gathers what Windows builds need for File Explorer's PDF thumbnails and
+// preview pane into build/thumbnails/, which electron-builder copies into
+// the app's resources (see "extraResources" in package.json, and
+// build/before-pack.cjs, which runs this before every Windows build):
 //
-// - inkleaf-thumbs.dll, Inkleaf's thumbnail maker, from native/thumbnails/
+// - inkleaf-thumbs.dll, Inkleaf's thumbnail maker and previewer, from native/thumbnails/
 //   (rebuild it with native/thumbnails/build.sh after changing its source)
 // - pdfium.dll, the PDF engine it draws with, downloaded once from the
 //   pdfium-binaries project at a fixed version and checked against its hash

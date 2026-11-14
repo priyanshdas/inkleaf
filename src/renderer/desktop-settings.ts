@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Settings: how Inkleaf fits in with the computer. Starting when you sign
-// in, staying in the tray, opening downloaded PDFs, reopening last time's
-// files, and File Explorer's right-click menu. The work is done in
-// src/main/desktop.ts; each switch takes effect straight away.
+// Settings: the toolbar layout (ribbon or classic), and how Inkleaf fits in
+// with the computer: starting when you sign in, staying in the tray, opening
+// downloaded PDFs, reopening last time's files, and File Explorer's
+// right-click menu. The computer's side is done in src/main/desktop.ts;
+// each switch takes effect straight away.
 
 import { t } from '../shared/i18n';
 import type { DesktopSettings, DesktopSettingsState } from '../shared/api';
@@ -27,31 +28,47 @@ export async function desktopSettingsDialog(): Promise<void> {
   const show = () => {
     for (const [key, box] of boxes) box.checked = state[key];
     notes.get('startAtLogin')!.textContent = state.startupBlocked
-      ? t('Starting at sign-in is switched off in Windows’ own Startup apps settings. Switch Inkleaf on there.')
+      ? t('Starting at sign-in is switched off in Windows’ own Startup apps settings. Switch InkLeaf PDF on there.')
       : '';
   };
 
   const section = (title: string, ...rows: Node[]) => h('section', { class: 'desktop-section' }, h('h3', {}, title), ...rows);
+
+  // the toolbar: the ribbon or the classic rail (app.ts switches it)
+  const ribbonOn = document.getElementById('app')?.classList.contains('ribbon') ?? false;
+  const layoutRow = (value: 'ribbon' | 'classic', label: string, hint: string) => {
+    const radio = h('input', { type: 'radio', name: 'desktop-layout', value, class: `desktop-layout-${value}` }) as HTMLInputElement;
+    radio.checked = (value === 'ribbon') === ribbonOn;
+    radio.addEventListener('change', () => {
+      if (radio.checked) window.dispatchEvent(new CustomEvent('inkleaf-layout', { detail: value === 'ribbon' }));
+    });
+    return h('label', { class: 'check desktop-row' }, radio, h('span', {}, h('strong', {}, label), h('span', { class: 'field-hint' }, hint)));
+  };
+
   const body = h('div', { class: 'desktop-settings' },
+    section(t('Toolbar'),
+      layoutRow('ribbon', t('Ribbon'), t('Tabs of labelled buttons along the top, like Word. Ctrl+F1 folds it away.')),
+      layoutRow('classic', t('Classic'), t('Tools down the left side and a slim bar along the top.')),
+    ),
     section(t('Starting up'),
       row('startAtLogin',
-        windows ? t('Start Inkleaf when I sign in to Windows') : t('Start Inkleaf when I sign in'),
+        windows ? t('Start InkLeaf PDF when I sign in to Windows') : t('Start InkLeaf PDF when I sign in'),
         mac ? t('It waits in the menu bar, so PDFs open straight away.') : t('It waits in the tray, so PDFs open straight away.')),
       row('keepInTray',
-        mac ? t('Keep Inkleaf in the menu bar when I close its windows') : t('Keep Inkleaf in the tray when I close its windows'),
+        mac ? t('Keep InkLeaf PDF in the menu bar when I close its windows') : t('Keep InkLeaf PDF in the tray when I close its windows'),
         t('PDFs then open straight away, and downloads still open. Quit from its icon.')),
       row('reopenSession',
         t('Reopen the files I had open last time'),
-        t('On the page you were reading, when Inkleaf starts without a file to open.')),
+        t('On the page you were reading, when InkLeaf PDF starts without a file to open.')),
     ),
     section(t('Downloads'),
       row('openDownloads',
         t('Open PDFs as soon as they’re downloaded'),
-        t('While Inkleaf is running, new PDFs in {folder} open in a new tab.', { folder: state.downloads })),
+        t('While InkLeaf PDF is running, new PDFs in {folder} open in a new tab.', { folder: state.downloads })),
     ),
     ...(state.supports.explorerMenu ? [section(t('File Explorer'),
       row('explorerMenu',
-        t('Add Inkleaf to the right-click menu'),
+        t('Add InkLeaf PDF to the right-click menu'),
         t('Combine, print or compress PDFs, and make a PDF from pictures and documents. On Windows 11 it’s under “Show more options”.')),
     )] : []),
   );

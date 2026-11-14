@@ -614,7 +614,7 @@ function replaceNotes(page: PDFPage, notes: NoteAnnot[]) {
       Subtype: 'Text',
       Rect: [n.x, n.y, n.x + n.w, n.y + n.h],
       Contents: PDFHexString.fromText(n.text),
-      T: PDFHexString.fromText(n.author || 'Inkleaf'),
+      T: PDFHexString.fromText(n.author || 'InkLeaf PDF'),
       C: hexColour(n.color),
       Name: 'Comment',
       F: 4 | 16 | 8, // print, no zoom, no rotate: an icon that stays icon-sized
@@ -750,7 +750,7 @@ async function compressNewContent(out: PDFDocument) {
 
 async function finish(out: PDFDocument, writer: Writer, warnings: string[], needsCleanUp: boolean): Promise<ExportResult> {
   if (typeof CompressionStream !== 'undefined') await compressNewContent(out);
-  out.setProducer('Inkleaf');
+  out.setProducer('InkLeaf PDF');
   out.setModificationDate(new Date());
   const saved = await out.save({ useObjectStreams: true, updateFieldAppearances: false });
   let bytes: Uint8Array = saved;

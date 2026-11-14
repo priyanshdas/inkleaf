@@ -41,17 +41,20 @@ if (!lib) {
 const exe = path.join(work, 'test-first-page');
 execFileSync('g++', ['-O1', '-std=c++17', '-Wall', '-Werror', '-o', exe, path.join(root, 'native', 'thumbnails', 'test-first-page.cpp'), '-ldl']);
 
-/** Draws `pdf` at `size`; the picture's size and pixels, or null if there's no picture. */
-function draw(pdf, size) {
+/**
+ * Draws `pdf` at `size` (or, given a page, that page `size` pixels wide, as
+ * the preview pane does); the picture's size and pixels, or null if there's no picture.
+ */
+function draw(pdf, size, page) {
   const out = path.join(work, `${path.basename(pdf)}.ppm`);
-  const said = execFileSync(exe, [lib, pdf, String(size), out]).toString().trim();
-  const m = /^OK (\d+)x(\d+)$/.exec(said);
+  const said = execFileSync(exe, [lib, pdf, String(size), out, ...(page === undefined ? [] : [String(page)])]).toString().trim();
+  const m = /^OK (\d+)x(\d+)(?: of (\d+))?$/.exec(said);
   if (!m) return null;
   const data = fs.readFileSync(out);
   // P6 header: three lines, then RGB bytes
   let at = 0;
   for (let lines = 0; lines < 3; at++) if (data[at] === 0x0a) lines++;
-  return { width: Number(m[1]), height: Number(m[2]), rgb: data.subarray(at) };
+  return { width: Number(m[1]), height: Number(m[2]), pages: Number(m[3] ?? 0), rgb: data.subarray(at) };
 }
 
 const sample = draw(path.join(fixtures, 'sample.pdf'), 256);
@@ -71,6 +74,14 @@ check('a password-protected PDF gets no picture (Explorer shows the icon)', draw
 const fake = path.join(work, 'fake.pdf');
 fs.writeFileSync(fake, 'not a PDF at all');
 check('nor does a file that isn’t a PDF', draw(fake, 256) === null);
+
+console.log('preview pane: every page, fitted to the pane\'s width');
+const third = draw(path.join(fixtures, 'sample.pdf'), 400, 2);
+check('draws a later page, at the pane\'s width', third?.width === 400 && Math.abs(third.height - 566) <= 1 && third.pages === 3, JSON.stringify(third && [third.width, third.height, third.pages]));
+const thirdDark = third ? [...third.rgb].filter((v) => v < 128).length : 0;
+check('with its text drawn', thirdDark > 50, String(thirdDark));
+check('a page that isn\'t there gets no picture', draw(path.join(fixtures, 'sample.pdf'), 400, 3) === null);
+check('a password-protected PDF gets no preview (Explorer says it can\'t preview it)', draw(path.join(fixtures, 'password.pdf'), 400, 0) === null);
 
 fs.rmSync(work, { recursive: true, force: true });
 if (failed) {

@@ -563,7 +563,7 @@ export async function translate(doc: EditorDoc, host: AiHost) {
     const laidOver = how.value === 'pages';
     const cjk = /Chinese|Japanese|Korean/.test(language.value);
     note.textContent = laidOver
-      ? `${t('Opens a translated copy in a new tab. Each line is replaced where it was; your original isn’t changed.')}${cjk ? ` ${t('The first time, Inkleaf downloads a font for this language (about 15 MB).')}` : ''}`
+      ? `${t('Opens a translated copy in a new tab. Each line is replaced where it was; your original isn’t changed.')}${cjk ? ` ${t('The first time, InkLeaf PDF downloads a font for this language (about 15 MB).')}` : ''}`
       : t('Saves the translated text as a Word file, with its headings and paragraphs.');
   };
   language.addEventListener('change', sync);

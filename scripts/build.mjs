@@ -60,6 +60,8 @@ const iconNames = [
   'smartphone', 'qr-code', 'share-2', 'send', 'menu', 'more-vertical', 'shield-check', 'git-compare', 'droplets', 'file-image', 'images', 'file-type', 'hash', 'wrench', 'refresh-cw',
   'arrow-up', 'arrow-down', 'book-open', 'rectangle-vertical', 'columns-2', 'case-sensitive', 'pen-tool', 'download', 'contrast',
   'scan-line', 'camera', 'aperture', 'maximize', 'sliders-horizontal', 'sparkles', 'languages', 'file-minus', 'layout-grid', 'sheet', 'archive', 'list-ordered',
+  'corner-down-right', 'chevrons-down-up', 'chevrons-up-down', 'arrow-right-left',
+  'clipboard-paste', 'chevron-up', 'ratio', 'app-window', 'fullscreen', 'settings-2', 'file-down',
 ];
 
 function writeIcons() {
@@ -112,7 +114,7 @@ function writeLegal() {
   fs.writeFileSync(path.join(legal, 'terms.md'), terms);
   fs.writeFileSync(path.join(legal, 'privacy.md'), privacy);
   const text = [
-    'Please read these terms and the privacy policy. By installing Inkleaf you agree to them.',
+    'Please read these terms and the privacy policy. By installing InkLeaf PDF you agree to them.',
     '',
     plainText(terms),
     '',
@@ -122,7 +124,7 @@ function writeLegal() {
     '',
     '========================================================================',
     '',
-    'Inkleaf is free software under the GNU General Public License, version 3 or later.',
+    'InkLeaf PDF is free software under the GNU General Public License, version 3 or later.',
     'The full licence is installed with the app (LICENSE.txt) and is at https://www.gnu.org/licenses/gpl-3.0.html',
     '',
   ].join('\r\n').replace(/\r?\n/g, '\r\n');

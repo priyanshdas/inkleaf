@@ -184,11 +184,11 @@ function xmp(info: { title: string; author: string; created: Date; modified: Dat
    <pdfaid:conformance>B</pdfaid:conformance>
    <dc:format>application/pdf</dc:format>
    <dc:title><rdf:Alt><rdf:li xml:lang="x-default">${esc(info.title)}</rdf:li></rdf:Alt></dc:title>
-${info.author ? `   <dc:creator><rdf:Seq><rdf:li>${esc(info.author)}</rdf:li></rdf:Seq></dc:creator>\n` : ''}   <xmp:CreatorTool>Inkleaf</xmp:CreatorTool>
+${info.author ? `   <dc:creator><rdf:Seq><rdf:li>${esc(info.author)}</rdf:li></rdf:Seq></dc:creator>\n` : ''}   <xmp:CreatorTool>InkLeaf PDF</xmp:CreatorTool>
    <xmp:CreateDate>${iso(info.created)}</xmp:CreateDate>
    <xmp:ModifyDate>${iso(info.modified)}</xmp:ModifyDate>
    <xmp:MetadataDate>${iso(info.modified)}</xmp:MetadataDate>
-   <pdf:Producer>Inkleaf</pdf:Producer>
+   <pdf:Producer>InkLeaf PDF</pdf:Producer>
   </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>
@@ -324,7 +324,7 @@ export async function toPdfA(input: Uint8Array, title: string): Promise<PdfAResu
   for (const key of ['Subject', 'Keywords', 'Creator', 'Trapped']) info?.delete(N(key));
   doc.setTitle(docTitle, { showInWindowTitleBar: true });
   if (author) doc.setAuthor(author);
-  doc.setProducer('Inkleaf');
+  doc.setProducer('InkLeaf PDF');
   doc.setCreationDate(created);
   doc.setModificationDate(now);
   // XMP must be UTF-8; a plain string would be written byte-per-character

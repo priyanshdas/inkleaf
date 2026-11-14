@@ -42,7 +42,7 @@ export async function checkPhoneUpdates(options: {
 }) {
   const { current, manual, store, report, relayT } = options;
   if (options.fromStore) {
-    if (manual) report({ state: 'unavailable', reason: relayT('This copy of Inkleaf came from an app store, which keeps it up to date.') });
+    if (manual) report({ state: 'unavailable', reason: relayT('This copy of InkLeaf PDF came from an app store, which keeps it up to date.') });
     return;
   }
   if (!manual && Date.now() - store.get<number>('update-checked', 0) < DAY) return;

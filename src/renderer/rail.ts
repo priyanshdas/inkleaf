@@ -8,7 +8,7 @@ import { isMobile } from '../shared/platform';
 import { h, icon } from './ui';
 
 /** What each tool does, and its key, for the cards. */
-const TIPS: Record<string, { key?: string; text: string }> = {
+export const TIPS: Record<string, { key?: string; text: string }> = {
   select: { key: 'V', text: msg('Pick, move and resize anything you’ve added. Drag across the PDF’s own words to copy them.') },
   hand: { key: 'H', text: msg('Drag the page around. Hold Space to do this with any tool.') },
   'edit-text': { key: 'E', text: msg('Click a line in the PDF and retype it. The old words are removed from the file when you save.') },

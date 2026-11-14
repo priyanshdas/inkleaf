@@ -1,4 +1,4 @@
-# Inkleaf
+# InkLeaf PDF
 
 A free, open-source PDF editor for Windows, macOS, Linux and Android that
 works entirely offline. Open a PDF, change it, save it. Your files stay on
@@ -25,7 +25,7 @@ old words are really gone, and also signs, fills forms, cleans up scans and
 handles pages. And I wanted it to do all that offline, without an account,
 on my computer and my phone.
 
-That's what Inkleaf is for. It isn't trying to replace every tool above.
+That's what InkLeaf PDF is for. It isn't trying to replace every tool above.
 If one of them already does what you need, it's a fine choice.
 
 ## What it does
@@ -57,9 +57,13 @@ If one of them already does what you need, it's a fine choice.
 - **Stamps.** Approved, Paid, Received, Rejected, Confidential and others (or
   your own words), with today's date if you like.
 - **Find (Ctrl+F)**, **Print (Ctrl+P)** with a preview of every page and a
-  choice of which to print, **bookmarks** (read, add, rename,
-  delete; saved with the file), **crop pages**, and continuous, two-page and
-  one-page reading modes.
+  choice of which to print, **bookmarks** (read, add, rename, delete, and
+  put inside one another like a book's chapters and sections: drag one onto
+  another, or use Alt+Shift and the arrow keys; saved with the file),
+  **crop pages**, and continuous, two-page and one-page reading modes. The
+  two-page view can read **right to left** for books bound on the right
+  (Chinese, Japanese and Korean vertical text, Arabic, Hebrew); each PDF
+  remembers its choice, and one marked right to left opens that way.
 - **Text recognition (OCR).** Makes scans searchable and editable in 56
   languages, from English, Spanish and Arabic to Hindi, Chinese, Japanese,
   Swahili and Amharic. English and Hindi come built in; any other language
@@ -75,10 +79,12 @@ If one of them already does what you need, it's a fine choice.
   Spanish, French, German, Italian, Portuguese, Dutch, Polish, Ukrainian,
   Russian, Turkish, Arabic, Persian, Hebrew, Chinese (Simplified and
   Traditional), Japanese, Korean, Vietnamese, Thai, Indonesian, Malay and
-  Swahili. Inkleaf follows your computer's language, or pick one under
+  Swahili. InkLeaf PDF follows your computer's language, or pick one under
   View › Language. Arabic, Persian, Urdu and Hebrew mirror the whole window,
   while the PDF itself stays the right way round.
-- **Compress**, **password-protect** (AES-256, with optional print, copy and
+- **Compress** (scanned pages saved at full scanner resolution shrink from
+  tens of megabytes each to a few hundred kilobytes, and InkLeaf PDF points this
+  out when a saved file is that big), **password-protect** (AES-256, with optional print, copy and
   edit restrictions), **watermarks, page numbers, headers and footers**,
   **form builder** (text boxes, paragraphs, checkboxes, dropdowns), and
   **compare two PDFs** word by word.
@@ -93,7 +99,7 @@ If one of them already does what you need, it's a fine choice.
 - **Convert to PDF:** Word, Excel, PowerPoint, OpenDocument, CSV, text,
   Markdown, web pages and pictures. Just open or drop the file. If
   [LibreOffice](https://www.libreoffice.org) is installed, office files go
-  through it and keep their exact layout; otherwise Inkleaf's built-in
+  through it and keep their exact layout; otherwise InkLeaf PDF's built-in
   converters keep the text, headings, lists, tables, pictures and slide
   layout. (Old .doc/.xls/.ppt and OpenDocument files need LibreOffice.)
 - **Convert PDF to:** Word, Excel (tables become real rows, columns and
@@ -104,11 +110,11 @@ If one of them already does what you need, it's a fine choice.
   loaded privately without your logins or cookies.
 - **Scan to PDF:** scan from a scanner or all-in-one printer, take
   pictures of paper with your webcam, or add photos from your phone.
-  Inkleaf finds the page, lets you drag its corners, straightens it, and
+  InkLeaf PDF finds the page, lets you drag its corners, straightens it, and
   whitens the paper (or makes it black and white). Text recognition can
   run straight after. Pages › Insert from Scanner adds scanned pages to the
   open PDF.
-- **Scanners:** Inkleaf talks to scanners through WIA and TWAIN on
+- **Scanners:** InkLeaf PDF talks to scanners through WIA and TWAIN on
   Windows, SANE on Linux, and eSCL (AirScan) over the network on every
   system, so most flatbeds, all-in-ones and network printers work without
   extra software beyond their own driver. The scanner settings cover the
@@ -123,7 +129,7 @@ If one of them already does what you need, it's a fine choice.
 - **Ask this PDF, AI Summarizer and Translate PDF** (optional). Ask a
   question and the answer points to the pages it came from (tap a page
   number to jump there). Pick the AI in Tools › AI settings:
-  - **Built-in AI**, free, with no key and no account. Inkleaf downloads a
+  - **Built-in AI**, free, with no key and no account. InkLeaf PDF downloads a
     small open model once ([Qwen 3.5](https://huggingface.co/Qwen), Apache
     2.0: Quick is 1.3 GB, Better 2.7 GB) and runs it with
     [llama.cpp](https://github.com/ggml-org/llama.cpp), on your graphics card
@@ -138,8 +144,8 @@ If one of them already does what you need, it's a fine choice.
   - **Any other service** with an OpenAI-compatible API (OpenRouter, Groq,
     Mistral, a server on your network…).
 
-  Inkleaf loads each provider's current list of models, so new models show
-  up without an update. Cloud AI is the only thing in Inkleaf that sends
+  InkLeaf PDF loads each provider's current list of models, so new models show
+  up without an update. Cloud AI is the only thing in InkLeaf PDF that sends
   your document anywhere, and only when you run it; Ask this PDF sends only
   the parts of the document that match the question. Translation goes into
   any of 56 languages and either lays the new words over a copy of the
@@ -157,11 +163,11 @@ If one of them already does what you need, it's a fine choice.
   kept). Protected PDFs are never auto-saved, since that would remove their
   protection without asking.
 - **Crash recovery.** Unsaved work, including brand-new documents, is copied
-  somewhere safe every minute and offered back if Inkleaf closes unexpectedly.
+  somewhere safe every minute and offered back if InkLeaf PDF closes unexpectedly.
 - **On your phone.** The Android app has its own native screens: your files
   first, a Tools tab and a Computer tab. Documents open for reading; tap the
   pencil for an edit sheet with annotate, text, sign and page tools. Pinch to
-  zoom. Open PDFs from your files or cloud storage, or share them to Inkleaf
+  zoom. Open PDFs from your files or cloud storage, or share them to InkLeaf PDF
   from any app. Editing is done by the same engine as the desktop app, so
   everything behaves the same. The phone has the desktop's tools too: Ask
   this PDF and the built-in AI, Share securely and Receive a file, Enhance
@@ -174,25 +180,35 @@ If one of them already does what you need, it's a fine choice.
   no cloud and no account.
 - **Share securely.** Lock a copy so only the right person can open it:
   with a strong generated code (it opens in any PDF app), or to one
-  person's computer (it opens only in Inkleaf there, so there's no code to
+  person's computer (it opens only in InkLeaf PDF there, so there's no code to
   leak). Save the locked file to send yourself, or send it with a pickup
   code: the other person types the code or scans its QR code and the file
   comes to them, straight over your Wi-Fi or through the relay for up to 7
-  days. Without Inkleaf, scanning the QR code downloads it in a browser.
+  days. Without InkLeaf PDF, scanning the QR code downloads it in a browser.
   The relay only ever holds encrypted files; its source is in `relay/`.
 - **Copy a PDF's own text.** With the Select tool, drag across the words
   in any PDF (or double-click one) and copy them.
-- **Tool rail.** Rest the pointer on a tool for its name, shortcut and what
-  it does; the button at the bottom of the rail shows every tool's name.
-- **Default PDF app.** The start screen offers once to make Inkleaf the app
-  that opens PDFs (also under Help › Make Inkleaf the Default PDF App). On
+- **Ribbon or classic toolbar.** The ribbon puts everything in tabs of
+  labelled buttons along the top, like Word: Home, Insert, Pages, Review,
+  Convert, AI and View, with the font controls in Home and page and zoom in
+  a status bar at the bottom. Ctrl+F1 (or double-clicking a tab) folds it
+  down to the tab names. The classic layout keeps the tool rail on the
+  left: rest the pointer on a tool for its name, shortcut and what it does.
+  Switch in View › Ribbon Toolbar or in Settings. New installs start with
+  the ribbon; people updating keep the layout they know.
+- **The open button** opens a menu: Open, recent files, a new blank PDF or
+  window, and the ways to make a PDF (combine files, convert documents,
+  pictures, scan, or a web page).
+- **Default PDF app.** The start screen offers once to make InkLeaf PDF the app
+  that opens PDFs (also under Help › Make InkLeaf PDF the Default PDF App). On
   Linux it's set straight away; Windows only lets you choose that yourself,
-  so Inkleaf opens Settings on its own entry for you to confirm, and notices
-  when you have. File Explorer's preview pane keeps showing PDFs once
-  Inkleaf opens them (in the installed version), and its icons become
-  pictures of each PDF's first page (the Microsoft Store version too): Inkleaf installs its own
-  thumbnail maker for File Explorer, drawn with PDFium. The portable
-  version and the AppImage aren't installed, so they don't offer it.
+  so InkLeaf PDF opens Settings on its own entry for you to confirm, and notices
+  when you have. File Explorer then shows a picture of each PDF's first
+  page instead of an icon, and its preview pane shows every page to scroll
+  through, in the installed and Microsoft Store versions alike: InkLeaf PDF
+  installs its own thumbnail maker and previewer for File Explorer, drawn
+  with PDFium, so nothing else is needed. The portable version and the
+  AppImage aren't installed, so they don't offer it.
 - **Fits in with your computer** (View › Settings, Ctrl+,):
   - starts when you sign in, waiting in the tray, so PDFs open straight
     away; or just stays in the tray when you close its windows;
@@ -203,7 +219,7 @@ If one of them already does what you need, it's a fine choice.
     documents to **make a PDF** (installed version; on Windows 11 under
     "Show more options");
   - recent files, "New window" and "Open a PDF" on the taskbar button;
-  - drop several pictures on Inkleaf's icon and they become one PDF.
+  - drop several pictures on InkLeaf PDF's icon and they become one PDF.
 - Updates itself (installed version) when a new release is published.
 - Unlimited undo, light and dark mode, keyboard shortcuts for every tool
   (press Ctrl+/ or ⌘/ to see them).
@@ -215,7 +231,7 @@ limits. The code is licensed under the GNU GPL, version 3 or later, so you can
 use, study, share and change it. If you share a changed version, it has to
 stay open source under the same licence.
 
-If Inkleaf saves you time, you can buy me a coffee on
+If InkLeaf PDF saves you time, you can buy me a coffee on
 [Ko-fi](https://ko-fi.com/inkleaf). The app links there too, from
 Help › Buy Me a Coffee, the coffee button in the title bar and the About box. (The link lives in
 `src/shared/config.ts`; `.github/FUNDING.yml` adds the Sponsor button on
@@ -228,7 +244,7 @@ Bug reports, ideas, translations and pull requests are all welcome. See
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for how we treat each other. Please
 report security problems privately, as described in [SECURITY.md](SECURITY.md).
 
-### Translating Inkleaf
+### Translating InkLeaf PDF
 
 Every message in the app is written in English and wrapped in `t('…')`.
 Translations live in `src/renderer/i18n/<code>.json`, one file per language.
@@ -345,7 +361,7 @@ The Store version doesn't update itself; Microsoft Store does that, and
 1. The release workflow builds the Store package. Open the run on the
    **Actions** tab and download **Inkleaf-Microsoft-Store** from the bottom
    of its summary page (or build it yourself with `npm run dist:win:store`).
-2. In [Partner Center](https://partner.microsoft.com/dashboard), open Inkleaf,
+2. In [Partner Center](https://partner.microsoft.com/dashboard), open InkLeaf PDF,
    choose **Start update**, then **Packages**. Remove the old package, upload
    the new `.appx`, and submit.
 3. Certification takes from a few hours to a few days. Store users then get
@@ -453,7 +469,7 @@ The phone link: the computer runs a small server on your local network
 (port 47731) only while a phone is paired. Pairing shares a random key
 through the QR code; every message after that is sealed with AES-256-GCM
 using a key derived from it, and carries a timestamp and nonce so it can't
-be replayed. The phone keeps one request open while Inkleaf is on screen, so
+be replayed. The phone keeps one request open while InkLeaf PDF is on screen, so
 files sent from the computer arrive straight away. See
 `src/shared/link-protocol.ts`.
 
@@ -469,11 +485,11 @@ Share securely, in two parts (`src/shared/lock.ts` and `src/shared/pickup.ts`):
 - **Pickup codes.** A 24-character code: the first 7 characters name the
   file, and the other 17 are the secret. The key, and a token for deleting
   the file, are derived from that secret, so the relay only ever sees
-  encrypted bytes and never the code. While Inkleaf is open, the sender
+  encrypted bytes and never the code. While InkLeaf PDF is open, the sender
   also serves the file on the local network; the receiver looks for it
   there first (UDP port 47733), then falls back to the relay. The relay
   keeps a file until it's picked up or for 7 days at most, up to 100 MB.
-  `relay/README.md` covers deploying your own and pointing Inkleaf at it.
+  `relay/README.md` covers deploying your own and pointing InkLeaf PDF at it.
 
 The renderer never touches the file system. It asks the main process to open
 and save files through a small API (`src/shared/api.ts`), and the main process
@@ -575,7 +591,7 @@ Things that keep it fast, worth preserving when changing the viewer:
 - **Small models** (the built-in AI's Quick model, or a few-billion-parameter
   model in Ollama) summarize and answer questions well, and translate
   line by line; their translations are plainer than a cloud model's. If
-  some lines come back untranslated, Inkleaf says how many; try Better or a
+  some lines come back untranslated, InkLeaf PDF says how many; try Better or a
   cloud provider for those documents. On a phone the built-in AI reads less
   of the document per question, so answers stay quick on its processor.
 - **Language packs** (OCR models and the Chinese, Japanese and Korean fonts)
@@ -586,19 +602,19 @@ Things that keep it fast, worth preserving when changing the viewer:
   language, please open an issue or a pull request.
 - **Scan to PDF** finds the page by looking for the bright sheet on a darker
   background. On a white desk, drag the corners into place yourself.
-- **Scanners:** Inkleaf uses the scanner's own driver, so some scanners need
+- **Scanners:** InkLeaf PDF uses the scanner's own driver, so some scanners need
   their maker's full software installed (not just the printer driver).
-  Older drivers sometimes show their own scan window even when Inkleaf asks
+  Older drivers sometimes show their own scan window even when InkLeaf PDF asks
   them not to. Scanning from a scanner on a Mac works with network scanners
   (eSCL/AirScan) only, for now.
 - **File Explorer** (Windows): the thumbnails and preview pane only apply
-  while Inkleaf is your default PDF app. Thumbnails of PDFs locked with a
-  password show Inkleaf's icon. The right-click menu entries need the
+  while InkLeaf PDF is your default PDF app. PDFs locked with a password show
+  InkLeaf PDF's icon and no preview. The right-click menu entries need the
   installed version; on Windows 11 they're under "Show more options".
-- **Opening downloads** only works while Inkleaf is running; switch on
-  "Start Inkleaf when I sign in" in Settings to have it always ready.
+- **Opening downloads** only works while InkLeaf PDF is running; switch on
+  "Start InkLeaf PDF when I sign in" in Settings to have it always ready.
 - **PDF/A** output is PDF/A-2b. Files with transparency groups or unusual
-  fonts may still need a dedicated tool to pass a strict validator; Inkleaf
+  fonts may still need a dedicated tool to pass a strict validator; InkLeaf PDF
   lists anything it couldn't fix.
 - **Without LibreOffice**, converted Word files lose page headers, footers and
   exact fonts, and slides drop charts, SmartArt and effects.
@@ -643,7 +659,7 @@ anyone's own computer is signed.
 Pull requests from anyone else are reviewed by a committer before they're
 merged.
 
-**Privacy.** Inkleaf doesn't send any information to other networked
+**Privacy.** InkLeaf PDF doesn't send any information to other networked
 systems unless you ask it to: when you use the AI tools, Web page to PDF,
 send or receive a file with a pickup code, download a language pack, check
 for updates, or open the scanner (which looks for network scanners on your
@@ -652,12 +668,12 @@ own network only). See the
 
 ## Terms and privacy
 
-Using Inkleaf means agreeing to the [Terms of Use](TERMS.md) and
+Using InkLeaf PDF means agreeing to the [Terms of Use](TERMS.md) and
 [Privacy Policy](PRIVACY.md). The installer shows both before installing,
 the portable and Linux builds ask once on first start, and both are under
-Help in the app. In short: Inkleaf is provided as is, with no warranty and
+Help in the app. In short: InkLeaf PDF is provided as is, with no warranty and
 no liability for how it's used, and it collects nothing about you. Both
-also list what Inkleaf changes on your computer (startup, File Explorer's
+also list what InkLeaf PDF changes on your computer (startup, File Explorer's
 menu and thumbnails) and what it does on it (opening downloaded PDFs,
 finding scanners), all of which you can switch off in Settings.
 
@@ -665,12 +681,12 @@ finding scanners), all of which you can switch off in Settings.
 
 Copyright © 2026 Priyansh Das.
 
-Inkleaf is free software: you can redistribute it and/or modify it under the
+InkLeaf PDF is free software: you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version. It is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full text.
 
-Inkleaf is built on other open-source projects under their own licences, all
+InkLeaf PDF is built on other open-source projects under their own licences, all
 compatible with the GPL; [THIRD-PARTY.md](THIRD-PARTY.md) lists them.

@@ -330,6 +330,8 @@ button:disabled { cursor: default; }
 .cmd.small .icon { width: 16px; height: 16px; }
 .cmd-text { padding: 0 10px; font-weight: 560; }
 .cmd-text .icon:last-child { width: 14px; height: 14px; opacity: 0.6; }
+.cmd-open { gap: 1px; padding: 0 4px 0 7px; }
+.cmd-open .icon:last-child { width: 12px; height: 12px; opacity: 0.6; }
 
 .pager { display: flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
 .page-input {
@@ -658,6 +660,9 @@ button:disabled { cursor: default; }
 }
 .pages.spread .page:nth-child(odd) { justify-self: end; }
 .pages.spread .page:nth-child(even) { justify-self: start; }
+/* right to left: the grid fills from the right; each page itself stays as it is */
+.pages.spread.rtl { direction: rtl; }
+.pages.spread.rtl > .page { direction: ltr; }
 .pages.single .page[hidden] { display: none; }
 
 .page {
@@ -1651,7 +1656,16 @@ kbd {
 .bm-act { display: none; flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-3); cursor: pointer; }
 .bm-act .icon { width: 13px; height: 13px; }
 .bm-act:hover { background: var(--panel-3); color: var(--ink); }
-.bm-row:hover .bm-act { display: inline-flex; align-items: center; justify-content: center; }
+.bm-row:hover .bm-act, .bm-row:focus-within .bm-act { display: inline-flex; align-items: center; justify-content: center; }
+.bm-title:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-sm); }
+.bm-title[aria-disabled="true"] { color: var(--ink-3); cursor: default; }
+.bm-row { position: relative; }
+.bm-row.dragging { opacity: 0.45; }
+.bm-row.drop-inside { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.bm-row.drop-before::before, .bm-row.drop-after::after { content: ""; position: absolute; inset-inline: calc(var(--depth) * 14px + 4px) 4px; height: 2px; background: var(--accent); border-radius: 1px; pointer-events: none; }
+.bm-row.drop-before::before { top: -1px; }
+.bm-row.drop-after::after { bottom: -1px; }
+.side-actions-row .icon-only { margin-inline-start: auto; padding-inline: 6px; }
 
 /* --- comment card ------------------------------------------------------------------------------- */
 
@@ -2491,3 +2505,168 @@ html.mobile .lang-option.local-model > .local-progress { margin-inline-start: au
 .desktop-row strong { font-weight: 500; }
 .desktop-note { color: var(--danger); }
 .desktop-note:empty { display: none; }
+
+/* --- the ribbon (src/renderer/ribbon.ts) ---------------------------------------------------- */
+
+#app.ribbon { --rail-w: 0px; grid-template-rows: var(--titlebar) auto minmax(0, 1fr) auto; }
+#app.ribbon.no-doc { grid-template-rows: var(--titlebar) auto minmax(0, 1fr); }
+#app.ribbon #commandbar, #app.ribbon #rail { display: none !important; }
+#app:not(.ribbon) #ribbon, #app:not(.ribbon) #statusbar { display: none; }
+
+.ribbon {
+  position: relative;
+  z-index: 20;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+.rb-tabs { display: flex; align-items: flex-end; gap: 2px; height: 34px; padding: 0 8px; }
+.rb-tab {
+  position: relative;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: 560 13px var(--font);
+  cursor: pointer;
+}
+.rb-tab:hover { background: var(--panel-2); color: var(--ink); }
+.rb-tab[aria-selected="true"] { color: var(--accent); }
+.rb-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 10px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.rb-spacer { flex: 1; }
+.rb-tab-end { display: flex; align-items: center; gap: 2px; align-self: center; }
+.rb-fold {
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.rb-fold:hover { background: var(--panel-2); color: var(--ink); }
+.rb-fold .icon { width: 16px; height: 16px; }
+
+.rb-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  /* the same height on every tab, so the page doesn't jump when switching */
+  height: 100px;
+  padding: 4px 6px 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  border-top: 1px solid var(--line);
+  scrollbar-width: thin;
+}
+.ribbon.collapsed .rb-panel { display: none; }
+/* a collapsed ribbon opens over the page while a tab is clicked */
+.ribbon.collapsed.peek .rb-panel {
+  display: flex;
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--pop-shadow);
+}
+
+.rb-group {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  padding: 0 6px;
+  border-inline-end: 1px solid var(--line);
+}
+.rb-group:last-child { border-inline-end: 0; }
+.rb-group-body { display: flex; align-items: flex-start; gap: 2px; flex: 1; }
+.rb-group-label {
+  padding: 2px 0 5px;
+  color: var(--ink-3);
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+}
+.rb-stack { display: flex; flex-direction: column; gap: 1px; }
+
+.rb-btn {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: 12px var(--font);
+  cursor: pointer;
+}
+.rb-btn:hover:not(:disabled) { background: var(--panel-2); }
+.rb-btn:disabled { opacity: 0.38; cursor: default; }
+.rb-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.rb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.rb-large {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 4px;
+  min-width: 56px;
+  max-width: 84px;
+  height: 70px;
+  padding: 6px 6px 4px;
+  text-align: center;
+}
+.rb-large > .icon:first-child { width: 24px; height: 24px; flex: none; color: var(--accent); }
+.rb-large[aria-pressed="true"] > .icon:first-child { color: inherit; }
+.rb-large .rb-label { line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rb-large > .icon:last-child:not(:first-child) { width: 12px; height: 12px; margin-top: -3px; opacity: 0.6; }
+
+.rb-small { gap: 6px; height: 23px; padding: 0 8px 0 6px; white-space: nowrap; }
+.rb-small > .icon { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
+.rb-small[aria-pressed="true"] > .icon { color: inherit; }
+
+/* the font controls, docked in Home › Font */
+.rb-font { display: flex; align-items: center; padding-top: 4px; }
+.text-toolbar.docked {
+  position: static;
+  z-index: auto;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  width: 352px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+.text-toolbar.docked .tt-font { width: 170px; justify-content: space-between; border: 1px solid var(--line); background: var(--panel); }
+.text-toolbar.docked .tt-size { border: 1px solid var(--line); }
+.text-toolbar.docked .tt-sep:nth-of-type(1) { flex-basis: 100%; width: 0; height: 0; margin: 0; }
+.text-toolbar.docked .tt-pop { top: calc(100% + 4px); }
+
+/* page, saving and zoom along the bottom */
+.statusbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.statusbar .sb-start, .statusbar .sb-middle, .statusbar .sb-end { display: flex; align-items: center; gap: 2px; }
+.statusbar .sb-end { justify-content: flex-end; }
+.statusbar .cmd { height: 28px; min-width: 28px; }
+.statusbar .page-input { height: 24px; }
+.statusbar .save-state { height: 26px; }

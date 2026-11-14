@@ -128,7 +128,7 @@ export function createLink(helpers: Helpers) {
       }
     }
     void lastError;
-    throw new Error(window.inkleafT('Couldn’t reach {name}. Check that it’s on, Inkleaf is open, and both are on the same Wi-Fi.', { name: paired.computer.name }));
+    throw new Error(window.inkleafT('Couldn’t reach {name}. Check that it’s on, InkLeaf PDF is open, and both are on the same Wi-Fi.', { name: paired.computer.name }));
   }
 
   /** Keeps asking the computer for files while Inkleaf is on screen. */
@@ -182,7 +182,7 @@ export function createLink(helpers: Helpers) {
     },
     async linkJoin(code: string): Promise<{ name: string }> {
       const pairing = decodePairing(code);
-      if (!pairing) throw new Error(window.inkleafT('That isn’t an Inkleaf code. On your computer, open Tools › Connect a phone.'));
+      if (!pairing) throw new Error(window.inkleafT('That isn’t an InkLeaf PDF code. On your computer, open Tools › Connect a phone.'));
       const id = readPaired()?.id ?? randomId();
       for (const host of pairing.h) {
         try {
@@ -201,7 +201,7 @@ export function createLink(helpers: Helpers) {
           // try the computer's next address
         }
       }
-      throw new Error(window.inkleafT('Couldn’t reach {name}. Check that it’s on, Inkleaf is open, and both are on the same Wi-Fi.', { name: pairing.n }));
+      throw new Error(window.inkleafT('Couldn’t reach {name}. Check that it’s on, InkLeaf PDF is open, and both are on the same Wi-Fi.', { name: pairing.n }));
     },
     async linkSend(_deviceId: string, name: string, data: Uint8Array): Promise<void> {
       const reply = await talk({ type: 'send', id: readPaired()?.id ?? '', name, data: helpers.toBase64(data) }, 120);

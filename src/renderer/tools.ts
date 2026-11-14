@@ -123,7 +123,7 @@ export async function protectDialog(doc: EditorDoc, host: ToolHost) {
       openSection,
       h('label', { class: 'check strong' }, restrict, t(' Restrict what people can do')),
       restrictSection,
-      h('p', { class: 'field-hint warn' }, icon('info'), t('Inkleaf can’t recover a forgotten password. Keep it somewhere safe.')),
+      h('p', { class: 'field-hint warn' }, icon('info'), t('InkLeaf PDF can’t recover a forgotten password. Keep it somewhere safe.')),
       error),
     buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Save protected copy…'), value: 'ok', primary: true }],
     validate: () => {
@@ -324,7 +324,7 @@ export async function imagesToPdf(host: ToolHost) {
         out.addPage([pw, ph]).drawImage(embedded, { x: (pw - dw) / 2, y: (ph - dh) / 2, width: dw, height: dh });
       }
     }
-    out.setProducer('Inkleaf');
+    out.setProducer('InkLeaf PDF');
     return out.save();
   });
   await host.openBytes(bytes, files.length === 1 ? `${files[0].name.replace(/\.[^.]+$/, '')}.pdf` : 'Pictures.pdf');

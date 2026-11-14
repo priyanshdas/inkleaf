@@ -217,7 +217,7 @@ function createWindow(fileToOpen?: OpenedFile): BrowserWindow {
     y: saved ? saved.y + offset : undefined,
     minWidth: 760,
     minHeight: 520,
-    title: 'Inkleaf',
+    title: 'InkLeaf PDF',
     backgroundColor: frameColour(),
     show: false,
     // our own title bar: the app draws the tabs, the OS draws the window buttons
@@ -241,7 +241,7 @@ function createWindow(fileToOpen?: OpenedFile): BrowserWindow {
     dirty: false,
     dirtyCount: 0,
     dirtyName: '',
-    title: 'Inkleaf',
+    title: 'InkLeaf PDF',
     closeConfirmed: false,
     ready: false,
     pendingFiles: fileToOpen ? [fileToOpen] : [],
@@ -368,7 +368,7 @@ async function readPdf(filePath: string): Promise<OpenedFile> {
   const resolved = path.resolve(filePath);
   const ext = path.extname(resolved).toLowerCase().slice(1);
   if (ext !== 'pdf' && !CONVERTIBLE.includes(ext)) {
-    throw new Error(t('Inkleaf opens PDFs, and documents, spreadsheets, slides, text and pictures it can turn into PDFs.'));
+    throw new Error(t('InkLeaf PDF opens PDFs, and documents, spreadsheets, slides, text and pictures it can turn into PDFs.'));
   }
   const data = await fs.readFile(resolved);
   if (ext !== 'pdf') {
@@ -586,7 +586,7 @@ function registerIpc() {
       title: t('Open'),
       properties: ['openFile'],
       filters: [
-        { name: t('PDFs and files Inkleaf can convert'), extensions: ['pdf', ...CONVERTIBLE] },
+        { name: t('PDFs and files InkLeaf PDF can convert'), extensions: ['pdf', ...CONVERTIBLE] },
         { name: t('PDF documents'), extensions: ['pdf'] },
       ],
     });
@@ -856,8 +856,8 @@ function registerIpc() {
     ctx.dirtyName = state.dirtyName ?? '';
     ctx.dirty = ctx.dirtyCount > 0;
     ctx.hasDocument = !!state.title;
-    ctx.title = state.title || 'Inkleaf';
-    ctx.win.setTitle(state.title ? `${state.title}${state.dirty ? ' •' : ''} — Inkleaf` : 'Inkleaf');
+    ctx.title = state.title || 'InkLeaf PDF';
+    ctx.win.setTitle(state.title ? `${state.title}${state.dirty ? ' •' : ''} — InkLeaf PDF` : 'InkLeaf PDF');
     ctx.win.setDocumentEdited(!!state.dirty);
     if (process.platform === 'darwin') ctx.win.setRepresentedFilename(state.path ?? '');
   });

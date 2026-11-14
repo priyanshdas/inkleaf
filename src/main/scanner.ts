@@ -52,7 +52,7 @@ const messages = {
   nopaper: (t: Relay) => t('The scanner says there’s no paper. Put the page on the glass, or in the feeder, and try again.'),
   cover: (t: Relay) => t('The scanner’s cover is open or it isn’t ready. Close the lid, wait a moment, then try again.'),
   failed: (t: Relay) => t('The scanner didn’t send a page. Check it’s switched on and connected, then try again.'),
-  nofeeder: (t: Relay) => t('This scanner doesn’t have a document feeder that Inkleaf can use. Put the page on the glass and pick Glass instead.'),
+  nofeeder: (t: Relay) => t('This scanner doesn’t have a document feeder that InkLeaf PDF can use. Put the page on the glass and pick Glass instead.'),
   noduplex: (t: Relay) => t('This scanner can’t scan both sides of a page. Pick Document feeder instead.'),
 };
 
@@ -362,6 +362,8 @@ export async function listScanners(t: Relay): Promise<Scanner[]> {
   if (named.length || !problem) return named;
 
   if (problem instanceof SaneMissing) {
+    // the Flatpak has no SANE inside it, and can't reach the one on the computer
+    if (process.env.FLATPAK_ID) throw new ScanError(t('The Flatpak version of InkLeaf PDF can only scan from network scanners (AirScan or eSCL). For a scanner plugged in by USB, use the .deb or AppImage version.'));
     throw new ScanError(t('Scanning needs SANE. Install the “sane-utils” package (on Fedora, “sane-backends”), and “hplip” for HP printers, then try again.'));
   }
   throw new ScanError(wiaMessage(String((problem as { stderr?: string }).stderr ?? problem), t));

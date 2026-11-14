@@ -13,7 +13,7 @@
 
   ; File Explorer's thumbnails of PDFs: a picture of the first page, drawn by
   ; Inkleaf's own thumbnail maker (native/thumbnails) once Inkleaf opens PDFs
-  WriteRegStr SHCTX "Software\Classes\CLSID\{1EBEB7F8-27A7-4B2A-A890-88C35591D436}" "" "Inkleaf PDF thumbnails"
+  WriteRegStr SHCTX "Software\Classes\CLSID\{1EBEB7F8-27A7-4B2A-A890-88C35591D436}" "" "InkLeaf PDF thumbnails"
   WriteRegStr SHCTX "Software\Classes\CLSID\{1EBEB7F8-27A7-4B2A-A890-88C35591D436}\InprocServer32" "" "$INSTDIR\resources\thumbnails\inkleaf-thumbs.dll"
   WriteRegStr SHCTX "Software\Classes\CLSID\{1EBEB7F8-27A7-4B2A-A890-88C35591D436}\InprocServer32" "ThreadingModel" "Apartment"
   WriteRegStr SHCTX "Software\Classes\Inkleaf.pdf\ShellEx\{e357fccd-a995-4576-b01f-234630154e96}" "" "{1EBEB7F8-27A7-4B2A-A890-88C35591D436}"
@@ -21,10 +21,23 @@
   ; from fileAssociations in package.json), and that's often the one chosen
   WriteRegStr SHCTX "Software\Classes\PDF Document\ShellEx\{e357fccd-a995-4576-b01f-234630154e96}" "" "{1EBEB7F8-27A7-4B2A-A890-88C35591D436}"
 
-  WriteRegStr SHCTX "Software\Inkleaf\Capabilities" "ApplicationName" "Inkleaf"
+  ; File Explorer's preview pane: every page, from the same DLL. Explorer
+  ; runs previewers in its own helper program (prevhost), named by the AppID
+  WriteRegStr SHCTX "Software\Classes\CLSID\{426761B5-11FE-448D-8071-7EAC4FBFAED9}" "" "InkLeaf PDF preview"
+  WriteRegStr SHCTX "Software\Classes\CLSID\{426761B5-11FE-448D-8071-7EAC4FBFAED9}" "DisplayName" "InkLeaf PDF preview"
+  WriteRegStr SHCTX "Software\Classes\CLSID\{426761B5-11FE-448D-8071-7EAC4FBFAED9}" "AppID" "{6d2b5079-2f0b-48dd-ab7f-97cec514d30b}"
+  WriteRegStr SHCTX "Software\Classes\CLSID\{426761B5-11FE-448D-8071-7EAC4FBFAED9}\InprocServer32" "" "$INSTDIR\resources\thumbnails\inkleaf-thumbs.dll"
+  WriteRegStr SHCTX "Software\Classes\CLSID\{426761B5-11FE-448D-8071-7EAC4FBFAED9}\InprocServer32" "ThreadingModel" "Apartment"
+  WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\PreviewHandlers" "{426761B5-11FE-448D-8071-7EAC4FBFAED9}" "InkLeaf PDF preview"
+  WriteRegStr SHCTX "Software\Classes\Inkleaf.pdf\ShellEx\{8895b1c6-b41f-4c1c-a562-0d564250836f}" "" "{426761B5-11FE-448D-8071-7EAC4FBFAED9}"
+  WriteRegStr SHCTX "Software\Classes\PDF Document\ShellEx\{8895b1c6-b41f-4c1c-a562-0d564250836f}" "" "{426761B5-11FE-448D-8071-7EAC4FBFAED9}"
+
+  WriteRegStr SHCTX "Software\Inkleaf\Capabilities" "ApplicationName" "InkLeaf PDF"
   WriteRegStr SHCTX "Software\Inkleaf\Capabilities" "ApplicationDescription" "Free, open-source PDF editor"
   WriteRegStr SHCTX "Software\Inkleaf\Capabilities\FileAssociations" ".pdf" "Inkleaf.pdf"
   WriteRegStr SHCTX "Software\RegisteredApplications" "Inkleaf" "Software\Inkleaf\Capabilities"
+  ; the name in "Open with" (the program file itself is still Inkleaf.exe)
+  WriteRegStr SHCTX "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName" "InkLeaf PDF"
 
   ; tell Explorer the list of apps for file types has changed
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
@@ -35,12 +48,15 @@
   ; or a PDF default someone chose would point at nothing for a moment
   ${ifNot} ${isUpdated}
     DeleteRegValue SHCTX "Software\RegisteredApplications" "Inkleaf"
+    DeleteRegValue SHCTX "Software\Classes\Applications\${APP_EXECUTABLE_FILENAME}" "FriendlyAppName"
     DeleteRegKey SHCTX "Software\Inkleaf\Capabilities"
     DeleteRegKey /ifempty SHCTX "Software\Inkleaf"
     DeleteRegValue SHCTX "Software\Classes\.pdf\OpenWithProgids" "Inkleaf.pdf"
     DeleteRegKey SHCTX "Software\Classes\Inkleaf.pdf"
     DeleteRegKey SHCTX "Software\Classes\CLSID\{1EBEB7F8-27A7-4B2A-A890-88C35591D436}"
-    ; the File Explorer preview Inkleaf borrows is set for each user (src/main/default-app.ts)
+    DeleteRegKey SHCTX "Software\Classes\CLSID\{426761B5-11FE-448D-8071-7EAC4FBFAED9}"
+    DeleteRegValue SHCTX "Software\Microsoft\Windows\CurrentVersion\PreviewHandlers" "{426761B5-11FE-448D-8071-7EAC4FBFAED9}"
+    ; File Explorer's thumbnails and preview are also set for each user (src/main/default-app.ts)
     DeleteRegKey HKCU "Software\Classes\Inkleaf.pdf\ShellEx"
     DeleteRegKey SHCTX "Software\Classes\PDF Document\ShellEx"
     DeleteRegKey HKCU "Software\Classes\PDF Document\ShellEx"

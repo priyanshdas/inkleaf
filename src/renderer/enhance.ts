@@ -366,7 +366,7 @@ export async function enhancedCopy(bytes: Uint8Array, s: Enhance, progress: (don
   } finally {
     void source.loadingTask.destroy();
   }
-  out.setProducer('Inkleaf');
+  out.setProducer('InkLeaf PDF');
   return out.save();
 }
 

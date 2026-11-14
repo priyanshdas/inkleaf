@@ -55,6 +55,12 @@ async function launch(file, options = {}) {
   // (apart from the auto-save test, which works on copies)
   await win.waitForFunction(() => !!window.__inkleaf?.autosave);
   if (!options.autosave) await win.evaluate(() => window.__inkleaf.autosave.setEnabled(false));
+  // a new profile starts with the ribbon; most checks drive the classic tool rail
+  if (!options.ribbon) {
+    await win.evaluate(() => {
+      if (document.getElementById('app').classList.contains('ribbon')) void window.__inkleaf.run('toggle-ribbon');
+    });
+  }
   return { app, win, errors, profile };
 }
 
@@ -539,10 +545,68 @@ async function v2Test() {
   await win.waitForTimeout(200);
   check('bookmark added', (await win.textContent('#bookmarks')).includes('Invoice'));
 
+  // nested bookmarks: one added inside, one moved in with the keyboard, one dragged
+  await win.hover('#bookmarks .bm-row:has-text("Invoice")');
+  await win.click('#bookmarks .bm-row:has-text("Invoice") [title="Add bookmark inside"]');
+  await win.fill('.modal .field-input', 'Totals');
+  await modalButton(win, 'OK');
+  await win.waitForTimeout(200);
+  await win.click('#bookmarks button:has-text("Add bookmark")');
+  await win.fill('.modal .field-input', 'Guest');
+  await modalButton(win, 'OK');
+  await win.waitForTimeout(200);
+  await win.focus('#bookmarks .bm-title:has-text("Guest")');
+  await win.keyboard.press('Alt+Shift+ArrowRight');
+  await win.waitForTimeout(200);
+  const outline = () => win.evaluate(() => {
+    const show = (l) => l.map((b) => (b.children.length ? `${b.title}(${show(b.children)})` : b.title)).join(',');
+    return show(window.__inkleaf.getDoc().outline ?? []);
+  });
+  check('bookmarks nest inside one another', (await outline()) === 'Invoice(Totals,Guest)', await outline());
+  await win.dragAndDrop('#bookmarks .bm-row:has-text("Guest")', '#bookmarks .bm-row:has-text("Totals")', { targetPosition: { x: 40, y: 2 } });
+  await win.waitForTimeout(200);
+  check('dragging a bookmark moves it', (await outline()) === 'Invoice(Guest,Totals)', await outline());
+  await win.focus('#bookmarks .bm-title:has-text("Totals")');
+  await win.keyboard.press('Alt+Shift+ArrowLeft');
+  await win.waitForTimeout(200);
+  check('Alt+Shift+Left moves a bookmark out', (await outline()) === 'Invoice(Guest),Totals', await outline());
+
   await win.evaluate(() => { void window.__inkleaf.run('mode-spread'); });
   await win.waitForTimeout(300);
   const tops = await win.evaluate(() => [...document.querySelectorAll('.page')].slice(0, 2).map((e) => e.offsetTop));
   check('two-page view puts pages side by side', tops.length === 2 && tops[0] === tops[1], JSON.stringify(tops));
+
+  // right to left: the first page of each pair goes on the right, and the choice sticks to the file
+  await win.evaluate(() => { void window.__inkleaf.run('reading-rtl'); });
+  await win.waitForTimeout(300);
+  const lefts = await win.evaluate(() => [...document.querySelectorAll('.page')].slice(0, 2).map((e) => e.getBoundingClientRect().left));
+  check('right-to-left puts page 1 on the right', lefts.length === 2 && lefts[0] > lefts[1], JSON.stringify(lefts));
+  check('right-to-left is remembered for the file', await win.evaluate(() => Object.values(JSON.parse(localStorage.getItem('inkleaf.rtl') ?? '{}')).includes(true)));
+  await win.evaluate(() => { void window.__inkleaf.run('reading-rtl'); });
+  await win.waitForTimeout(300);
+  const back = await win.evaluate(() => [...document.querySelectorAll('.page')].slice(0, 2).map((e) => e.getBoundingClientRect().left));
+  check('and back to left to right', back[0] < back[1], JSON.stringify(back));
+  // a PDF that asks to be read right to left (/Direction /R2L) opens that way
+  const r2l = path.join(out, 'r2l.pdf');
+  py(`
+import pypdf, sys
+from pypdf.generic import NameObject, DictionaryObject
+w = pypdf.PdfWriter(clone_from=pypdf.PdfReader(sys.argv[1]))
+w._root_object[NameObject('/ViewerPreferences')] = DictionaryObject({NameObject('/Direction'): NameObject('/R2L')})
+w.write(sys.argv[2])
+`, path.join(fixtures, 'sample.pdf'), r2l);
+  await app.evaluate(async ({ BrowserWindow }, file) => {
+    const fs = process.mainModule.require('node:fs');
+    BrowserWindow.getAllWindows()[0].webContents.send('open-file', { path: file, name: 'r2l.pdf', data: new Uint8Array(fs.readFileSync(file)) });
+  }, r2l);
+  await win.waitForFunction(() => window.__inkleaf.tabCount() === 2);
+  await win.waitForFunction(() => window.__inkleaf.viewer.rtl === true, null, { timeout: 5000 }).catch(() => {});
+  check('a PDF marked right to left opens that way', await win.evaluate(() => window.__inkleaf.viewer.rtl));
+  await win.evaluate(() => { const d = window.__inkleaf.getDoc(); d.markSaved(d.name, d.path); });
+  await win.keyboard.press('Control+w');
+  await win.waitForFunction(() => window.__inkleaf.tabCount() === 1);
+  await win.waitForTimeout(300);
+  check('switching back shows the first file left to right again', !(await win.evaluate(() => window.__inkleaf.viewer.rtl)));
   await win.evaluate(() => { void window.__inkleaf.run('mode-single'); });
   await win.waitForTimeout(200);
   check('single-page view shows one page', (await win.locator('.page:not([hidden])').count()) === 1);
@@ -624,12 +688,14 @@ r = pypdf.PdfReader(sys.argv[1])
 notes = [a.get_object() for a in (r.pages[0].get('/Annots') or []) if a.get_object().get('/Subtype') == '/Text']
 fields = list((r.get_fields() or {}).keys())
 outline = [o.title for o in r.outline if not isinstance(o, list)]
+nested = [[o.title for o in l] for l in r.outline if isinstance(l, list)]
 crop = [float(v) for v in r.pages[2].cropbox]
-print(json.dumps({"notes": [str(n.get('/Contents')) for n in notes], "fields": fields, "outline": outline, "crop": crop}))
+print(json.dumps({"notes": [str(n.get('/Contents')) for n in notes], "fields": fields, "outline": outline, "nested": nested, "crop": crop}))
 `, file));
   check('comment saved as a PDF comment', info.notes.length === 1 && info.notes[0] === 'Please check the room number', JSON.stringify(info.notes));
   check('form field saved as a fillable field', info.fields.includes('Guest signature name'), JSON.stringify(info.fields));
   check('bookmark saved', info.outline.includes('Invoice'), JSON.stringify(info.outline));
+  check('nested bookmarks saved inside their parent', JSON.stringify(info.nested) === '[["Guest"]]' && info.outline.includes('Totals'), JSON.stringify(info));
   check('crop saved as the page’s crop box', info.crop[2] - info.crop[0] < 360, JSON.stringify(info.crop));
 
   // protect: answer the Save dialog, then check the copy needs the password
@@ -1473,7 +1539,7 @@ async function defaultAppTest() {
 
   let { app, win, errors, profile } = await launch(null, { env });
   await win.waitForSelector('.default-offer', { timeout: 10000 });
-  check('the start screen offers to open PDFs with Inkleaf', /Open PDFs with Inkleaf/.test(await win.textContent('.default-offer')));
+  check('the start screen offers to open PDFs with Inkleaf', /Open PDFs with InkLeaf PDF/.test(await win.textContent('.default-offer')));
   await win.click('.default-offer .btn-primary');
   await win.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('now opens your PDFs')), null, { timeout: 10000 });
   check('it says so once it’s done', true);
@@ -2197,10 +2263,81 @@ async function desktopTest() {
   await hidden.close().catch(() => {});
 }
 
+
+// --- the ribbon and the open button -----------------------------------------------------------
+
+async function ribbonTest() {
+  console.log('\nRibbon and the open button');
+  let { app, win, errors, profile } = await launch(path.join(fixtures, 'sample.pdf'), { ribbon: true });
+  await waitForPages(win);
+  const classes = () => win.evaluate(() => document.getElementById('app').className);
+  check('a new profile starts with the ribbon', (await classes()).includes('ribbon') && (await win.isVisible('#ribbon')) && !(await win.isVisible('#rail')));
+  check('page and zoom move to the status bar', (await win.locator('#statusbar #page-input').count()) === 1 && (await win.locator('#statusbar #zoom-label').count()) === 1);
+  check('the font controls sit in Home › Font', await win.isVisible('#ribbon .rb-font .text-toolbar.docked'));
+
+  await win.click('.rb-tab[data-tab="review"]');
+  await win.click('#ribbon [data-tool="highlight"]');
+  check('a ribbon tool button picks the tool', (await win.evaluate(() => window.__inkleaf.editor.tool)) === 'highlight');
+  check('and shows it as on', (await win.getAttribute('#ribbon [data-tool="highlight"]', 'aria-pressed')) === 'true');
+
+  await win.click('.rb-tab[data-tab="pages"]');
+  await win.click('#ribbon [data-command="rotate-right"]');
+  await win.waitForTimeout(200);
+  check('a ribbon command runs', (await win.evaluate(() => window.__inkleaf.getDoc().pages[0].rotation)) === 90);
+
+  await win.click('.rb-tab[data-tab="home"]');
+  await win.click('#ribbon [data-tool="text"]');
+  await win.fill('#ribbon .tt-size', '22');
+  await win.press('#ribbon .tt-size', 'Enter');
+  await win.waitForTimeout(150);
+  check('the docked font size sets up the next text box', (await win.evaluate(() => window.__inkleaf.editor.styles.text.size)) === 22);
+
+  await win.keyboard.press('Control+F1');
+  await win.waitForTimeout(150);
+  check('Ctrl+F1 folds the ribbon to its tabs', !(await win.isVisible('#ribbon .rb-panel')));
+  await win.click('.rb-tab[data-tab="view"]');
+  check('a tab opens over the page while folded', await win.isVisible('#ribbon .rb-panel'));
+  await win.keyboard.press('Escape');
+
+  // the open button: recent files, new PDFs and combining
+  await win.click('.rb-tab[data-tab="home"]');
+  await win.click('#ribbon [data-menu="open"]');
+  const items = await win.locator('.menu .menu-label').allTextContents();
+  check('the open button shows its menu', ['Open…', 'Recent files', 'New blank PDF', 'Combine files into one PDF…', 'Scan to PDF…'].every((x) => items.includes(x)), JSON.stringify(items));
+  await win.keyboard.press('Escape');
+  await stubDialog(app, 'showOpenDialog', [path.join(fixtures, 'sample.pdf'), path.join(fixtures, 'form.pdf')]);
+  await win.evaluate(() => { void window.__inkleaf.run('combine-files'); });
+  await win.waitForFunction(() => window.__inkleaf.tabCount() === 2, null, { timeout: 15000 }).catch(() => {});
+  check('combine files makes one PDF of them', (await win.evaluate(() => window.__inkleaf.getDoc().pages.length)) === 4);
+
+  // back to the classic layout, which is then remembered
+  await win.evaluate(() => { void window.__inkleaf.run('toggle-ribbon'); });
+  await win.waitForTimeout(300);
+  check('the classic layout brings back the rail and command bar', !(await classes()).includes('ribbon') && (await win.isVisible('#rail')) && (await win.locator('#commandbar #page-input').count()) === 1);
+  check('and leaves no ribbon behind', (await win.locator('#ribbon, #statusbar').count()) === 0);
+  await win.click('#commandbar [data-menu="open"]');
+  check('its folder button opens the same menu', (await win.locator('.menu .menu-label', { hasText: 'Combine files into one PDF…' }).count()) === 1);
+  await win.keyboard.press('Escape');
+  await win.evaluate(() => { void window.__inkleaf.run('app-settings'); });
+  await win.waitForSelector('.desktop-settings');
+  await win.check('.desktop-layout-ribbon');
+  await win.waitForTimeout(200);
+  check('Settings switches to the ribbon', (await classes()).includes('ribbon'));
+  await win.check('.desktop-layout-classic');
+  await win.waitForTimeout(200);
+  await modalButton(win, 'Done');
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+
+  ({ app, win } = await launch(path.join(fixtures, 'sample.pdf'), { profile, ribbon: true }));
+  check('the chosen layout is kept next time', !(await classes()).includes('ribbon'));
+  await quit(app, win);
+}
+
 // ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

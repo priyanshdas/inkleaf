@@ -327,6 +327,27 @@ export class Viewer extends EventTarget {
 
   // --- reading modes -------------------------------------------------------------
 
+  /**
+   * Two-page view read right to left, for books bound on the right
+   * (Chinese, Japanese and Korean books, Arabic, Hebrew…): the first page of
+   * each pair goes on the right.
+   */
+  rtl = false;
+
+  setRtl(rtl: boolean) {
+    if (rtl === this.rtl) return;
+    const keep = this.currentPageId;
+    this.rtl = rtl;
+    this.pagesEl.classList.toggle('rtl', rtl);
+    this.offsetsValid = false;
+    if (keep && this.mode === 'spread') this.scrollToPage(keep, false);
+    // wider than the window: start from the side the reading starts on
+    const c = this.container;
+    if (c.scrollWidth > c.clientWidth) c.scrollLeft = rtl ? c.scrollWidth - c.clientWidth : 0;
+    this.scheduleRender(0);
+    this.dispatchEvent(new CustomEvent('modechange'));
+  }
+
   setMode(mode: ReadingMode) {
     if (mode === this.mode) return;
     const keep = this.currentPageId;
@@ -414,7 +435,9 @@ export class Viewer extends EventTarget {
     if (!this.doc) return;
     const page = this.currentPageId ? this.doc.page(this.currentPageId) : this.doc.pages[0];
     const size = page ? this.doc.displaySize(page) : this.widestPage();
-    const sx = (this.container.clientWidth - 64) / size.width;
+    // two pages side by side both have to fit across
+    const across = this.mode === 'spread' ? 2 : 1;
+    const sx = (this.container.clientWidth - 64 - (across - 1) * PAGE_GAP) / (size.width * across);
     const sy = (this.container.clientHeight - PAGE_GAP * 2) / size.height;
     this.setScale(Math.min(sx, sy));
     if (page) this.scrollToPage(page.id, false);

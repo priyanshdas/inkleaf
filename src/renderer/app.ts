@@ -31,6 +31,7 @@ import { Thumbnails } from './thumbnails';
 import type { ImageAnnot, Tool } from './types';
 import { LockedError, receiveCodeDialog, receiveFileDialog, secureShareDialog } from './secure-share';
 import { setupRail } from './rail';
+import { createRibbon, type Ribbon } from './ribbon';
 import { confirmDialog, h, hydrateIcons, icon, localizeStatic, isModalOpen, liveStatus, modal, pickImage, richText, toast, toastHook } from './ui';
 import { EnhancedView, NEUTRAL, enhancePanel, enhancedCopy, isNeutral, type Enhance } from './enhance';
 import { Viewer } from './viewer';
@@ -61,6 +62,8 @@ interface Tab {
   page: number;
   /** A page to go to the first time it's shown (last session's page). */
   pendingPage?: number;
+  /** Two-page view read right to left; null until worked out (see readingDirection). */
+  rtl: boolean | null;
 }
 
 const tabs: Tab[] = [];
@@ -165,7 +168,7 @@ function updateSaveState() {
   const [iconName, label] = SAVE_LABELS[state];
   el.dataset.state = state;
   el.title = state === 'error' ? t('Auto-save failed: {message}', { message: autosave.error(doc) ?? '' })
-    : state === 'new' ? (isMobile() ? t('Save this document once and Inkleaf will keep saving it for you') : t('Save this document once (Ctrl+S) and Inkleaf will keep saving it for you'))
+    : state === 'new' ? (isMobile() ? t('Save this document once and InkLeaf PDF will keep saving it for you') : t('Save this document once (Ctrl+S) and InkLeaf PDF will keep saving it for you'))
       : doc.wasProtected && autosave.enabled ? t('Auto-save is paused for protected PDFs: saving would remove the protection')
         : autosave.enabled ? t('Changes are saved automatically') : t('Auto-save is off');
   el.replaceChildren(icon(iconName), h('span', {}, t(label)));
@@ -179,7 +182,7 @@ async function offerRecovery() {
   const choice = await modal({
     title: t('Restore unsaved work?'),
     body: h('div', {},
-      h('p', { class: 'modal-text' }, t('Inkleaf didn’t close properly last time. These documents had changes that weren’t saved:')),
+      h('p', { class: 'modal-text' }, t('InkLeaf PDF didn’t close properly last time. These documents had changes that weren’t saved:')),
       h('ul', { class: 'recover-list' }, ...found.map((r) => h('li', {}, h('strong', {}, r.name), h('span', { class: 'recover-when' }, when(r.savedAt))))),
     ),
     buttons: [{ label: t('Discard'), value: 'discard', danger: true }, { label: t('Restore'), value: 'restore', primary: true }],
@@ -256,13 +259,14 @@ function onDocChange(event: Event) {
 
 function updateChrome() {
   $('#app').classList.toggle('no-doc', !doc);
-  $<HTMLButtonElement>('[data-command="undo"]').disabled = !doc?.canUndo;
-  $<HTMLButtonElement>('[data-command="redo"]').disabled = !doc?.canRedo;
+  document.querySelectorAll<HTMLButtonElement>('[data-command="undo"]').forEach((b) => (b.disabled = !doc?.canUndo));
+  document.querySelectorAll<HTMLButtonElement>('[data-command="redo"]').forEach((b) => (b.disabled = !doc?.canRedo));
   $('#zoom-label').textContent = `${Math.round(viewer.scale * 100)}%`;
   $('#sidebar-count').textContent = doc ? String(doc.pages.length) : '';
   updateSaveState();
   updatePager();
   renderTabs();
+  updateRibbon();
   const dirtyTabs = tabs.filter((t) => t.doc.dirty);
   api.setDocumentState({
     title: doc?.name ?? '',
@@ -346,8 +350,18 @@ function activate(tab: Tab | null) {
   $('#app').classList.toggle('no-doc', !doc);
   forms.reset();
   thumbs.selected.clear();
+  viewer.setRtl(tab?.rtl ?? false);
   viewer.setDoc(doc);
   thumbs.sync();
+  if (tab && tab.rtl === null) {
+    void readingDirection(tab.doc).then((rtl) => {
+      tab.rtl ??= rtl;
+      if (tab === activeTab) {
+        viewer.setRtl(tab.rtl);
+        updateChrome();
+      }
+    });
+  }
 
   if (tab) {
     editor.setTool('select');
@@ -419,7 +433,7 @@ function addTab(next: EditorDoc) {
       textToolbar.update(); // undo can bring back or take away a text box
     }
   });
-  const tab: Tab = { id: newId('t'), doc: next, scale: null, scrollTop: 0, scrollLeft: 0, page: 0 };
+  const tab: Tab = { id: newId('t'), doc: next, scale: null, scrollTop: 0, scrollLeft: 0, page: 0, rtl: null };
   const at = activeTab ? tabs.indexOf(activeTab) + 1 : tabs.length;
   tabs.splice(at, 0, tab);
   activate(tab);
@@ -522,7 +536,7 @@ async function openFileNow(file: OpenedFile) {
       if (opened === doc) renderSide();
     }).catch(() => {});
     if (opened.wasProtected) {
-      toast(t('This PDF was protected. Inkleaf will save it without the protection.'), 'info', 8000);
+      toast(t('This PDF was protected. InkLeaf PDF will save it without the protection.'), 'info', 8000);
     }
     if (await forms.hasFields()) toast(t('This PDF has form fields. Click a field to fill it in.'), 'info');
     // "Print with Inkleaf" or "Compress with Inkleaf" from File Explorer, once the pages are in place
@@ -538,7 +552,7 @@ async function openFileNow(file: OpenedFile) {
     }
     const choice = await modal({
       title: t('Couldn’t open this PDF'),
-      body: t('“{name}” looks damaged. Inkleaf can try to repair it into a new copy; the original isn’t touched.', { name: file.name }),
+      body: t('“{name}” looks damaged. InkLeaf PDF can try to repair it into a new copy; the original isn’t touched.', { name: file.name }),
       buttons: [{ label: t('Close'), value: 'cancel' }, { label: t('Try to repair'), value: 'repair', primary: true }],
     });
     if (choice === 'repair') await tool(t('Couldn’t repair the PDF'), () => repairFile(file));
@@ -572,12 +586,27 @@ async function save(saveAs = false): Promise<boolean> {
     autosave.forget(current);
     rememberThumbnail(current);
     toast(t('Saved “{name}”', { name: current.name }), 'success', 2600);
+    suggestCompressing(current, bytes.length);
     await showWarnings(warnings);
     return true;
   } catch (err) {
     showError(t('Couldn’t save'), err);
     return false;
   }
+}
+
+const suggestedCompressing = new WeakSet<EditorDoc>();
+
+/**
+ * Scans saved at full scanner resolution make huge files (tens of megabytes
+ * a page). Saving keeps what's in the file; Compress is what shrinks it, so
+ * say so once per document when a file comes out that big.
+ */
+function suggestCompressing(target: EditorDoc, size: number) {
+  const mb = size / 1048576;
+  if (mb < 25 || mb / Math.max(1, target.pages.length) < 2 || suggestedCompressing.has(target)) return;
+  suggestedCompressing.add(target);
+  toast(t('“{name}” is {size} MB, mostly from pictures or scans stored at full size. Compress can make it much smaller.', { name: target.name, size: Math.round(mb) }), 'info', 9000);
 }
 
 /** Closing the window: save every tab with changes, one by one. */
@@ -745,11 +774,55 @@ function isTyping() {
 
 type Command = AppCommand | 'prev-page' | 'next-page';
 
+// --- reading direction ----------------------------------------------------------------
+//
+// Books bound on the right (Chinese, Japanese and Korean vertical text,
+// Arabic, Hebrew…) read right to left, so their two-page view puts the first
+// page of each pair on the right. Each document remembers its own choice;
+// one never chosen follows what the PDF itself asks for, if anything.
+
+const DIRECTIONS_KEY = 'inkleaf.rtl';
+
+/** The documents someone chose a direction for, by file (or name), oldest first. */
+function chosenDirections(): Record<string, boolean> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DIRECTIONS_KEY) ?? '{}');
+    return saved && typeof saved === 'object' ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+const directionKey = (d: EditorDoc) => d.path ?? `name:${d.name}`;
+
+function rememberDirection(d: EditorDoc, rtl: boolean) {
+  const all = chosenDirections();
+  delete all[directionKey(d)];
+  all[directionKey(d)] = rtl;
+  // only the most recent few hundred are worth keeping
+  const keys = Object.keys(all);
+  for (const k of keys.slice(0, Math.max(0, keys.length - 300))) delete all[k];
+  try { localStorage.setItem(DIRECTIONS_KEY, JSON.stringify(all)); } catch { /* fine: it's just not remembered */ }
+}
+
+/** Whether a document reads right to left: as chosen before, or as the PDF says (its /Direction /R2L). */
+async function readingDirection(d: EditorDoc): Promise<boolean> {
+  const chosen = chosenDirections()[directionKey(d)];
+  if (typeof chosen === 'boolean') return chosen;
+  try {
+    const prefs: unknown = await d.sources.get(d.mainSource)?.pdf.getViewerPreferences();
+    const direction = prefs instanceof Map ? prefs.get('Direction') : (prefs as { Direction?: string } | null)?.Direction;
+    return direction === 'R2L';
+  } catch {
+    return false;
+  }
+}
+
 const NO_DOC_NEEDED = new Set<Command>([
   'new', 'open', 'about', 'shortcuts', 'close', 'close-tab', 'new-window', 'quit', 'fullscreen', 'devtools',
   'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'default-app', 'receive-code', 'receive-file', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
   'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'language', 'terms', 'privacy', 'link-pair',
-  'app-settings',
+  'app-settings', 'combine-files', 'toggle-ribbon',
 ]);
 
 /** Runs one of the bigger tools, turning failures into a readable dialog. */
@@ -906,6 +979,12 @@ async function run(command: Command) {
     case 'decor': return tool(t('Couldn’t add that'), () => decorDialog(doc!));
     case 'remove-decor': return doc!.setDecor(NO_DECOR);
     case 'images-to-pdf': return tool(t('Couldn’t make a PDF from those pictures'), () => imagesToPdf(toolHost));
+    case 'toggle-ribbon': return setLayout(!usingRibbon(), true);
+    case 'combine-files': {
+      const files = await api.pickPdfs(t('Choose the PDFs to combine'));
+      if (files.length) await combineFiles({ name: files.length > 1 ? t('Combined.pdf') : files[0].name, files: files.map((f) => ({ ...f, path: null })) });
+      return;
+    }
     case 'convert-to-pdf': {
       const files = await api.pickConvertible();
       if (files.length) await convertFiles(files);
@@ -957,6 +1036,16 @@ async function run(command: Command) {
       const mode = command.slice(5) as ReadingMode;
       viewer.setMode(mode);
       try { localStorage.setItem('inkleaf.mode', mode); } catch { /* fine */ }
+      return;
+    }
+    case 'reading-rtl': {
+      const rtl = !viewer.rtl;
+      if (activeTab) activeTab.rtl = rtl;
+      rememberDirection(doc!, rtl);
+      viewer.setRtl(rtl);
+      // it only shows in the two-page view, so turning it on goes there
+      if (rtl && viewer.mode !== 'spread') run('mode-spread');
+      updateChrome();
       return;
     }
     case 'toggle-autosave':
@@ -1161,7 +1250,7 @@ async function scanToPdf() {
 
 const REPAIR_NOTES: Record<'rebuilt' | 'reread' | 'redrawn', string> = {
   rebuilt: msg('Repaired. The file’s index was rebuilt, and everything in it was kept.'),
-  reread: msg('Repaired. Inkleaf read back everything it could; give the pages a quick check.'),
+  reread: msg('Repaired. InkLeaf PDF read back everything it could; give the pages a quick check.'),
   redrawn: msg('Repaired by redrawing each page. The text can’t be selected any more: run Recognise Text (OCR) to bring that back.'),
 };
 
@@ -1238,7 +1327,7 @@ async function chooseLanguage() {
     }
   };
   const list = h('div', { class: 'lang-grid', role: 'radiogroup' },
-    option('system', t('Match my computer'), t('Uses your system’s language when Inkleaf has it')),
+    option('system', t('Match my computer'), t('Uses your system’s language when InkLeaf PDF has it')),
     ...UI_LANGUAGES.map((code) => {
       const lang = LANGUAGES.find((l) => l.code === code);
       const native = lang?.native ?? code;
@@ -1248,7 +1337,7 @@ async function chooseLanguage() {
   const go = await modal({
     title: t('Language'),
     wide: true,
-    body: h('div', {}, h('p', { class: 'modal-text' }, t('The language for Inkleaf’s menus and messages. Inkleaf restarts to switch; you’ll be asked to save any changes first.')), list),
+    body: h('div', {}, h('p', { class: 'modal-text' }, t('The language for InkLeaf PDF’s menus and messages. InkLeaf PDF restarts to switch; you’ll be asked to save any changes first.')), list),
     buttons: [{ label: t('Cancel'), value: 'cancel' }, { label: t('Restart in this language'), value: 'ok', primary: true }],
   });
   if (go !== 'ok' || chosen === current) return;
@@ -1285,10 +1374,10 @@ async function askForAgreement() {
     return link;
   };
   const choice = await modal({
-    title: t('Welcome to Inkleaf'),
+    title: t('Welcome to InkLeaf PDF'),
     body: h('div', {},
-      h('p', { class: 'modal-text' }, t('Inkleaf is free and open source, and it never collects your files or anything about you.')),
-      h('p', { class: 'modal-text' }, ...richText(t('Before you start, please read and agree to the {terms} and {privacy}. Inkleaf is provided as is, without any warranty, and you use it at your own risk.'), {
+      h('p', { class: 'modal-text' }, t('InkLeaf PDF is free and open source, and it never collects your files or anything about you.')),
+      h('p', { class: 'modal-text' }, ...richText(t('Before you start, please read and agree to the {terms} and {privacy}. InkLeaf PDF is provided as is, without any warranty, and you use it at your own risk.'), {
         terms: read('terms', t('Terms of Use')), privacy: read('privacy', t('Privacy Policy')),
       }))),
     buttons: [{ label: t('Quit'), value: 'quit' }, { label: t('I agree'), value: 'agree', primary: true }],
@@ -1352,7 +1441,7 @@ async function runOcr(target: EditorDoc) {
   thumbs.sync();
   findBar.reset();
   if (!result.pages) {
-    await modal({ title: t('No text found'), body: t('Inkleaf couldn’t find any words on those pages. Check the language, or try a clearer scan.') });
+    await modal({ title: t('No text found'), body: t('InkLeaf PDF couldn’t find any words on those pages. Check the language, or try a clearer scan.') });
     return;
   }
   toast(t('Found {words, plural, one {# word} other {# words}} on {pages, plural, one {# page} other {# pages}}. You can now search, copy and edit them.', { words: result.words, pages: result.pages }), 'success', 7000);
@@ -1454,18 +1543,18 @@ function onUpdate(state: UpdateState) {
       toast(t('Checking for updates…'), 'info', 2500);
       break;
     case 'none':
-      toast(t('Inkleaf is up to date.'), 'success');
+      toast(t('InkLeaf PDF is up to date.'), 'success');
       break;
     case 'downloading':
       if (state.version) {
         updateVersion = state.version;
-        toast(t('Downloading Inkleaf {version}…', { version: state.version }), 'info', 4000);
+        toast(t('Downloading InkLeaf PDF {version}…', { version: state.version }), 'info', 4000);
       }
       break;
     case 'ready':
       modal({
         title: t('Update ready'),
-        body: t('Inkleaf {version} has been downloaded. Restart now to use it, or it’ll be installed next time you quit.', { version: state.version || updateVersion }),
+        body: t('InkLeaf PDF {version} has been downloaded. Restart now to use it, or it’ll be installed next time you quit.', { version: state.version || updateVersion }),
         buttons: [{ label: t('Later'), value: 'later' }, { label: t('Restart now'), value: 'restart', primary: true }],
       }).then(async (choice) => {
         if (choice !== 'restart') return;
@@ -1481,7 +1570,7 @@ function onUpdate(state: UpdateState) {
     case 'available':
       // phones: download the new APK, and Android installs it over this one
       modal({
-        title: t('Inkleaf {version} is out', { version: state.version }),
+        title: t('InkLeaf PDF {version} is out', { version: state.version }),
         body: t('Download it and open the file to install it. Your documents and settings stay as they are.'),
         buttons: [{ label: t('What’s new'), value: 'notes' }, { label: t('Later'), value: 'later' }, { label: t('Download'), value: 'get', primary: true }],
       }).then((choice) => {
@@ -1508,7 +1597,7 @@ async function backupsDialog() {
       });
       return row;
     }))
-    : h('p', { class: 'modal-text' }, t('No backups yet. Before a document is first saved over, Inkleaf keeps a copy of how it was, here.'));
+    : h('p', { class: 'modal-text' }, t('No backups yet. Before a document is first saved over, InkLeaf PDF keeps a copy of how it was, here.'));
   await modal({
     title: t('Backups'),
     body: h('div', {}, list.length ? h('p', { class: 'modal-text' }, t('Copies of documents from before they were saved over. Opening one makes a new document; nothing is changed.')) : '', body),
@@ -1526,8 +1615,110 @@ let currentTheme: 'system' | 'light' | 'dark' = 'system';
 
 function updatePanelButtons() {
   const app = $('#app');
-  $('#toggle-pages').setAttribute('aria-pressed', String(!app.classList.contains('sidebar-hidden')));
-  $('#toggle-inspector').setAttribute('aria-pressed', String(!app.classList.contains('inspector-hidden')));
+  document.querySelectorAll('[data-command="toggle-sidebar"]').forEach((b) => b.setAttribute('aria-pressed', String(!app.classList.contains('sidebar-hidden'))));
+  document.querySelectorAll('[data-command="toggle-inspector"]').forEach((b) => b.setAttribute('aria-pressed', String(!app.classList.contains('inspector-hidden'))));
+}
+
+// --- the ribbon ---------------------------------------------------------------------------------
+//
+// Two layouts: the ribbon (tabs of labelled groups, Word-style, with page
+// and zoom in a status bar at the bottom) and the classic one (the tool rail
+// on the left and the command bar). Switching moves the shared controls
+// (pager, zoom, panel toggles) between the command bar and the status bar,
+// so each keeps its one set of event handlers.
+
+const LAYOUT_KEY = 'inkleaf.layout';
+let ribbon: Ribbon | null = null;
+let statusBar: HTMLElement | null = null;
+/** Where each moved control came from, to put it back for the classic layout. */
+const moved: { el: HTMLElement; parent: HTMLElement; next: Node | null }[] = [];
+
+const usingRibbon = () => $('#app').classList.contains('ribbon');
+
+/** The layout to start with: what was chosen, or the ribbon for people new to Inkleaf. */
+function savedLayout(): { ribbon: boolean; chosen: boolean } {
+  try {
+    const saved = localStorage.getItem(LAYOUT_KEY);
+    if (saved) return { ribbon: saved === 'ribbon', chosen: true };
+    // anything else of Inkleaf's in storage means it's been used before this version
+    const returning = Object.keys(localStorage).some((k) => k.startsWith('inkleaf.'));
+    return { ribbon: !returning, chosen: false };
+  } catch {
+    return { ribbon: true, chosen: false };
+  }
+}
+
+function setLayout(useRibbon: boolean, remember: boolean) {
+  if (isMobile()) return;
+  const app = $('#app');
+  if (useRibbon && !ribbon) {
+    ribbon = createRibbon(supports, () => {
+      updateRibbon();
+      viewer.layout();
+    });
+    ribbon.el.addEventListener('click', (e) => {
+      const button = (e.target as HTMLElement).closest<HTMLElement>('[data-tool]');
+      if (button && !(button as HTMLButtonElement).disabled) chooseTool(button.dataset.tool as Tool);
+    });
+  }
+  // only the layout in use is in the page, so each control exists once
+  if (useRibbon && ribbon && !ribbon.el.isConnected) $('#titlebar').after(ribbon.el);
+  if (!useRibbon) ribbon?.el.remove();
+  statusBar ??= h('footer', { id: 'statusbar', class: 'statusbar needs-doc' },
+    h('div', { class: 'sb-start' }), h('div', { class: 'sb-middle' }), h('div', { class: 'sb-end' }));
+  const status = statusBar;
+  if (useRibbon && !status.isConnected) $('#workspace').after(status);
+  if (useRibbon && !moved.length) {
+    const take = (el: HTMLElement | null, into: Element) => {
+      if (!el) return;
+      moved.push({ el, parent: el.parentElement!, next: el.nextSibling });
+      into.append(el);
+    };
+    const [start, middle, end] = [...status.children];
+    take(document.querySelector('#commandbar .pager'), start);
+    take($('#save-state'), middle);
+    take($('#send-to-device'), end);
+    take($('#enhance-toggle'), end);
+    take($('#toggle-pages'), end);
+    take($('#toggle-inspector'), end);
+    take(document.querySelector('#commandbar .zoom'), end);
+  } else if (!useRibbon && moved.length) {
+    for (const { el, parent, next } of moved.reverse()) parent.insertBefore(el, next && next.parentNode === parent ? next : null);
+    moved.length = 0;
+  }
+  if (!useRibbon) status.remove();
+  app.classList.toggle('ribbon', useRibbon);
+  textToolbar.dock(useRibbon && ribbon ? ribbon.fontSlot : null);
+  if (remember) {
+    try { localStorage.setItem(LAYOUT_KEY, useRibbon ? 'ribbon' : 'classic'); } catch { /* fine: chosen again next time */ }
+  }
+  updatePanelButtons();
+  updateChrome();
+  updateToolButtons();
+  if (doc) requestAnimationFrame(() => viewer.layout());
+}
+
+/** Greys out what needs a document, and shows which tool, mode and theme are on. */
+function updateRibbon() {
+  if (!ribbon) return;
+  const root = ribbon.el;
+  root.querySelectorAll<HTMLButtonElement>('[data-command]').forEach((b) => {
+    const command = b.dataset.command as Command;
+    let disabled = !doc && !NO_DOC_NEEDED.has(command);
+    if (command === 'undo') disabled = !doc?.canUndo;
+    if (command === 'redo') disabled = !doc?.canRedo;
+    if (command === 'uncrop-all') disabled = !doc?.pages.some((p) => p.crop);
+    b.disabled = disabled;
+    const on = command === `mode-${viewer.mode}` || (command === 'reading-rtl' && viewer.rtl) || command === `theme-${currentTheme}`
+      || (command === 'toggle-sidebar' && !$('#app').classList.contains('sidebar-hidden'))
+      || (command === 'toggle-inspector' && !$('#app').classList.contains('inspector-hidden'));
+    if (on) b.setAttribute('aria-pressed', 'true');
+    else b.removeAttribute('aria-pressed');
+  });
+  root.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => {
+    b.disabled = !doc;
+    b.setAttribute('aria-pressed', String(!!doc && b.dataset.tool === editor.tool));
+  });
 }
 
 const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
@@ -1648,7 +1839,8 @@ function menuFromTable(entries: MenuEntry[]): (MenuItem | 'separator')[] {
         icon: THEME_ICONS[entry.command],
         hint: key ? displayShortcut(key, isMac) : undefined,
         checked: entry.command.startsWith('theme-') ? entry.command === `theme-${currentTheme}`
-          : entry.command === 'toggle-autosave' ? autosave.enabled : undefined,
+          : entry.command === 'toggle-autosave' ? autosave.enabled
+            : entry.command === 'toggle-ribbon' ? usingRibbon() : undefined,
         disabled: !doc && !NO_DOC_NEEDED.has(entry.command),
         command: entry.command,
         action: () => run(entry.command),
@@ -1656,7 +1848,34 @@ function menuFromTable(entries: MenuEntry[]): (MenuItem | 'separator')[] {
     });
 }
 
-const menus: Record<string, () => (MenuItem | 'separator')[]> = {
+type MenuItems = (MenuItem | 'separator')[];
+
+/** The open button's menu: opening, recent files, and the ways of making a new PDF. */
+async function openMenu(): Promise<MenuItems> {
+  const recent: RecentFile[] = await api.recentFiles().catch(() => []);
+  const recentItems = (): MenuItems => recent.slice(0, 12).map((r) => ({
+    label: r.name.replace(/\.pdf$/i, ''),
+    icon: 'file-text',
+    hint: folderOf(r.path),
+    action: () => void api.openRecent(r.path).then(openFile).catch((err) => showError(t('Couldn’t open this file'), err)),
+  }));
+  return [
+    { label: t('Open…'), icon: 'folder-open', hint: displayShortcut('Mod+O', isMac), command: 'open', action: () => run('open') },
+    { label: t('Recent files'), icon: 'clock', disabled: !recent.length, submenu: recent.length ? recentItems : undefined },
+    'separator',
+    { label: t('New blank PDF'), icon: 'file-plus-2', hint: displayShortcut('Mod+N', isMac), command: 'new', action: () => run('new') },
+    { label: t('New window'), icon: 'panel-left-open', hint: displayShortcut('Mod+Shift+N', isMac), command: 'new-window', action: () => run('new-window') },
+    'separator',
+    { label: t('Combine files into one PDF…'), icon: 'files', command: 'combine-files', action: () => run('combine-files') },
+    { label: t('Convert to PDF…'), icon: 'file-input', hint: t('Word, Excel, PowerPoint…'), command: 'convert-to-pdf', action: () => run('convert-to-pdf') },
+    { label: t('Combine pictures into one PDF…'), icon: 'images', command: 'images-to-pdf', action: () => run('images-to-pdf') },
+    { label: t('Scan to PDF…'), icon: 'scan-line', command: 'scan-to-pdf', action: () => run('scan-to-pdf') },
+    { label: t('Web page to PDF…'), icon: 'globe', command: 'web-to-pdf', action: () => run('web-to-pdf') },
+  ];
+}
+
+const menus: Record<string, () => MenuItems | Promise<MenuItems>> = {
+  open: openMenu,
   autosave: () => [
     { label: t('Auto-save'), icon: 'refresh-cw', checked: autosave.enabled, command: 'toggle-autosave', action: () => run('toggle-autosave') },
     { label: t('Save now'), icon: 'save', hint: displayShortcut('Mod+S', isMac), command: 'save', action: () => run('save') },
@@ -1721,6 +1940,8 @@ const menus: Record<string, () => (MenuItem | 'separator')[]> = {
     { label: t('Continuous scroll'), icon: 'rectangle-vertical', checked: viewer.mode === 'continuous', command: 'mode-continuous', action: () => run('mode-continuous') },
     { label: t('Two pages side by side'), icon: 'columns-2', checked: viewer.mode === 'spread', command: 'mode-spread', action: () => run('mode-spread') },
     { label: t('One page at a time'), icon: 'book-open', checked: viewer.mode === 'single', command: 'mode-single', action: () => run('mode-single') },
+    'separator' as const,
+    { label: t('Read right to left'), icon: 'arrow-right-left', checked: viewer.rtl, disabled: !doc, command: 'reading-rtl', action: () => run('reading-rtl') },
   ],
 };
 
@@ -1736,17 +1957,21 @@ function updateToolButtons() {
     const pressed = b.hasAttribute('data-shapes') ? SHAPE_TOOLS.has(tool) : b.dataset.tool === tool;
     b.setAttribute('aria-pressed', String(pressed));
   });
+  updateRibbon();
+}
+
+/** A tool button, from the rail or the ribbon. */
+function chooseTool(tool: Tool) {
+  if (tool === 'sign') startSign();
+  else if (tool === 'image') startImage();
+  else editor.setTool(tool);
 }
 
 editor.addEventListener('toolchange', updateToolButtons);
 
 $('#rail').addEventListener('click', (e) => {
   const button = (e.target as HTMLElement).closest<HTMLElement>('[data-tool]');
-  if (!button) return;
-  const tool = button.dataset.tool as Tool;
-  if (tool === 'sign') startSign();
-  else if (tool === 'image') startImage();
-  else editor.setTool(tool);
+  if (button) chooseTool(button.dataset.tool as Tool);
 });
 
 document.addEventListener('click', (e) => {
@@ -1754,7 +1979,9 @@ document.addEventListener('click', (e) => {
   if (target.closest('.menu')) return;
   const menuButton = target.closest<HTMLElement>('[data-menu]');
   if (menuButton) {
-    showMenu(menuButton, menus[menuButton.dataset.menu!]());
+    const items = menus[menuButton.dataset.menu!]();
+    if (items instanceof Promise) void items.then((list) => showMenu(menuButton, list));
+    else showMenu(menuButton, items);
     return;
   }
   const button = target.closest<HTMLElement>('[data-command]');
@@ -1851,8 +2078,8 @@ async function offerDefaultApp(slot: HTMLElement) {
   if (state !== 'not-default' || (dismissed && !defaultPending)) return;
 
   const text = h('p', {}, defaultPending
-    ? t('In Settings, choose Inkleaf for .pdf files. This message goes away once it’s set.')
-    : t('Make Inkleaf the app that opens PDFs when you double-click them.'));
+    ? t('In Settings, choose InkLeaf PDF for .pdf files. This message goes away once it’s set.')
+    : t('Make InkLeaf PDF the app that opens PDFs when you double-click them.'));
   const make = h('button', { class: 'btn btn-primary' }, t('Make it the default'));
   const later = h('button', { class: 'btn' }, t('Not now'));
   make.addEventListener('click', () => void makeDefault(slot));
@@ -1864,7 +2091,7 @@ async function offerDefaultApp(slot: HTMLElement) {
   slot.replaceChildren(
     h('div', { class: 'default-offer' },
       h('span', { class: 'default-offer-icon' }, icon('file-text')),
-      h('div', { class: 'default-offer-text' }, h('strong', {}, t('Open PDFs with Inkleaf?')), text),
+      h('div', { class: 'default-offer-text' }, h('strong', {}, t('Open PDFs with InkLeaf PDF?')), text),
       h('div', { class: 'default-offer-actions' }, make, later),
     ),
   );
@@ -1873,14 +2100,14 @@ async function offerDefaultApp(slot: HTMLElement) {
 async function makeDefault(slot: HTMLElement | null) {
   const result = await api.makeDefaultApp().catch(() => 'failed' as const);
   if (result === 'done') {
-    toast(t('Inkleaf now opens your PDFs.'), 'success');
+    toast(t('InkLeaf PDF now opens your PDFs.'), 'success');
     slot?.replaceChildren();
   } else if (result === 'settings') {
     defaultPending = true;
     if (slot) void offerDefaultApp(slot);
-    else toast(t('Windows Settings is open. Choose Inkleaf for .pdf files there.'));
+    else toast(t('Windows Settings is open. Choose InkLeaf PDF for .pdf files there.'));
   } else if (result === 'unsupported') {
-    toast(t('This copy of Inkleaf isn’t installed, so it can’t be your default PDF app. Install it from the website or the Microsoft Store first.'), 'info', 7000);
+    toast(t('This copy of InkLeaf PDF isn’t installed, so it can’t be your default PDF app. Install it from the website or the Microsoft Store first.'), 'info', 7000);
   } else {
     toast(t('Couldn’t change the default app. You can set it in your system settings instead.'), 'error');
   }
@@ -1888,7 +2115,7 @@ async function makeDefault(slot: HTMLElement | null) {
 
 async function makeDefaultFromMenu() {
   const { state } = await api.defaultAppState().catch(() => ({ state: 'unsupported' as const }));
-  if (state === 'default') return toast(t('Inkleaf is already your default PDF app.'), 'success');
+  if (state === 'default') return toast(t('InkLeaf PDF is already your default PDF app.'), 'success');
   return makeDefault(doc ? null : document.querySelector<HTMLElement>('#welcome .default-slot'));
 }
 
@@ -1899,7 +2126,7 @@ window.addEventListener('focus', async () => {
   if (!defaultPending && !offer) return;
   const { state } = await api.defaultAppState().catch(() => ({ state: 'unsupported' as const }));
   if (state !== 'default') return;
-  if (defaultPending) toast(t('Inkleaf now opens your PDFs.'), 'success');
+  if (defaultPending) toast(t('InkLeaf PDF now opens your PDFs.'), 'success');
   defaultPending = false;
   document.querySelector('#welcome .default-slot')?.replaceChildren();
 });
@@ -1968,7 +2195,7 @@ async function renderWelcome() {
           : h('div', { class: 'recent-empty' },
               icon('clock'),
               h('p', {}, phone
-                ? t('Files you open will show up here, along with PDFs you share to Inkleaf from other apps or send from your computer.')
+                ? t('Files you open will show up here, along with PDFs you share to InkLeaf PDF from other apps or send from your computer.')
                 : t('Files you open will show up here. You can also drop a PDF (or a Word file, spreadsheet, slides or picture to convert) anywhere in this window.'))),
       ),
       h('footer', { class: 'home-foot' },
@@ -2014,7 +2241,7 @@ window.addEventListener('drop', async (e) => {
     return ext === 'pdf' || CONVERTIBLE.includes(ext);
   });
   if (!files.length) {
-    toast(t('Inkleaf can’t open that kind of file.'), 'error');
+    toast(t('InkLeaf PDF can’t open that kind of file.'), 'error');
     return;
   }
 
@@ -2066,7 +2293,7 @@ window.addEventListener('drop', async (e) => {
 async function showAbout() {
   const info = await api.info();
   modal({
-    title: 'Inkleaf',
+    title: 'InkLeaf PDF',
     body: h('div', { class: 'about' },
       h('p', {}, t('Version {version}', { version: info.version })),
       h('p', {}, isMobile()
@@ -2153,6 +2380,17 @@ async function start() {
   }
   hydrateIcons();
   setupRail();
+  if (!isMobile() && !api.engine) {
+    const layout = savedLayout();
+    setLayout(layout.ribbon, false);
+    // someone who knows the classic layout hears about the ribbon once
+    if (!layout.chosen && !layout.ribbon) {
+      try { localStorage.setItem(LAYOUT_KEY, 'classic'); } catch { /* fine */ }
+      setTimeout(() => toast(t('New: a ribbon toolbar, like Word’s. Try it from the menu: {path}.', { path: `${t('View')} › ${t('Ribbon Toolbar')}` }), 'info', 9000), 2500);
+    }
+  }
+  // Settings (or another window's choice) can switch layouts
+  window.addEventListener('inkleaf-layout', (e) => setLayout((e as CustomEvent<boolean>).detail, true));
   try {
     if (!isMobile() && localStorage.getItem('inkleaf.sidebar-hidden')) $('#app').classList.add('sidebar-hidden');
     if (!isMobile() && localStorage.getItem('inkleaf.inspector-hidden')) $('#app').classList.add('inspector-hidden');

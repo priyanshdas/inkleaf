@@ -1,9 +1,9 @@
 # Third-party software
 
-Inkleaf is licensed under the GNU General Public License, version 3 or later
+InkLeaf PDF is licensed under the GNU General Public License, version 3 or later
 (see `LICENSE`). It's built on these open-source projects, each under its own
 licence. All of them can be combined with GPL-3.0 software; their notices
-must travel with any copy of Inkleaf you share.
+must travel with any copy of InkLeaf PDF you share.
 
 | Component | Used for | Licence |
 | --- | --- | --- |

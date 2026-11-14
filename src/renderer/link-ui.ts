@@ -59,7 +59,7 @@ async function computerDialog() {
   const copy = h('button', { class: 'link-button', type: 'button' }, t('Copy the code instead'));
   copy.addEventListener('click', () => {
     void navigator.clipboard.writeText(pairing.code);
-    toast(t('Code copied. Paste it in Inkleaf on your phone.'), 'success', 3000);
+    toast(t('Code copied. Paste it in InkLeaf PDF on your phone.'), 'success', 3000);
   });
 
   await modal({
@@ -67,9 +67,9 @@ async function computerDialog() {
     body: h('div', { class: 'link-pair' },
       h('div', { class: 'link-qr-wrap' }, picture, copy),
       h('ol', { class: 'link-steps' },
-        h('li', {}, t('Install Inkleaf on your phone.')),
+        h('li', {}, t('Install InkLeaf PDF on your phone.')),
         h('li', {}, t('Connect the phone to the same Wi-Fi as this computer.')),
-        h('li', {}, t('In Inkleaf on the phone, open the menu › Connect to a computer, and scan this code.'))),
+        h('li', {}, t('In InkLeaf PDF on the phone, open the menu › Connect to a computer, and scan this code.'))),
       h('p', { class: 'field-hint' }, icon('shield-check'), t('Files go straight between your devices over your Wi-Fi, encrypted. Nothing goes through the internet.')),
       list),
     buttons: [{ label: t('Done'), value: 'ok', primary: true }],
@@ -138,7 +138,7 @@ async function phoneDialog() {
     const choice = await modal({
       title: t('Your computer'),
       body: h('div', {}, deviceList(status, () => {}),
-        h('p', { class: 'field-hint' }, t('Files you send arrive on the computer straight away. Files sent from the computer open here while Inkleaf is open.'))),
+        h('p', { class: 'field-hint' }, t('Files you send arrive on the computer straight away. Files sent from the computer open here while InkLeaf PDF is open.'))),
       buttons: [{ label: t('Connect a different computer'), value: 'again' }, { label: t('Done'), value: 'ok', primary: true }],
     });
     if (choice !== 'again') return;
@@ -176,7 +176,7 @@ export async function sendToDevice(name: string, bytes: () => Promise<Uint8Array
   await api().linkSend(target.id, name, await bytes());
   toast(isMobile() || target.online
     ? t('Sent “{name}” to {device}.', { name, device: target.name })
-    : t('“{name}” will arrive on {device} next time Inkleaf is open there.', { name, device: target.name }), 'success', 4000);
+    : t('“{name}” will arrive on {device} next time InkLeaf PDF is open there.', { name, device: target.name }), 'success', 4000);
 }
 
 /** Toasts for files that arrive from the other device. */

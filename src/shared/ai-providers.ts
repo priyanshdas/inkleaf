@@ -43,7 +43,7 @@ export const AI_PROVIDERS: AiProvider[] = [
     id: 'builtin', name: msg('Built-in AI'), company: msg('this computer'), protocol: 'builtin',
     baseUrl: '', needsKey: false, onDevice: true,
     models: LOCAL_MODELS.map((m) => m.id),
-    blurb: msg('Runs inside Inkleaf. No key, no account, and nothing leaves your computer. Downloads once.'),
+    blurb: msg('Runs inside InkLeaf PDF. No key, no account, and nothing leaves your computer. Downloads once.'),
   },
   {
     id: 'anthropic', name: 'Claude', company: 'Anthropic', protocol: 'anthropic',

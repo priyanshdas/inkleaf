@@ -74,7 +74,7 @@ const body = html.slice(html.indexOf('<body'));
 for (const m of body.matchAll(/\b(?:title|aria-label|placeholder)="([^"]*[A-Za-z][^"]*)"/g)) strings.set(key(decode(m[1])), decode(m[1]));
 for (const m of body.matchAll(/>([^<>]*[A-Za-z][^<>]*)</g)) {
   const text = decode(m[1].trim());
-  if (text && text !== 'Inkleaf') strings.set(key(text), text);
+  if (text && text !== 'InkLeaf PDF') strings.set(key(text), text);
 }
 
 fs.mkdirSync(dir, { recursive: true });
