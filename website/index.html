@@ -3,16 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inkleaf: free PDF editor that edits the actual text</title>
-<meta name="description" content="Inkleaf is a free, open-source PDF editor for Windows, Linux and Android. Change the words in a PDF, redact, sign, fill forms, clean up scans and more, all on your own device.">
+<title>InkLeaf PDF: free, open-source PDF editor that edits the actual text</title>
+<meta name="description" content="InkLeaf PDF (formerly Inkleaf) is a free, open-source PDF editor for Windows, Linux and Android. Change the words in a PDF, redact, sign, fill forms, scan, OCR and compress, all on your own device.">
+<link rel="canonical" href="https://priyanshdas.github.io/inkleaf/">
 <meta name="author" content="Priyansh Das">
-<meta property="og:title" content="Inkleaf, a free PDF editor that edits the actual text">
+<meta property="og:title" content="InkLeaf PDF, a free PDF editor that edits the actual text">
 <meta property="og:description" content="Open source, works offline, no account. Windows, Linux and Android.">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="InkLeaf PDF">
 <meta property="og:url" content="https://priyanshdas.github.io/inkleaf/">
 <meta property="og:image" content="https://priyanshdas.github.io/inkleaf/edit.webp">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Inkleaf, a free PDF editor that edits the actual text">
+<meta name="twitter:title" content="InkLeaf PDF, a free PDF editor that edits the actual text">
 <meta name="twitter:description" content="Open source, works offline, no account. Windows, Linux and Android.">
 <meta name="twitter:image" content="https://priyanshdas.github.io/inkleaf/edit.webp">
 <meta name="theme-color" content="#123b2f">
@@ -23,13 +25,39 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wdth,wght@0,75..100,400..700;1,75..100,400..700&display=swap">
 <link rel="stylesheet" href="style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "InkLeaf PDF",
+  "alternateName": ["Inkleaf", "InkLeaf"],
+  "description": "A free, open-source PDF editor that edits the actual text. Redact, sign, fill forms, scan, OCR, compress and convert, offline and without an account.",
+  "url": "https://priyanshdas.github.io/inkleaf/",
+  "image": "https://priyanshdas.github.io/inkleaf/edit.webp",
+  "applicationCategory": "BusinessApplication",
+  "applicationSubCategory": "PDF editor",
+  "operatingSystem": "Windows 10, Windows 11, Linux, Android 7+",
+  "softwareVersion": "3.3.0",
+  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "downloadUrl": "https://github.com/priyanshdas/inkleaf-releases/releases/latest",
+  "installUrl": "https://apps.microsoft.com/detail/9NKC5ZQ6P2JR",
+  "author": { "@type": "Person", "name": "Priyansh Das", "url": "https://github.com/priyanshdas" },
+  "sameAs": [
+    "https://github.com/priyanshdas/inkleaf",
+    "https://apps.microsoft.com/detail/9NKC5ZQ6P2JR",
+    "https://ko-fi.com/inkleaf"
+  ]
+}
+</script>
 </head>
 <body>
 
 <header class="bar">
   <a class="brand" href="#top">
     <img src="icon-48.png" alt="" width="24" height="24">
-    Inkleaf
+    InkLeaf PDF
   </a>
   <nav aria-label="Main">
     <a href="#what-it-does" class="wide-only">What it does</a>
@@ -52,18 +80,18 @@
 
     <p class="lead">
       Click any line in a PDF and retype it. When you save, the old text is
-      gone from the file, so nobody can copy it back out. Inkleaf is free,
+      gone from the file, so nobody can copy it back out. InkLeaf PDF is free,
       open source and works without the internet.
     </p>
 
     <div class="get">
-      <a class="button" href="#download" id="get-button">Download Inkleaf</a>
+      <a class="button" href="#download" id="get-button">Download InkLeaf PDF</a>
       <a class="quiet-link" href="https://apps.microsoft.com/detail/9NKC5ZQ6P2JR">Or get it from the Microsoft Store</a>
     </div>
 
     <figure class="shot">
       <video id="shot-video" width="1920" height="1214" autoplay muted loop playsinline preload="auto" poster="edit-start.webp"
-        aria-label="Inkleaf with a restaurant menu open. The pointer picks Edit text, clicks the line with the misspelled word risoto, adds the missing t, and saves the file.">
+        aria-label="InkLeaf PDF with a restaurant menu open. The pointer picks Edit text, clicks the line with the misspelled word risoto, adds the missing t, and saves the file.">
         <source src="edit.mp4" type="video/mp4">
         <source src="edit.webm" type="video/webm">
       </video>
@@ -100,6 +128,15 @@
       <dt>Share securely</dt>
       <dd>Lock a copy with a strong code, or so only one person's computer can open it. Send it with a pickup code: they type it or scan its QR code and the file comes to them, over your Wi-Fi or the internet.</dd>
 
+      <dt>Scanners</dt>
+      <dd>Scan straight into a PDF from your scanner or all-in-one printer, glass or document feeder, one side or both. It works with WIA, TWAIN and network scanners on Windows and SANE on Linux, with no extra software.</dd>
+
+      <dt>Part of Windows</dt>
+      <dd>File Explorer shows a picture of each PDF's first page and previews every page in its preview pane. InkLeaf PDF can start with Windows, open PDFs as soon as you download them, and add Combine, Print and Compress to the right-click menu.</dd>
+
+      <dt>Ribbon or classic</dt>
+      <dd>Every tool is in a ribbon of labelled tabs, like Word's, or in a slim rail down the side if you prefer. Bookmarks can sit inside each other like chapters, and two-page view reads right to left for Japanese, Arabic and Hebrew books.</dd>
+
       <dt>Phone and computer</dt>
       <dd>The Android app has its own phone layout, built for reading first. Pair it with your computer once and send PDFs both ways over your home Wi-Fi.</dd>
     </dl>
@@ -128,7 +165,7 @@
 
   <!-- Sheet 3 -->
   <article class="sheet" id="privacy">
-    <h2>What Inkleaf sends, and when</h2>
+    <h2>What InkLeaf PDF sends, and when</h2>
     <p class="lead">
       Nothing about you, ever. There's no account, no analytics and no crash
       reports. These are the only times it goes online at all.
@@ -146,7 +183,7 @@
           <tr><td>Use a language that isn't built in</td><td>The language pack is downloaded once from jsDelivr.</td></tr>
           <tr><td>Use the AI summary or translation</td><td>The document's text goes to the AI service you picked, with your own API key. With AI on your computer, nothing leaves it.</td></tr>
           <tr><td>Turn a web page into a PDF</td><td>A normal visit to that page, in a private window that's cleared afterwards.</td></tr>
-          <tr><td>Send with a pickup code</td><td>On your Wi-Fi, straight to the other computer. Otherwise the file, encrypted first, waits on the Inkleaf relay until it's picked up (7 days at most). Only the code can unlock it, and the relay never sees the code.</td></tr>
+          <tr><td>Send with a pickup code</td><td>On your Wi-Fi, straight to the other computer. Otherwise the file, encrypted first, waits on the InkLeaf PDF relay until it's picked up (7 days at most). Only the code can unlock it, and the relay never sees the code.</td></tr>
         </tbody>
       </table>
     </div>
@@ -160,6 +197,7 @@
   <article class="sheet" id="download">
     <h2>Download</h2>
     <p class="lead">Free, with every tool included. The installed version keeps itself up to date.</p>
+    <p class="note">Latest version: 3.3.0. <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest">See what's new</a>.</p>
 
     <div class="table-wrap">
       <table class="downloads">
@@ -212,7 +250,7 @@
     <div class="note-from">
       <p>
         I'm Priyansh. I'm a chef, and I write code in my spare time. I made
-        Inkleaf because every PDF editor I tried wanted a subscription, an
+        InkLeaf PDF because every PDF editor I tried wanted a subscription, an
         account, or my files on their server, and most of the free ones
         couldn't really change the text at all.
       </p>
@@ -233,7 +271,7 @@
         especially welcome.
       </p>
       <p>
-        If Inkleaf saves you some time, you can
+        If InkLeaf PDF saves you some time, you can
         <a href="https://ko-fi.com/inkleaf">buy me a coffee</a>. It's never required.
       </p>
     </div>
@@ -258,7 +296,7 @@
       </dl>
       <p>Changes from anyone else are reviewed by a committer before they're merged.</p>
       <p>
-        Inkleaf doesn't send any information to other networked systems
+        InkLeaf PDF doesn't send any information to other networked systems
         unless you ask it to: when you use the AI tools, Web page to PDF,
         send or receive a file with a pickup code, download a language pack
         or check for updates. The
