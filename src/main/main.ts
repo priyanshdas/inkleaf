@@ -322,19 +322,23 @@ async function restoreSession(): Promise<boolean> {
   const saved = readJson<{ windows?: SessionState[] }>(sessionFile(), {}).windows ?? [];
   let restored = false;
   for (const state of saved) {
+    const paths = (state.tabs ?? []).filter((tab) => typeof tab?.path === 'string' && /\.pdf$/i.test(tab.path) && existsSync(tab.path));
+    if (!paths.length) continue;
+    // the window starts up while the files are read, rather than after
+    const win = createWindow();
+    const ctx = windows.get(win.webContents.id)!;
     const files: OpenedFile[] = [];
-    for (const tab of state.tabs ?? []) {
-      if (typeof tab?.path !== 'string' || !/\.pdf$/i.test(tab.path) || !existsSync(tab.path)) continue;
+    for (const tab of paths) {
       try {
-        const data = await fs.readFile(tab.path);
-        files.push({ path: tab.path, name: path.basename(tab.path), data: new Uint8Array(data), page: Math.max(0, Number(tab.page) || 0) });
+        const data = await readBytes(tab.path);
+        files.push({ path: tab.path, name: path.basename(tab.path), data, page: Math.max(0, Number(tab.page) || 0) });
       } catch {
         // moved or unreadable since: skip it
       }
     }
+    restored = true;
+    // couldn't read any of them after all: the empty window stays, as it would have anyway
     if (!files.length) continue;
-    const win = createWindow();
-    const ctx = windows.get(win.webContents.id)!;
     for (const file of files) {
       ctx.allowedPaths.add(file.path!);
       deliver(ctx, file);
@@ -342,7 +346,6 @@ async function restoreSession(): Promise<boolean> {
     // the tab that was in front comes to the front again (opening a file that's already open just switches to it)
     const active = files.find((f) => f.path === state.active);
     if (active && active !== files[files.length - 1]) deliver(ctx, { path: active.path, name: active.name, data: new Uint8Array(0) });
-    restored = true;
   }
   return restored;
 }
@@ -364,20 +367,29 @@ async function showSomeWindow() {
   createWindow();
 }
 
+/**
+ * A file's bytes. `new Uint8Array(buffer)` would copy them, which for a big
+ * scan is hundreds of megabytes for nothing; this just looks at the same memory.
+ */
+async function readBytes(file: string): Promise<Uint8Array> {
+  const buf = await fs.readFile(file);
+  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+}
+
 async function readPdf(filePath: string): Promise<OpenedFile> {
   const resolved = path.resolve(filePath);
   const ext = path.extname(resolved).toLowerCase().slice(1);
   if (ext !== 'pdf' && !CONVERTIBLE.includes(ext)) {
     throw new Error(t('InkLeaf PDF opens PDFs, and documents, spreadsheets, slides, text and pictures it can turn into PDFs.'));
   }
-  const data = await fs.readFile(resolved);
+  const data = await readBytes(resolved);
   if (ext !== 'pdf') {
     // converted files open as new, unsaved PDFs: the original is never
     // written to, so it doesn't get a path or a place in recent files
-    return { path: null, name: path.basename(resolved), data: new Uint8Array(data) };
+    return { path: null, name: path.basename(resolved), data };
   }
   rememberRecent(resolved);
-  return { path: resolved, name: path.basename(resolved), data: new Uint8Array(data) };
+  return { path: resolved, name: path.basename(resolved), data };
 }
 
 /** A file sent from a paired phone: opens as a new, unsaved tab in the last window used. */
@@ -394,6 +406,9 @@ function openFromPhone(file: OpenedFile) {
 
 /** Opens a file from the OS (double-click, command line, dock, a download), then prints or compresses it if asked. */
 async function openFromSystem(filePath: string, then?: 'print' | 'compress') {
+  // Open it as a new tab in the window you were last using. That window
+  // comes first, so a new one starts up while the file is being read.
+  const target = targetWindow();
   let file: OpenedFile;
   try {
     file = await readPdf(filePath);
@@ -402,8 +417,6 @@ async function openFromSystem(filePath: string, then?: 'print' | 'compress') {
     return;
   }
   if (then) file.then = then;
-  // Open it as a new tab in the window you were last using.
-  const target = targetWindow();
   if (file.path) target.allowedPaths.add(file.path);
   deliver(target, file);
   if (!target.win.isFocused()) target.win.flashFrame(true);
@@ -432,8 +445,7 @@ async function combine(paths: string[]) {
   const files: OpenedFile[] = [];
   for (const p of byName(paths)) {
     try {
-      const data = await fs.readFile(p);
-      files.push({ path: null, name: path.basename(p), data: new Uint8Array(data) });
+      files.push({ path: null, name: path.basename(p), data: await readBytes(p) });
     } catch (err) {
       dialog.showErrorBox(t('Couldn’t open file'), `${p}\n\n${(err as Error).message}`);
     }
@@ -618,7 +630,7 @@ function registerIpc() {
       ],
     });
     if (result.canceled) return [];
-    return Promise.all(result.filePaths.map(async (p) => ({ name: path.basename(p), data: new Uint8Array(await fs.readFile(p)) })));
+    return Promise.all(result.filePaths.map(async (p) => ({ name: path.basename(p), data: await readBytes(p) })));
   });
 
   ipcMain.handle('convert:office-available', () => !!findOffice());
@@ -687,7 +699,7 @@ function registerIpc() {
     });
     if (result.canceled) return [];
     return Promise.all(
-      result.filePaths.map(async (p) => ({ name: path.basename(p), data: new Uint8Array(await fs.readFile(p)) })),
+      result.filePaths.map(async (p) => ({ name: path.basename(p), data: await readBytes(p) })),
     );
   });
 
@@ -773,7 +785,7 @@ function registerIpc() {
     });
     if (result.canceled) return [];
     return Promise.all(
-      result.filePaths.map(async (p) => ({ name: path.basename(p), data: new Uint8Array(await fs.readFile(p)) })),
+      result.filePaths.map(async (p) => ({ name: path.basename(p), data: await readBytes(p) })),
     );
   });
 
@@ -837,7 +849,7 @@ function registerIpc() {
   ipcMain.handle('recovery:read', async (_event, id: string) => {
     const safe = recoveryId(id);
     if (!safe) throw new Error(t('Unknown recovered file'));
-    const data = new Uint8Array(await fs.readFile(path.join(recoveryDir(), `${safe}.pdf`)));
+    const data = await readBytes(path.join(recoveryDir(), `${safe}.pdf`));
     return data;
   });
 
@@ -1004,8 +1016,9 @@ if (!app.requestSingleInstanceLock()) {
     protocol.handle('app', serveAppFile);
     // the installer's shortcuts carry this id; Windows needs it to show Inkleaf's notifications
     if (process.platform === 'win32' && !process.windowsStore) app.setAppUserModelId('io.github.priyanshdas.inkleaf');
-    // File Explorer's preview pane for PDFs, which needs a nudge once Inkleaf is the default
-    void keepPdfPreviews().catch(() => {});
+    // File Explorer's preview pane for PDFs, which needs a nudge once Inkleaf is the default.
+    // It runs a handful of small programs, so it waits until the window is up.
+    setTimeout(() => void keepPdfPreviews().catch(() => {}), 8000);
     // Our own pages may list the fonts installed on this computer (for the
     // font picker); nothing else gets a browser permission.
     // camera only, for Scan to PDF; it asks the system the first time

@@ -231,7 +231,7 @@ fun SettingsScreen(state: UiState, actions: Actions, onBack: () -> Unit) {
         ListRow(R.drawable.lc_key_round, tr("My receive code"), tr("Let people lock PDFs just for you.")) { actions.run("receive-code") }
 
         SectionLabel(tr("About"), Modifier.padding(top = 8.dp))
-        ListRow(R.drawable.lc_info, "Inkleaf", tr("Version {version}", "version" to state.version))
+        ListRow(R.drawable.lc_info, "Inkleaf PDF", tr("Version {version}", "version" to state.version))
         ListRow(R.drawable.lc_refresh_cw, tr("Check for updates"), null) { actions.run("check-updates") }
         ListRow(R.drawable.lc_heart, tr("Buy me a coffee"), tr("Inkleaf is free. If it helps you, you can buy me a coffee on Ko-fi")) { actions.run("donate") }
         ListRow(R.drawable.lc_book_open, tr("Source code"), "github.com/priyanshdas/inkleaf") { actions.run("open-github") }

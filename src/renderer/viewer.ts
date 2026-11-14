@@ -18,6 +18,12 @@ const PREVIEW_RATIO = 0.5;
 // Wait this long after the last scroll before doing sharp renders, so a
 // fast scroll only pays for cheap previews.
 const SETTLE_MS = 90;
+// pdf.js keeps every page it has drawn ready to draw again (its pictures
+// decoded, its drawing commands read), and each page keeps a blurry preview.
+// Scrolling through 300 pages kept all of it: over a gigabyte. Only the pages
+// left most recently keep these; the others make them again if you go back.
+const KEEP_PARSED = 12;
+const KEEP_PREVIEWS = 40;
 
 function blankCanvas(cls: string) {
   const c = document.createElement('canvas');
@@ -33,7 +39,7 @@ function release(c: HTMLCanvasElement) {
 
 export class PageView {
   readonly el: HTMLDivElement;
-  /** Low-resolution render, kept even when the page is far away. */
+  /** Low-resolution render, kept for a while after the page goes out of view. */
   readonly preview: HTMLCanvasElement;
   /** Sharp render; swapped for a new element each time it's redrawn. */
   base: HTMLCanvasElement;
@@ -169,6 +175,12 @@ export class PageView {
     this.clearText();
   }
 
+  /** Drops the blurry preview too, for a page that's been out of view a long while. */
+  releasePreview() {
+    release(this.preview);
+    this.previewKey = '';
+  }
+
   /** Lays the page's words out over it, once per zoom and rotation. */
   layOutText(viewport: PageViewport) {
     const page = this.pdfPage;
@@ -247,6 +259,8 @@ export class Viewer extends EventTarget {
   private liveTarget: { pageId: string; annotId: string } | null = null;
   /** Whether the page's own words are laid out for selecting (the Select tool). */
   private textSelectable = false;
+  /** Pages scrolled away from, oldest first (see KEEP_PARSED). */
+  private left = new Set<string>();
 
   constructor(readonly container: HTMLElement, readonly pagesEl: HTMLElement, private hooks: ViewerHooks) {
     super();
@@ -255,9 +269,11 @@ export class Viewer extends EventTarget {
         const id = (e.target as HTMLElement).dataset.pageId!;
         if (e.isIntersecting) {
           this.near.add(id);
+          this.left.delete(id);
         } else {
           this.near.delete(id);
           this.views.get(id)?.releaseSharp();
+          this.leaving(id);
         }
       }
       this.scheduleRender(0);
@@ -274,6 +290,20 @@ export class Viewer extends EventTarget {
     }).observe(container);
   }
 
+  /** A page has gone out of view: the ones left longest ago let go of what they keep (see KEEP_PARSED). */
+  private leaving(id: string) {
+    this.left.delete(id);
+    this.left.add(id);
+    const order = [...this.left];
+    // false (and nothing lost) if something is still drawing it, a thumbnail say
+    const parsed = order[order.length - 1 - KEEP_PARSED];
+    if (parsed) this.views.get(parsed)?.pdfPage?.cleanup();
+    for (const old of order.slice(0, Math.max(0, order.length - KEEP_PREVIEWS))) {
+      this.left.delete(old);
+      this.views.get(old)?.releasePreview();
+    }
+  }
+
   setDoc(doc: EditorDoc | null) {
     for (const v of this.views.values()) {
       v.releaseSharp();
@@ -281,6 +311,7 @@ export class Viewer extends EventTarget {
     }
     this.views.clear();
     this.near.clear();
+    this.left.clear();
     this.pagesEl.replaceChildren();
     this.liveTarget = null;
     this.doc = doc;

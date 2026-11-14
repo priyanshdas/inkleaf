@@ -11,7 +11,7 @@ import { t } from '../shared/i18n';
 import { createWorker, OEM } from 'tesseract.js';
 import type { EditorDoc } from './document';
 import { pageRuns } from './text-finder';
-import { pageViewport } from './pdf';
+import { PDF_LIB_STEP, pageViewport } from './pdf';
 import type { PageRef } from './types';
 import { h, icon, modal } from './ui';
 import { BUILT_IN_OCR, LANGUAGES as ALL_LANGUAGES, languageLabel, languageName } from '../shared/languages';
@@ -156,8 +156,15 @@ export async function recognise(doc: EditorDoc, currentPageId: string | null, pr
       progress(t('Downloading languages…'));
       await window.inkleaf.ensurePacks(missing);
     }
-    let pageNo = 0;
-    const worker = await createWorker(choice.langs, OEM.LSTM_ONLY, {
+    const total = choice.pages.length;
+    // Several pages are read at once, one per reader: a reader per processor
+    // core (leaving one for the window), at least two and at most four. Each
+    // takes the next page as soon as it's done with one.
+    const cores = navigator.hardwareConcurrency || 2;
+    const count = Math.min(total, 4, Math.max(2, cores - 1));
+    let done = 0;
+    const reading = () => progress(t('Reading page {n} of {total}…', { n: Math.min(done + 1, total), total }));
+    const start = () => createWorker(choice.langs, OEM.LSTM_ONLY, {
       workerPath: `${base}worker.min.js`,
       corePath: `${base}core`,
       langPath,
@@ -165,38 +172,54 @@ export async function recognise(doc: EditorDoc, currentPageId: string | null, pr
       cacheMethod: 'none',
       gzip: true,
       logger: (m: { status: string; progress: number }) => {
-        if (m.status === 'recognizing text') {
-          progress(t('Reading page {n} of {total}… {percent}%', { n: pageNo, total: choice.pages.length, percent: Math.round(m.progress * 100) }));
-        } else if (/loading/.test(m.status)) {
+        // a percentage only makes sense with one page at a time
+        if (m.status === 'recognizing text' && count === 1) {
+          progress(t('Reading page {n} of {total}… {percent}%', { n: done + 1, total, percent: Math.round(m.progress * 100) }));
+        } else if (/loading/.test(m.status) && !done) {
           progress(t('Loading languages…'));
         }
       },
     });
+    const started = await Promise.allSettled(Array.from({ length: count }, start));
+    const workers = started.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+    const failed = started.find((r): r is PromiseRejectedResult => r.status === 'rejected');
     try {
-      await worker.setParameters({ user_defined_dpi: String(DPI) });
-      // results per source file, so each file is rebuilt once
-      const layers = new Map<string, { ref: PageRef; pdf: Uint8Array }[]>();
+      if (failed) throw failed.reason;
+      await Promise.all(workers.map((w) => w.setParameters({ user_defined_dpi: String(DPI) })));
+      const found: (Uint8Array | null)[] = new Array(total).fill(null);
       let words = 0;
-      for (const ref of choice.pages) {
-        pageNo++;
-        progress(t('Reading page {n} of {total}…', { n: pageNo, total: choice.pages.length }));
-        const canvas = await picture(doc, ref);
-        const { data } = await worker.recognize(canvas, { pdfTextOnly: true, pdfTitle: doc.name }, { pdf: true, text: true });
-        canvas.width = canvas.height = 0;
-        const text = data.text ?? '';
-        words += text.split(/\s+/).filter(Boolean).length;
-        if (!text.trim() || !data.pdf) continue;
+      let next = 0;
+      reading();
+      await Promise.all(workers.map(async (worker) => {
+        while (next < total) {
+          const i = next++;
+          const canvas = await picture(doc, choice.pages[i]);
+          const { data } = await worker.recognize(canvas, { pdfTextOnly: true, pdfTitle: doc.name }, { pdf: true, text: true });
+          canvas.width = canvas.height = 0;
+          done++;
+          reading();
+          const text = data.text ?? '';
+          words += text.split(/\s+/).filter(Boolean).length;
+          if (text.trim() && data.pdf) found[i] = new Uint8Array(data.pdf as ArrayLike<number>);
+        }
+      }));
+
+      // results per source file, in page order, so each file is rebuilt once
+      const layers = new Map<string, { ref: PageRef; pdf: Uint8Array }[]>();
+      choice.pages.forEach((ref, i) => {
+        const pdf = found[i];
+        if (!pdf) return;
         const list = layers.get(ref.src) ?? [];
-        list.push({ ref, pdf: new Uint8Array(data.pdf as ArrayLike<number>) });
+        list.push({ ref, pdf });
         layers.set(ref.src, list);
-      }
+      });
 
       progress(t('Adding the text to the document…'));
       const { PDFDocument, degrees } = await import('pdf-lib');
       let pages = 0;
       for (const [srcId, list] of layers) {
         const source = doc.sources.get(srcId)!;
-        const out = await PDFDocument.load(source.bytes, { updateMetadata: false });
+        const out = await PDFDocument.load(source.bytes, { updateMetadata: false, parseSpeed: PDF_LIB_STEP });
         for (const { ref, pdf } of list) {
           const [layer] = await out.embedPdf(pdf, [0]);
           const page = out.getPage(ref.index);
@@ -212,11 +235,11 @@ export async function recognise(doc: EditorDoc, currentPageId: string | null, pr
           page.drawPage(layer, { x, y, width, height, rotate: degrees(rotation) });
           pages++;
         }
-        await doc.replaceSource(srcId, await out.save({ useObjectStreams: true }));
+        await doc.replaceSource(srcId, await out.save({ useObjectStreams: true, objectsPerTick: PDF_LIB_STEP }));
       }
       return { pages, words };
     } finally {
-      await worker.terminate();
+      await Promise.all(workers.map((w) => w.terminate().catch(() => {})));
     }
   });
 }

@@ -19,6 +19,7 @@ import { baseName } from './page-tools';
 import { qrFromPicture, qrPicture, qrPng, scanQr } from './qr';
 import { choices, type ToolHost } from './tools';
 import { h, icon, modal, toast } from './ui';
+import { PDF_LIB_STEP } from './pdf';
 
 const api = () => window.inkleaf;
 
@@ -337,9 +338,21 @@ async function wrapLocked(data: Uint8Array): Promise<Uint8Array> {
 
 const MARK_BYTES = new TextEncoder().encode(`/${MARK}`);
 
-/** Whether a file is a PDF locked to a device. */
+/**
+ * Whether a file is a PDF locked to a device. The mark is in the catalog,
+ * which comes before the locked data, so it's near the start of the file (or
+ * near the end, if another app saved it again). Only those two ends are
+ * searched: going through all of a 300 MB scan took a quarter of a second.
+ */
 export function isDeviceLocked(bytes: Uint8Array): boolean {
-  outer: for (let i = bytes.indexOf(MARK_BYTES[0]); i >= 0 && i <= bytes.length - MARK_BYTES.length; i = bytes.indexOf(MARK_BYTES[0], i + 1)) {
+  const edge = 1 << 20;
+  if (bytes.length <= edge * 4) return hasMark(bytes, 0, bytes.length);
+  return hasMark(bytes, 0, edge) || hasMark(bytes, bytes.length - edge, bytes.length);
+}
+
+function hasMark(bytes: Uint8Array, from: number, to: number): boolean {
+  const last = to - MARK_BYTES.length;
+  outer: for (let i = bytes.indexOf(MARK_BYTES[0], from); i >= 0 && i <= last; i = bytes.indexOf(MARK_BYTES[0], i + 1)) {
     for (let j = 1; j < MARK_BYTES.length; j++) if (bytes[i + j] !== MARK_BYTES[j]) continue outer;
     return true;
   }
@@ -350,7 +363,7 @@ export function isDeviceLocked(bytes: Uint8Array): boolean {
 export async function openDeviceLocked(bytes: Uint8Array, name: string): Promise<Uint8Array> {
   let data: Uint8Array;
   try {
-    const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
+    const pdf = await PDFDocument.load(bytes, { updateMetadata: false, parseSpeed: PDF_LIB_STEP });
     const stream = pdf.context.lookup(pdf.catalog.get(PDFName.of(MARK)));
     if (!(stream instanceof PDFRawStream)) throw new Error('no data');
     data = stream.contents;

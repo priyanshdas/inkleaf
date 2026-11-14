@@ -45,6 +45,7 @@ import { frameToUser, imageLocalSize, rotateVec } from './geometry';
 import { decorTexts } from './decor';
 import { arrowHead, STAMP_BASELINE, stampLayout, TEXT_PAD, UNDERLINE_OFFSET, UNDERLINE_THICKNESS } from './render';
 import type { Annot, FieldAnnot, NoteAnnot, OutlineItem, PageRef, StampAnnot, TextStyle } from './types';
+import { PDF_LIB_STEP } from './pdf';
 
 export interface ExportResult {
   bytes: Uint8Array;
@@ -752,7 +753,7 @@ async function finish(out: PDFDocument, writer: Writer, warnings: string[], need
   if (typeof CompressionStream !== 'undefined') await compressNewContent(out);
   out.setProducer('InkLeaf PDF');
   out.setModificationDate(new Date());
-  const saved = await out.save({ useObjectStreams: true, updateFieldAppearances: false });
+  const saved = await out.save({ useObjectStreams: true, updateFieldAppearances: false, objectsPerTick: PDF_LIB_STEP });
   let bytes: Uint8Array = saved;
   // Only needed when pages were dropped: their content would otherwise linger
   // unreferenced in the file. It's a full re-parse, so skip it when we can.
@@ -809,7 +810,7 @@ export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[]): 
   const source = (srcId: string) => {
     let pending = parsed.get(srcId);
     if (!pending) {
-      pending = PDFDocument.load(bytesFor(srcId), { updateMetadata: false }).then(async (pdf) => {
+      pending = PDFDocument.load(bytesFor(srcId), { updateMetadata: false, parseSpeed: PDF_LIB_STEP }).then(async (pdf) => {
         if (srcId === doc.mainSource) {
           pdf.registerFontkit(fontkit);
           formsWriter = new Writer(pdf, doc);
@@ -828,7 +829,7 @@ export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[]): 
     if (isWhole) {
       // 2a. The whole document: keep the main file as the base so its forms,
       //     bookmarks and metadata survive.
-      const out = await PDFDocument.load(bytesFor(doc.mainSource), { updateMetadata: false });
+      const out = await PDFDocument.load(bytesFor(doc.mainSource), { updateMetadata: false, parseSpeed: PDF_LIB_STEP });
       out.registerFontkit(fontkit);
       const writer = new Writer(out, doc);
       await fillForms(out, doc, writer);

@@ -188,12 +188,27 @@ export async function pageStructure(page: PDFPageProxy): Promise<PageStructure> 
   return { width: view.width, height: view.height, lines, blocks };
 }
 
-/** Every page's structure, reporting progress as it goes. */
+/**
+ * Every page's structure, reporting progress as it goes. A few pages are
+ * worked on at once: while one is being put into lines here, pdf.js is
+ * already reading the next in its worker, instead of each waiting its turn.
+ */
 export async function documentStructure(pdf: PDFDocumentProxy, progress: (page: number, total: number) => void): Promise<PageStructure[]> {
-  const out: PageStructure[] = [];
-  for (let n = 1; n <= pdf.numPages; n++) {
-    progress(n, pdf.numPages);
-    out.push(await pageStructure(await pdf.getPage(n)));
-  }
+  const total = pdf.numPages;
+  const out: PageStructure[] = new Array(total);
+  let next = 1;
+  let done = 0;
+  progress(1, total);
+  await Promise.all(Array.from({ length: Math.min(4, total) }, async () => {
+    while (next <= total) {
+      const n = next++;
+      const page = await pdf.getPage(n);
+      out[n - 1] = await pageStructure(page);
+      // what pdf.js kept for reading it isn't needed again (false if the page is on screen being drawn)
+      page.cleanup();
+      done++;
+      progress(Math.min(done + 1, total), total);
+    }
+  }));
   return out;
 }

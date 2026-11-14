@@ -495,8 +495,22 @@ async function syncExplorerMenu(on: boolean) {
 
 // --- the taskbar button's menu (Windows) ------------------------------------------------------
 
-/** Recent files and "New window" when the taskbar button is right-clicked. */
+let jumpListTimer: NodeJS.Timeout | null = null;
+
+/**
+ * Recent files and "New window" when the taskbar button is right-clicked.
+ * Updated a moment later, once for any number of changes: the shell call is
+ * slow, and opening several files at once would otherwise make one each.
+ */
 export function refreshJumpList() {
+  if (jumpListTimer) return;
+  jumpListTimer = setTimeout(() => {
+    jumpListTimer = null;
+    updateJumpList();
+  }, 1500);
+}
+
+function updateJumpList() {
   // the Store version is started through its package, not a path the list could hold
   if (!isWindows || !app.isPackaged || isStore()) return;
   const exe = program();
@@ -562,6 +576,10 @@ export function startDesktop(h: DesktopHost) {
   host = h;
   const s = desktopSettings();
   if (s.openDownloads) watchDownloads();
-  void syncExplorerMenu(s.explorerMenu);
-  refreshJumpList();
+  // Windows' right-click menu and taskbar list can wait until the window is
+  // up: both talk to the shell, which is slow while the app is starting
+  setTimeout(() => {
+    void syncExplorerMenu(desktopSettings().explorerMenu);
+    updateJumpList();
+  }, 3000);
 }

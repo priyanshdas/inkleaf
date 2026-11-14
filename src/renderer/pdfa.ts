@@ -19,6 +19,7 @@
 
 import { t } from '../shared/i18n';
 import type { PDFContext, PDFDict as PDFDictType, PDFDocument as PDFDocumentType, PDFName as PDFNameType, PDFNumber as PDFNumberType, PDFRef as PDFRefType } from 'pdf-lib';
+import { PDF_LIB_STEP } from './pdf';
 
 type Lib = typeof import('pdf-lib');
 type Fontkit = { create(data: Uint8Array): FontkitFont };
@@ -217,7 +218,7 @@ export async function toPdfA(input: Uint8Array, title: string): Promise<PdfAResu
   const lib = await import('pdf-lib');
   const fontkit = (await import('@pdf-lib/fontkit')).default as unknown as Fontkit;
   const { PDFDocument, PDFName, PDFDict, PDFArray, PDFHexString, PDFNumber, PDFStream } = lib;
-  const doc: PDFDocumentType = await PDFDocument.load(input, { updateMetadata: false });
+  const doc: PDFDocumentType = await PDFDocument.load(input, { updateMetadata: false, parseSpeed: PDF_LIB_STEP });
   const ctx = doc.context;
   const warnings = new Set<string>();
   const embedder = new FontEmbedder(lib, ctx, fontkit);
@@ -345,6 +346,6 @@ export async function toPdfA(input: Uint8Array, title: string): Promise<PdfAResu
     }
   }
 
-  const bytes = await doc.save({ useObjectStreams: false, updateFieldAppearances: false });
+  const bytes = await doc.save({ useObjectStreams: false, updateFieldAppearances: false, objectsPerTick: PDF_LIB_STEP });
   return { bytes, warnings: [...warnings], fontsEmbedded };
 }

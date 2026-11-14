@@ -10,6 +10,15 @@ export const AnnotationMode = pdfjs.AnnotationMode;
 export const TextLayer = pdfjs.TextLayer;
 export type TextLayer = InstanceType<typeof pdfjs.TextLayer>;
 
+/**
+ * How many objects pdf-lib reads or writes before it pauses to let the window
+ * redraw. Its own defaults (100 read, 50 written) made long documents slow:
+ * every pause costs at least 4 ms, and saving a 300-page file (23,000 objects)
+ * spent four of its five seconds paused. This many keeps the window
+ * responsive while costing almost nothing.
+ */
+export const PDF_LIB_STEP = 1500;
+
 export async function loadPdf(bytes: Uint8Array): Promise<PDFDocumentProxy> {
   // pdf.js transfers the buffer to its worker, so hand it a copy and keep ours.
   const task = pdfjs.getDocument({

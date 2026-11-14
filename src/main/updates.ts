@@ -30,12 +30,21 @@ function why(): string | null {
 export function startUpdates(onState: (state: UpdateState) => void) {
   report = onState;
   if (why()) return;
+  // the updater is a fair bit of code: it's loaded with the first check,
+  // well after the window is up, rather than while the app is starting
+  setTimeout(() => checkForUpdates(false), 15_000);
+  setInterval(() => checkForUpdates(false), 6 * 60 * 60 * 1000);
+}
+
+/** The updater, set up the first time it's needed. Null if it can't load. */
+function loadUpdater(): Updater | null {
+  if (updater) return updater;
   // loaded lazily so a missing or broken updater can never stop the app starting
   try {
     updater = (require('electron-updater') as typeof import('electron-updater')).autoUpdater;
   } catch (err) {
     console.warn('updater unavailable', err);
-    return;
+    return null;
   }
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
@@ -55,8 +64,7 @@ export function startUpdates(onState: (state: UpdateState) => void) {
     if (manual) report({ state: 'error', message: String(err?.message ?? err).split('\n')[0] });
     manual = false;
   });
-  setTimeout(() => checkForUpdates(false), 15_000);
-  setInterval(() => checkForUpdates(false), 6 * 60 * 60 * 1000);
+  return updater;
 }
 
 export function checkForUpdates(byUser: boolean) {
@@ -65,13 +73,14 @@ export function checkForUpdates(byUser: boolean) {
     if (byUser) report({ state: 'unavailable', reason });
     return;
   }
-  if (!updater) return;
+  const u = loadUpdater();
+  if (!u) return;
   if (ready) {
     if (byUser) report({ state: 'ready', version: '' });
     return;
   }
   manual = byUser;
-  updater.checkForUpdates().catch(() => {});
+  u.checkForUpdates().catch(() => {});
 }
 
 export function installUpdate() {
