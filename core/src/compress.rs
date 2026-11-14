@@ -150,6 +150,9 @@ fn encode_jpeg(pixels: &[u8], w: usize, h: usize, ch: usize, quality: u8) -> Opt
 
 /// A rough test for "photo" rather than flat artwork: photos have lots of
 /// distinct colours, diagrams and screenshots don't. JPEG suits only photos.
+/// About an A4 page at 150 dpi: a losslessly stored image this big is a scan (or a photo).
+const SCAN_PIXELS: usize = 1240 * 1754;
+
 fn looks_like_photo(pixels: &[u8], ch: usize) -> bool {
     let mut seen = std::collections::HashSet::new();
     let step = (pixels.len() / ch / 4000).max(1);
@@ -267,15 +270,19 @@ fn shrink_image(doc: &Document, stream: &Stream, s: &Settings) -> Option<Stream>
             (pixels, true)
         }
         [] | [_] if fl.is_empty() || fl[0] == b"FlateDecode" => {
-            if !s.flate_photos_to_jpeg {
+            // Light keeps lossless pictures as they are, apart from scanned pages
+            if !s.flate_photos_to_jpeg && w * h < SCAN_PIXELS {
                 return None;
             }
             let pixels = if fl.is_empty() { stream.content.clone() } else { stream.decompressed_content().ok()? };
             if pixels.len() != w * h * ch {
                 return None;
             }
-            // small or flat-colour images compress better losslessly
-            if w * h < 200 * 200 || !looks_like_photo(&pixels, ch) {
+            // Small or flat-colour images compress better losslessly. Scanned
+            // pages are the exception: mostly white paper with a little ink,
+            // they don't look like photos, but stored losslessly at scanner
+            // resolution each one runs to tens of megabytes.
+            if w * h < 200 * 200 || !(looks_like_photo(&pixels, ch) || w * h >= SCAN_PIXELS) {
                 return None;
             }
             (pixels, false)
@@ -297,7 +304,9 @@ fn shrink_image(doc: &Document, stream: &Stream, s: &Settings) -> Option<Stream>
         (w, h, pixels)
     };
 
-    let jpeg = encode_jpeg(&pixels, nw, nh, ch, s.jpeg_quality)?;
+    // text keeps its edges better a little above the photo quality
+    let quality = if !was_jpeg && !looks_like_photo(&pixels, ch) { s.jpeg_quality.max(80) } else { s.jpeg_quality };
+    let jpeg = encode_jpeg(&pixels, nw, nh, ch, quality)?;
     // a re-encode that comes out bigger isn't worth the quality loss
     if jpeg.len() as f64 > stream.content.len() as f64 * 0.9 {
         return None;
@@ -472,5 +481,66 @@ mod tests {
             })
             .collect();
         assert!(looks_like_photo(&noisy, 3));
+    }
+
+    /// A scanned page of text, stored losslessly at 300 dpi: white paper, grey lines of "ink".
+    fn scanned_page() -> Stream {
+        let (w, h) = (2480usize, 3508usize);
+        // paper is never quite even under a scanner: a little noise everywhere
+        let mut x: u32 = 2463534242;
+        let mut pixels: Vec<u8> = (0..w * h * 3)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                240 + (x >> 29) as u8
+            })
+            .collect();
+        for y in (300..h - 300).step_by(60) {
+            for row in y..y + 14 {
+                for x in 250..w - 250 {
+                    if (x / 9 + row) % 5 != 0 {
+                        let i = (row * w + x) * 3;
+                        pixels[i..i + 3].copy_from_slice(&[40, 40, 48]);
+                    }
+                }
+            }
+        }
+        let mut dict = Dictionary::new();
+        dict.set("Type", Object::Name(b"XObject".to_vec()));
+        dict.set("Subtype", Object::Name(b"Image".to_vec()));
+        dict.set("Width", Object::Integer(w as i64));
+        dict.set("Height", Object::Integer(h as i64));
+        dict.set("ColorSpace", Object::Name(b"DeviceRGB".to_vec()));
+        dict.set("BitsPerComponent", Object::Integer(8));
+        let mut stream = Stream::new(dict, pixels);
+        stream.compress().unwrap();
+        stream
+    }
+
+    #[test]
+    fn scanned_pages_become_jpegs() {
+        let doc = Document::with_version("1.7");
+        let scan = scanned_page();
+        assert!(!looks_like_photo(&scan.decompressed_content().unwrap(), 3), "a page of text isn't a photo");
+        for level in [Level::Light, Level::Balanced, Level::Strong] {
+            let smaller = shrink_image(&doc, &scan, &level.settings()).expect("a big lossless scan is shrunk at every level");
+            assert!(name_is(&smaller.dict, b"Filter", b"DCTDecode"));
+            assert!(smaller.content.len() * 2 < scan.content.len(), "{level:?}: {} vs {}", smaller.content.len(), scan.content.len());
+        }
+    }
+
+    #[test]
+    fn small_flat_pictures_stay_lossless() {
+        let doc = Document::with_version("1.7");
+        let mut dict = Dictionary::new();
+        dict.set("Subtype", Object::Name(b"Image".to_vec()));
+        dict.set("Width", Object::Integer(400));
+        dict.set("Height", Object::Integer(300));
+        dict.set("ColorSpace", Object::Name(b"DeviceRGB".to_vec()));
+        dict.set("BitsPerComponent", Object::Integer(8));
+        let mut logo = Stream::new(dict, vec![30u8; 400 * 300 * 3]);
+        logo.compress().unwrap();
+        assert!(shrink_image(&doc, &logo, &Level::Balanced.settings()).is_none());
     }
 }
