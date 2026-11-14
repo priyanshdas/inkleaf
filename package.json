@@ -267,7 +267,7 @@
       "artifactName": "${productName}-linux-${arch}.${ext}"
     },
     "releaseInfo": {
-      "releaseNotes": "Download the right file for your computer:\n\n- **Windows:** `Inkleaf-Setup.exe` (or `Inkleaf-Portable.exe`, no install needed)\n- **Mac:** coming soon\n- **Ubuntu, Debian, Mint:** `Inkleaf-linux-amd64.deb`\n- **Fedora, openSUSE:** `Inkleaf-linux-x86_64.rpm`\n- **Any other Linux:** `Inkleaf-linux-x86_64.AppImage` (ARM: the `arm64` files)\n\nWhat's new: https://github.com/priyanshdas/inkleaf#readme\n\n**Code signing policy:** https://priyanshdas.github.io/inkleaf/#code-signing"
+      "releaseNotes": "Download the right file for your computer:\n\n- **Windows:** `Inkleaf-Setup.exe` (or `Inkleaf-Portable.exe`, no install needed)\n- **Mac:** coming soon\n- **Ubuntu, Debian, Mint:** `Inkleaf-linux-amd64.deb`\n- **Fedora, openSUSE:** `Inkleaf-linux-x86_64.rpm`\n- **Any other Linux:** `Inkleaf-linux-x86_64.AppImage` (ARM: the `arm64` files)\n- **Flatpak, any Linux:** `InkLeaf-PDF.flatpak` (updates itself)\n\nWhat's new: https://github.com/priyanshdas/inkleaf#readme\n\n**Code signing policy:** https://priyanshdas.github.io/inkleaf/#code-signing"
     }
   },
   "desktopName": "inkleaf.desktop",

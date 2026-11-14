@@ -410,6 +410,8 @@ thead th {
 .dl:hover { border-color: var(--accent); color: var(--accent); }
 
 .note { margin: 2px 0 0; font-size: 0.95rem; color: var(--muted); max-width: 34em; }
+/* a command people copy: wraps anywhere so it never pushes the page sideways on a phone */
+.note code { font-size: 0.85em; overflow-wrap: anywhere; }
 
 .later th, .later .note { color: var(--muted); font-weight: 500; }
 
