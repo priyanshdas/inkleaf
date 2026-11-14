@@ -61,7 +61,7 @@ fun HomeScreen(state: UiState, actions: Actions, onSettings: () -> Unit, onOpenD
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             FrameHeader(
-                title = "Inkleaf PDF",
+                title = "InkLeaf PDF",
                 leading = { LeafMark(26.dp) },
                 actions = { FrameIconButton(R.drawable.lc_settings, tr("Settings"), onClick = onSettings) },
             ) {
