@@ -2,7 +2,7 @@
 Name=InkLeaf PDF
 GenericName=PDF Editor
 Comment=Edit, sign, fill, convert and organise PDFs. Everything happens on your computer.
-Exec=inkleaf @@u %U @@
+Exec=inkleaf %U
 Terminal=false
 Type=Application
 Icon=io.github.priyanshdas.inkleaf
