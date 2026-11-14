@@ -21,6 +21,8 @@
 #   APPLE_APP_SPECIFIC_PASSWORD  made at account.apple.com › App-Specific Passwords
 #   APPLE_TEAM_ID                the 10-character team ID from developer.apple.com
 #
+#   FLATPAK_GPG_KEY              signs the Flatpak (see flatpak.yml)
+#
 #   Optional, for a signed Windows installer:
 #   WIN_CERTIFICATE, WIN_CERTIFICATE_PASSWORD
 #
@@ -97,6 +99,18 @@ jobs:
           name: Inkleaf-Microsoft-Store
           path: dist/*.appx
           if-no-files-found: error
+
+  # The Flatpak, made from the .deb the Linux build has just published.
+  # Everything about it is in flatpak.yml.
+  flatpak:
+    needs: build
+    permissions:
+      actions: write
+      contents: read
+    uses: ./.github/workflows/flatpak.yml
+    with:
+      version: ${{ github.ref_name }}
+    secrets: inherit
 
   # The Android app: an APK people can install straight from the releases page,
   # and an app bundle (.aab) for the Play Store. Runs after the desktop builds,

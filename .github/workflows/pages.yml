@@ -31,6 +31,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The Flatpak repository (see flatpak.yml), from the newest release that
+      # has one, so installed Flatpaks keep finding their updates
+      - name: Add the Flatpak repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for tag in $(gh release list --repo priyanshdas/inkleaf-releases --limit 10 --json tagName --jq '.[].tagName'); do
+            if gh release download "$tag" --repo priyanshdas/inkleaf-releases --pattern inkleaf-flatpak-repo.tar.gz --dir "$RUNNER_TEMP" 2>/dev/null; then
+              mkdir -p website/flatpak
+              tar -xzf "$RUNNER_TEMP/inkleaf-flatpak-repo.tar.gz" -C website/flatpak
+              echo "Flatpak repository from $tag"
+              break
+            fi
+          done
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
@@ -41,4 +56,4 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v4

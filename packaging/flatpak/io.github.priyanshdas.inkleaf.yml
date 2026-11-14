@@ -1,7 +1,12 @@
-# Flatpak manifest for Inkleaf. Repackages the release .deb (same approach as
-# most Electron apps on Flathub), so it needs no change to the normal build.
-# Build and install locally:
-#   flatpak-builder --user --install --force-clean build-dir packaging/flatpak/io.github.priyanshdas.inkleaf.yml
+# Flatpak manifest for InkLeaf PDF. It repackages the release .deb (the same
+# approach as most Electron apps), so it needs no change to the normal build.
+#
+# The release workflow builds it from the .deb it has just made and publishes
+# it at priyanshdas.github.io/inkleaf/flatpak, where installed copies get
+# their updates. To build and install it on your own computer instead, put
+# Inkleaf-linux-amd64.deb next to this file and run:
+#
+#   flatpak-builder --user --install --install-deps-from=flathub --force-clean build-dir packaging/flatpak/io.github.priyanshdas.inkleaf.yml
 app-id: io.github.priyanshdas.inkleaf
 runtime: org.freedesktop.Platform
 runtime-version: '25.08'
@@ -16,8 +21,17 @@ finish-args:
   - --socket=fallback-x11
   - --share=ipc
   - --device=dri
-  # Inkleaf works fully offline; no --share=network. Files are opened through
-  # the document portal (file chooser / "Open with"), so no filesystem access.
+  # Only for the things that need it, each one asked for by the person:
+  # the AI tools, network scanners, language packs, sending to a phone and
+  # web page to PDF. Opening and saving files never uses the network.
+  - --share=network
+  # Opening files goes through the file chooser and "Open with", so no wider
+  # file access is needed. Downloads is read-only, for the setting that opens
+  # a PDF as soon as it has been downloaded.
+  - --filesystem=xdg-download:ro
+  # notifications and the icon next to the clock
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher
 
 modules:
   - name: inkleaf
@@ -30,22 +44,12 @@ modules:
       - install -Dm644 io.github.priyanshdas.inkleaf.desktop -t /app/share/applications
       - install -Dm644 io.github.priyanshdas.inkleaf.metainfo.xml -t /app/share/metainfo
       - install -Dm644 icon-256.png /app/share/icons/hicolor/256x256/apps/io.github.priyanshdas.inkleaf.png
+      - install -Dm644 /app/inkleaf/LICENSE.electron.txt -t /app/share/licenses/io.github.priyanshdas.inkleaf
     sources:
       - type: file
+        path: Inkleaf-linux-amd64.deb
         dest-filename: inkleaf.deb
-        url: https://github.com/priyanshdas/inkleaf-releases/releases/download/v3.1.2/Inkleaf-linux-amd64.deb
-        sha256: c976f673d5396db007cdc36929c937188e6254a8cf2e74138e93a78d26fc07ff
         only-arches: [x86_64]
-        x-checker-data:
-          type: json
-          url: https://api.github.com/repos/priyanshdas/inkleaf-releases/releases/latest
-          version-query: .tag_name | sub("^v"; "")
-          url-query: .assets[] | select(.name=="Inkleaf-linux-amd64.deb") | .browser_download_url
-      - type: file
-        dest-filename: inkleaf.deb
-        url: https://github.com/priyanshdas/inkleaf-releases/releases/download/v3.1.2/Inkleaf-linux-arm64.deb
-        sha256: 4950032e45784998f19c34a9d3231ed7383a657d7fee9bca409d34ac89b17f10
-        only-arches: [aarch64]
       - type: script
         dest-filename: inkleaf.sh
         commands:

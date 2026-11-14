@@ -1,16 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
   <id>io.github.priyanshdas.inkleaf</id>
-  <name>Inkleaf</name>
-  <summary>Free, open-source offline PDF editor</summary>
+  <name>InkLeaf PDF</name>
+  <summary>Free, open-source PDF editor that edits the actual text</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <developer id="io.github.priyanshdas">
     <name>Priyansh Das</name>
   </developer>
   <description>
-    <p>Inkleaf edits, signs, fills, converts and organises PDFs. Everything happens on your computer: nothing is uploaded, there are no accounts, and every tool is free.</p>
-    <p>It changes the text that is actually in the file, so the old words are really gone. It also signs documents, fills forms, cleans up scans and handles pages.</p>
+    <p>InkLeaf PDF edits, signs, fills, converts and organises PDFs. Everything happens on your computer: nothing is uploaded, there are no accounts, and every tool is free.</p>
+    <p>It changes the text that is actually in the file, in its original font, so the old words are really gone.</p>
+    <ul>
+      <li>Edit text, add pictures, shapes, highlights and sticky notes</li>
+      <li>Fill in forms, or make your own fillable forms</li>
+      <li>Sign with a drawn, typed or uploaded signature</li>
+      <li>Combine, split, reorder, rotate and crop pages</li>
+      <li>Make scanned pages searchable with OCR</li>
+      <li>Shrink big scans with Compress</li>
+      <li>Convert to and from Word, Excel, PowerPoint and pictures</li>
+      <li>Redact private information permanently</li>
+      <li>Compare two versions of a PDF</li>
+    </ul>
+    <p>The AI tools, network scanners, language packs and sending to a phone use the network, only when you use them.</p>
   </description>
   <categories>
     <category>Office</category>
@@ -22,7 +34,12 @@
     <keyword>sign</keyword>
     <keyword>form</keyword>
     <keyword>scan</keyword>
+    <keyword>OCR</keyword>
   </keywords>
+  <branding>
+    <color type="primary" scheme_preference="light">#e3f1ea</color>
+    <color type="primary" scheme_preference="dark">#17302a</color>
+  </branding>
   <screenshots>
     <screenshot type="default">
       <image type="source" width="1280" height="800">https://raw.githubusercontent.com/priyanshdas/inkleaf/main/packaging/flatpak/screenshots/editor.png</image>
@@ -34,13 +51,28 @@
     </screenshot>
   </screenshots>
   <launchable type="desktop-id">io.github.priyanshdas.inkleaf.desktop</launchable>
-  <url type="homepage">https://github.com/priyanshdas/inkleaf</url>
+  <url type="homepage">https://priyanshdas.github.io/inkleaf/</url>
   <url type="bugtracker">https://github.com/priyanshdas/inkleaf/issues</url>
   <url type="vcs-browser">https://github.com/priyanshdas/inkleaf</url>
   <url type="donation">https://ko-fi.com/inkleaf</url>
-  <provides><mediatype>application/pdf</mediatype></provides>
+  <provides>
+    <mediatype>application/pdf</mediatype>
+  </provides>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="3.3.0" date="2026-11-14">
+      <description>
+        <p>Inkleaf is now called InkLeaf PDF.</p>
+        <ul>
+          <li>New ribbon toolbar, which you can collapse or switch back to the classic toolbar</li>
+          <li>The Open button has a menu with recent files, combine, convert and scan</li>
+          <li>Bookmarks inside bookmarks, and right-to-left two-page reading</li>
+          <li>Compress shrinks big scans properly</li>
+          <li>Faster opening, saving and OCR, and less memory on long PDFs</li>
+          <li>Start at login now works in the Flatpak</li>
+        </ul>
+      </description>
+    </release>
     <release version="3.1.2" date="2026-10-31"/>
   </releases>
 </component>
