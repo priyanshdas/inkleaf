@@ -64,3 +64,34 @@ jobs:
       - name: Screens, touches and the engine connection
         working-directory: mobile/android
         run: ./gradlew :ui:testDebugUnitTest :app:testDebugUnitTest --no-daemon
+
+  # Dependency audits, in their own job so a failing end-to-end test can't skip
+  # the cargo-audit cache save. Both report only for now (continue-on-error), so a
+  # new advisory shows up as a red step without blocking unrelated pull requests.
+  # Make them blocking once the known npm advisories are cleared.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # `npm audit` currently reports 4 high advisories in production deps, all
+      # via @vercel/blob > zod, so failing the build on it would break CI today.
+      - name: Audit npm dependencies
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Cache cargo-audit
+        id: cargo-audit-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-0.22.2-${{ runner.os }}
+
+      - name: Install cargo-audit
+        if: steps.cargo-audit-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-audit --locked --version 0.22.2
+
+      - name: Audit Rust dependencies
+        continue-on-error: true
+        working-directory: core
+        run: cargo audit
