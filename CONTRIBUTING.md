@@ -55,6 +55,13 @@ one before you start so two people don't do the same work.
 
 ## Translations
 
-The interface is English only for now. If you'd like to translate it, open an
-issue first: the text needs gathering into one place before translation can
-start, and that's a good first project in itself.
+Inkleaf's interface is available in 30 languages (English plus 29 translations),
+and fixes and new languages are welcome. Every message is written in English and
+wrapped in `t('…')`; the translations live in `src/renderer/i18n/<code>.json`.
+
+`README.md` ("Translating InkLeaf PDF") explains the workflow: `npm run i18n` shows
+what each language is missing, and it also explains how to add a language. For
+a new language, open an issue first so we can agree on the code and who is
+working on it. Native speakers correcting an existing translation can go
+straight to a pull request. Please don't edit `strings.json`: `npm run i18n`
+regenerates it.
