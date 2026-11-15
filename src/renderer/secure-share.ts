@@ -25,7 +25,7 @@ const api = () => window.inkleaf;
 
 async function exported(doc: EditorDoc): Promise<Uint8Array> {
   const { exportPdf } = await import('./exporter');
-  return (await exportPdf(doc)).bytes;
+  return (await exportPdf(doc, undefined, { requireCleanUp: true })).bytes;
 }
 
 function copyButton(text: string, done: string) {
