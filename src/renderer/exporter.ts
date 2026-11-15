@@ -583,7 +583,7 @@ async function decoratePage(page: PDFPage, ref: PageRef, doc: EditorDoc, writer:
   for (const t of decorTexts(doc, ref)) await writer.drawText(page, t);
   for (const a of annots) if (a.type !== 'highlight') await writer.draw(page, a);
 
-  replaceNotes(page, annots.filter((a): a is NoteAnnot => a.type === 'note'));
+  replaceNotes(page, annots.filter((a): a is NoteAnnot => a.type === 'note'), doc.hasAdoptedNotes(ref.id));
 }
 
 const hexColour = (hex: string) => {
@@ -594,12 +594,14 @@ const hexColour = (hex: string) => {
 /**
  * Sticky notes become standard PDF comments, which every reader shows. The
  * file's own comments were read in when it was opened (and may have been
- * edited or deleted since), so the old ones are taken out first.
+ * edited or deleted since), so the old ones are taken out first, but only on
+ * pages where that happened. If the scan hadn't finished before the first
+ * edit, or couldn't read a page, the file's comments are the only copy.
  */
-function replaceNotes(page: PDFPage, notes: NoteAnnot[]) {
+function replaceNotes(page: PDFPage, notes: NoteAnnot[], adopted: boolean) {
   const ctx = page.doc.context;
   const list = page.node.lookupMaybe(PDFName.of('Annots'), PDFArray);
-  if (list) {
+  if (list && adopted) {
     const subtype = (d: PDFDict | undefined) => d?.lookupMaybe(PDFName.of('Subtype'), PDFName)?.asString();
     for (let i = list.size() - 1; i >= 0; i--) {
       const annot = list.lookupMaybe(i, PDFDict);
