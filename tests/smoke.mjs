@@ -2493,10 +2493,27 @@ async function pageDeleteTest() {
   await quit(app, win);
 }
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete) runs just that part
+// --- thumbnail selection after deleting pages ---------------------------------------
+
+async function thumbAnchorTest() {
+  console.log('\nThumbnail selection after a delete (sample.pdf)');
+  const { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  // shift-click after the anchor page was deleted must not throw
+  await win.click('.thumb:nth-child(2)');
+  await win.hover('.thumb:nth-child(2) .thumb-frame');
+  await win.click('.thumb:nth-child(2) [title="Delete page"]');
+  await win.waitForTimeout(300);
+  await win.click('.thumb:nth-child(1)', { modifiers: ['Shift'] });
+  await win.waitForTimeout(200);
+  check('shift-click after deleting the anchor page works', errors.length === 0 && (await win.locator('.thumb.selected').count()) >= 1, errors.join('; '));
+  await quit(app, win);
+}
+
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, thumbanchor) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, thumbanchor: thumbAnchorTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }
