@@ -2334,10 +2334,93 @@ async function ribbonTest() {
   await quit(app, win);
 }
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr) runs just that part
+// --- deleting pages while viewing and selecting -------------------------------------
+
+async function pageDeleteTest() {
+  console.log('\nDeleting pages (sample.pdf)');
+  const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  // the page being read, as the viewer and the pager see it (1-based)
+  const state = () => win.evaluate(() => {
+    const { viewer, getDoc } = window.__inkleaf;
+    const ids = getDoc().pages.map((p) => p.id);
+    return {
+      shown: document.querySelectorAll('.page:not([hidden])').length,
+      at: ids.indexOf(viewer.currentPageId) + 1,
+      pager: document.querySelector('#page-input').value,
+      total: document.querySelector('#page-count').textContent,
+      thumb: [...document.querySelectorAll('.thumb')].findIndex((e) => e.classList.contains('current')) + 1,
+      count: ids.length,
+    };
+  });
+  // 'pagechange' is what tells the pager, the thumbnails and the Android screens the page moved
+  await win.evaluate(() => { window.__pagechanges = 0; window.__inkleaf.viewer.addEventListener('pagechange', () => window.__pagechanges++); });
+  const pagechanges = () => win.evaluate(() => window.__pagechanges);
+  const readPage = async (n) => {
+    await win.evaluate((n) => { const { viewer, getDoc } = window.__inkleaf; viewer.scrollToPage(getDoc().pages[n - 1].id, false); }, n);
+    await win.waitForTimeout(200);
+  };
+  const deleteThumbs = async (n) => {
+    await win.click(`.thumb:nth-child(${n}) .thumb-frame`);
+    await win.hover(`.thumb:nth-child(${n}) .thumb-frame`);
+    await win.click(`.thumb:nth-child(${n}) [title="Delete page"]`);
+    await win.waitForTimeout(300);
+  };
+  // every part of the screen agrees on where the reader is
+  const agrees = (s, page, total, shown) => s.at === page && s.pager === String(page) && s.thumb === page && s.total === `of ${total}` && s.count === total && (shown === undefined || s.shown === shown);
+
+  await win.evaluate(() => { void window.__inkleaf.run('mode-single'); });
+  await readPage(2);
+  check('single-page view is reading page 2 of 3', agrees(await state(), 2, 3, 1), JSON.stringify(await state()));
+  const seen = await pagechanges();
+  await deleteThumbs(2);
+  let s = await state();
+  check('deleting the page being read lands on the one after it', agrees(s, 2, 2, 1), JSON.stringify(s));
+  check('and the viewer announces the page change', (await pagechanges()) > seen, `${seen} -> ${await pagechanges()}`);
+
+  await readPage(2);
+  await deleteThumbs(2);
+  s = await state();
+  check('deleting the last page lands on the new last page', agrees(s, 1, 1, 1), JSON.stringify(s));
+  await win.keyboard.press('Control+z');
+  await win.waitForTimeout(300);
+  s = await state();
+  check('undo brings the page back and keeps one page showing', s.count === 2 && s.total === 'of 2' && s.shown === 1 && s.at === 1 && s.pager === String(s.at), JSON.stringify(s));
+
+  // five pages, reading page 3: deleting pages 1-3 should land on the old page 4
+  for (let i = 0; i < 3; i++) {
+    await win.evaluate(() => { void window.__inkleaf.run('insert-blank'); });
+    await win.waitForTimeout(300);
+  }
+  await readPage(3);
+  const fourth = await win.evaluate(() => window.__inkleaf.getDoc().pages[3].id);
+  await win.click('.thumb:nth-child(1)');
+  await win.click('.thumb:nth-child(3)', { modifiers: ['Shift'] });
+  await win.hover('.thumb:nth-child(3) .thumb-frame');
+  await win.click('.thumb:nth-child(3) [title="Delete page"]');
+  await win.waitForSelector('.modal');
+  await modalButton(win, 'Delete');
+  await win.waitForTimeout(300);
+  s = await state();
+  const landed = await win.evaluate((id) => window.__inkleaf.viewer.currentPageId === id, fourth);
+  check('deleting pages 1-3 while reading page 3 lands on the old page 4', landed && agrees(s, 1, 2, 1), JSON.stringify(s));
+
+  // continuous view: the pager follows too
+  await win.evaluate(() => { void window.__inkleaf.run('mode-continuous'); });
+  await win.waitForTimeout(300);
+  await win.evaluate(() => { void window.__inkleaf.run('insert-blank'); });
+  await win.waitForTimeout(300);
+  await readPage(2);
+  await deleteThumbs(2);
+  s = await state();
+  check('continuous view: pager and thumbnails still agree after a delete', s.count === 2 && s.pager === String(s.at) && s.thumb === s.at && s.total === 'of 2', JSON.stringify(s));
+  await quit(app, win);
+}
+
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

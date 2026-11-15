@@ -325,6 +325,18 @@ export class Viewer extends EventTarget {
     const doc = this.doc;
     if (!doc) return;
     const keep = new Set(doc.pages.map((p) => p.id));
+    // If the page being read is going, single-page view moves to the page that
+    // takes its place. The DOM still holds the old order here. currentPageId is
+    // left alone so showOnly / updateCurrentPage announce the change.
+    let fallback: string | null = null;
+    if (this.currentPageId && !keep.has(this.currentPageId)) {
+      const children = Array.from(this.pagesEl.children);
+      const was = this.views.get(this.currentPageId);
+      const oldIndex = was ? children.indexOf(was.el) : 0;
+      let removedBefore = 0;
+      for (const [id, view] of this.views) if (!keep.has(id) && children.indexOf(view.el) < oldIndex) removedBefore++;
+      fallback = doc.pages[Math.min(Math.max(oldIndex - removedBefore, 0), doc.pages.length - 1)]?.id ?? null;
+    }
     for (const [id, view] of this.views) {
       if (keep.has(id)) continue;
       view.releaseSharp();
@@ -353,7 +365,7 @@ export class Viewer extends EventTarget {
     }
     this.layout();
     this.updateCurrentPage();
-    if (this.mode === 'single') this.showOnly(this.currentPageId ?? doc.pages[0]?.id ?? null);
+    if (this.mode === 'single') this.showOnly(fallback ?? this.currentPageId ?? doc.pages[0]?.id ?? null);
   }
 
   // --- reading modes -------------------------------------------------------------
