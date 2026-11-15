@@ -78,6 +78,14 @@ export class AutoSave {
     return t;
   }
 
+  /**
+   * A document restored from a recovery copy keeps that copy's id, so the copy
+   * is only removed once the document is saved or closed, not on restoring.
+   */
+  adopt(doc: EditorDoc, recoveryId: string) {
+    this.info(doc).recoveryId = recoveryId;
+  }
+
   /** Can this document be auto-saved to its file? */
   private eligible(doc: EditorDoc): boolean {
     // a protected original would be saved without its protection: that

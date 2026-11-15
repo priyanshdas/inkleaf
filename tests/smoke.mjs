@@ -864,6 +864,17 @@ async function autosaveTest() {
     return { name: doc.name, text };
   });
   check('unsaved work is offered back after a crash', restored.text.includes('Recovered words') && /recovered/.test(restored.name), JSON.stringify(restored));
+  // the restored copy is still only in memory: it must count as unsaved, and
+  // its recovery file must survive until it has really been saved
+  const recoveryFiles = () => (fs.existsSync(path.join(profile, 'Recovery')) ? fs.readdirSync(path.join(profile, 'Recovery')).filter((n) => n.endsWith('.pdf')) : []);
+  check('a restored document is still unsaved', await win.evaluate(() => window.__inkleaf.getDoc().dirty));
+  await new Promise((r) => setTimeout(r, 500)); // clearRecovery is fire-and-forget
+  check('its recovery copy is kept until it is saved', recoveryFiles().length === 1, recoveryFiles().join(', '));
+  await stubDialog(app, 'showSaveDialog', path.join(out, 'recovered-saved.pdf'));
+  await win.evaluate(() => { void window.__inkleaf.run('save'); });
+  await win.waitForFunction(() => !window.__inkleaf.getDoc().dirty, null, { timeout: 15000 });
+  await new Promise((r) => setTimeout(r, 500));
+  check('saving it removes the recovery copy', recoveryFiles().length === 0, recoveryFiles().join(', '));
   await quit(app, win);
 }
 
