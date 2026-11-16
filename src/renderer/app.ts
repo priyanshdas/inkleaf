@@ -196,7 +196,12 @@ async function offerRecovery() {
         // reopened as a new document, so nothing overwrites the original
         // until you choose where to save it
         const restored = await EditorDoc.open(bytes, r.name.replace(/(\.pdf)?$/i, ' (recovered).pdf'), null);
+        // it only exists in memory: keep it unsaved, and keep its recovery
+        // copy until it's saved or closed
+        restored.markUnsaved();
+        autosave.adopt(restored, r.id);
         addTab(restored);
+        continue;
       } catch (err) {
         toast(t('Couldn’t restore “{name}”: {message}', { name: r.name, message: (err as Error).message }), 'error', 7000);
         continue;
