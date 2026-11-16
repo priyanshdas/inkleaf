@@ -774,6 +774,46 @@ r = pypdf.PdfReader(sys.argv[1])
 print(sum(1 for a in (r.pages[0].get('/Annots') or []) if a.get_object().get('/Subtype') == '/Text'))
 `, again);
     check('saving again doesn’t duplicate comments', count === '1', count);
+
+    // a first edit made before the comment scan finishes, and a scan that
+    // can't read the file, must both leave the file's own comments in place
+    const countFor = async (scenario) => {
+      const bytes = await win.evaluate(async ({ data, scenario }) => {
+        const { getDoc, exportPdf } = window.__inkleaf;
+        const d = await getDoc().constructor.open(new Uint8Array(data), 'early.pdf', null);
+        if (scenario === 'unreadable') d.notesIn = async () => new Map();
+        // the early case: an edit lands first, so the scan result is too late to adopt
+        if (scenario === 'early') d.deletePages([d.pages[2].id]);
+        await d.adoptExistingNotes();
+        return Array.from((await exportPdf(d)).bytes);
+      }, { data: Array.from(fs.readFileSync(file)), scenario });
+      const early = path.join(out, `early-${scenario}.pdf`);
+      fs.writeFileSync(early, Buffer.from(bytes));
+      return py(`
+import pypdf, sys
+r = pypdf.PdfReader(sys.argv[1])
+print(sum(1 for a in (r.pages[0].get('/Annots') or []) if a.get_object().get('/Subtype') == '/Text'))
+`, early);
+    };
+    check('editing before the comments are read in keeps them', await countFor('early') === '1');
+    check('comments on a page that can’t be read are kept', await countFor('unreadable') === '1');
+
+    // pages inserted from a file whose comments couldn't be read keep them too
+    const insertedBytes = await win.evaluate(async ({ data }) => {
+      const { getDoc, exportPdf } = window.__inkleaf;
+      const d = getDoc();
+      const src = await d.addSource(new Uint8Array(data), 'with-comment.pdf');
+      d.insertPages(d.pages.length, [{ src: src.id, index: 0, rotation: 0 }], new Map());
+      return Array.from((await exportPdf(d)).bytes);
+    }, { data: Array.from(fs.readFileSync(file)) });
+    const inserted = path.join(out, 'inserted.pdf');
+    fs.writeFileSync(inserted, Buffer.from(insertedBytes));
+    const last = py(`
+import pypdf, sys
+r = pypdf.PdfReader(sys.argv[1])
+print(sum(1 for a in (r.pages[-1].get('/Annots') or []) if a.get_object().get('/Subtype') == '/Text'))
+`, inserted);
+    check('an inserted page whose comments weren’t read keeps them', last === '1', last);
     await quit(app, win);
   }
 }

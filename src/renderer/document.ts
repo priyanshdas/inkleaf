@@ -60,6 +60,12 @@ export class EditorDoc extends EventTarget {
   private sourceEditsSaved = 0;
   private history: Snapshot[] = [];
   private cursor = -1;
+  /**
+   * Pages whose original comments now live in the editor as notes. Only on
+   * these may the exporter drop the file's own comments; anywhere else they
+   * are the only copy and have to be left alone.
+   */
+  private adoptedNotes = new Set<string>();
   private savedAt!: Snapshot;
 
   static async open(bytes: Uint8Array, name: string, path: string | null): Promise<EditorDoc> {
@@ -82,13 +88,22 @@ export class EditorDoc extends EventTarget {
     const notes = await this.notesIn(this.mainSource);
     if (!notes.size || this.history.length !== 1) return;
     const annots = { ...this.state.annots };
+    const adopted = new Set(this.adoptedNotes);
     for (const page of this.state.pages) {
       const found = page.src === this.mainSource ? notes.get(page.index) : undefined;
-      if (found?.length) annots[page.id] = [...(annots[page.id] ?? []), ...found];
+      if (!found?.length) continue;
+      annots[page.id] = [...(annots[page.id] ?? []), ...found];
+      adopted.add(page.id);
     }
+    this.adoptedNotes = adopted;
     this.state = { ...this.state, annots };
     this.resetHistory();
     this.emit({ kind: 'annots', pageIds: this.state.pages.map((p) => p.id) });
+  }
+
+  /** True when the editor holds this page's original comments, so the saved file may replace them. */
+  hasAdoptedNotes(pageId: string): boolean {
+    return this.adoptedNotes.has(pageId);
   }
 
   /** Sticky-note comments in one source file, by zero-based page index. */
@@ -295,11 +310,15 @@ export class EditorDoc extends EventTarget {
     this.state.pages = list;
     if (notes?.size) {
       const annots = { ...this.state.annots };
+      const adopted = new Set(this.adoptedNotes);
       for (const page of created) {
         const found = notes.get(page.index);
-        if (found?.length) annots[page.id] = found.map((n) => ({ ...n, id: newId('note') }));
+        if (!found?.length) continue;
+        annots[page.id] = found.map((n) => ({ ...n, id: newId('note') }));
+        adopted.add(page.id);
       }
       this.state.annots = annots;
+      this.adoptedNotes = adopted;
     }
     this.emit({ kind: 'pages' });
     this.emit({ kind: 'annots', pageIds: created.map((p) => p.id) });
