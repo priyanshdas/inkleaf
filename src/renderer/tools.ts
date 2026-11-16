@@ -28,7 +28,7 @@ function formatBytes(n: number) {
 
 async function exported(doc: EditorDoc): Promise<Uint8Array> {
   const { exportPdf } = await import('./exporter');
-  return (await exportPdf(doc)).bytes;
+  return (await exportPdf(doc, undefined, { requireCleanUp: true })).bytes;
 }
 
 /** A list of radio "cards", each with a title and a line of explanation. */

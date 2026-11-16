@@ -355,6 +355,7 @@
  "00lb44g": "Couldn’t reach the AI on your computer at {url}. Check that Ollama or LM Studio is running, accepts connections from your network, and that both are on the same Wi-Fi.",
  "1jhmoi6": "Couldn’t reach the download server. Check your internet connection and try again.",
  "1c0u9fx": "Couldn’t read “{name}”.",
+ "18u3say": "Couldn’t remove the deleted pages’ content, so nothing was saved or sent. Try again.",
  "110bxqj": "Couldn’t repair the PDF",
  "0swofyq": "Couldn’t restore “{name}”: {message}",
  "0sp66bm": "Couldn’t save",

@@ -751,7 +751,23 @@ async function compressNewContent(out: PDFDocument) {
   await Promise.all(jobs);
 }
 
-async function finish(out: PDFDocument, writer: Writer, warnings: string[], needsCleanUp: boolean): Promise<ExportResult> {
+export interface ExportOptions {
+  /**
+   * When pages were dropped, a final clean-up pass removes their content from
+   * the file. If that pass fails, the default is to carry on with the
+   * un-cleaned bytes, which still hold the deleted pages' text. Set this to
+   * throw instead. Use it wherever the result becomes a file the user keeps or
+   * sends to someone (save, share, protect); leave it off for output that is
+   * only read or printed, or kept as a private recovery copy.
+   * Known limit: tolerant exports (print, AI tools, recovery copies) can keep
+   * orphaned content if clean-up fails, and a tolerant export later opened as
+   * a document (e.g. the AI translated copy) won't be cleaned on its next save
+   * because its page order is unchanged.
+   */
+  requireCleanUp?: boolean;
+}
+
+async function finish(out: PDFDocument, writer: Writer, warnings: string[], needsCleanUp: boolean, options: ExportOptions): Promise<ExportResult> {
   if (typeof CompressionStream !== 'undefined') await compressNewContent(out);
   out.setProducer('InkLeaf PDF');
   out.setModificationDate(new Date());
@@ -763,7 +779,10 @@ async function finish(out: PDFDocument, writer: Writer, warnings: string[], need
     try {
       bytes = await core.finalize(saved);
     } catch (err) {
-      console.warn('finalize failed, keeping pdf-lib output', err);
+      console.warn('finalize failed', err);
+      // The un-cleaned file still holds the deleted pages' content, so a file
+      // that's kept or sent on must not be made from it.
+      if (options.requireCleanUp) throw new Error(t('Couldn’t remove the deleted pages’ content, so nothing was saved or sent. Try again.'));
     }
   }
   return { bytes, warnings: [...new Set([...warnings, ...writer.warnings])] };
@@ -773,8 +792,8 @@ async function finish(out: PDFDocument, writer: Writer, warnings: string[], need
  * Builds a PDF from the current state of `doc`. Pass `pageIds` to export
  * only some pages (for Extract), in document order.
  */
-export async function exportPdf(doc: EditorDoc, pageIds?: string[]): Promise<ExportResult> {
-  const [result] = await exportBatch(doc, [pageIds ?? null]);
+export async function exportPdf(doc: EditorDoc, pageIds?: string[], options: ExportOptions = {}): Promise<ExportResult> {
+  const [result] = await exportBatch(doc, [pageIds ?? null], options);
   return result;
 }
 
@@ -783,7 +802,7 @@ export async function exportPdf(doc: EditorDoc, pageIds?: string[]): Promise<Exp
  * redacted once for the whole batch rather than once per output file.
  * A null group means the whole document.
  */
-export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[]): Promise<ExportResult[]> {
+export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[], options: ExportOptions = {}): Promise<ExportResult[]> {
   await loadFontMetrics();
   const groupPages = groups.map((ids) => {
     const wanted = ids ? new Set(ids) : null;
@@ -859,7 +878,7 @@ export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[]): 
       }
       for (let i = 0; i < pages.length; i++) await decoratePage(out.getPage(i), pages[i], doc, writer);
       await finishPages(out, pages, doc, writer);
-      results.push(await finish(out, writer, warnings, !unchanged));
+      results.push(await finish(out, writer, warnings, !unchanged, options));
       continue;
     }
 
@@ -877,7 +896,7 @@ export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[]): 
     for (const page of copiedPages) out.addPage(page);
     for (let i = 0; i < pages.length; i++) await decoratePage(out.getPage(i), pages[i], doc, writer);
     await finishPages(out, pages, doc, writer);
-    const result = await finish(out, writer, warnings, false);
+    const result = await finish(out, writer, warnings, false, options);
     if (formsWriter) result.warnings = [...new Set([...result.warnings, ...(formsWriter as Writer).warnings])];
     results.push(result);
   }

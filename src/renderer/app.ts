@@ -18,7 +18,7 @@ import { AppCommand, displayShortcut, MENU, MenuEntry, shortcutFor } from '../sh
 import { ChangeDetail, EditorDoc } from './document';
 import { Editor } from './editor';
 import { pageTextSelection } from './text-select';
-import type { ExportResult } from './exporter';
+import type { ExportOptions, ExportResult } from './exporter';
 import { loadFontMetrics } from './fonts';
 import { FormLayer, SignFieldRequest } from './forms';
 import { newId } from './geometry';
@@ -43,9 +43,9 @@ document.documentElement.classList.add(isMac ? 'is-mac' : 'is-win');
 let packaged = true;
 
 /** Loads the PDF writer on first use, so it isn't part of start-up. */
-async function exportPdf(target: EditorDoc, pageIds?: string[]): Promise<ExportResult> {
+async function exportPdf(target: EditorDoc, pageIds?: string[], options?: ExportOptions): Promise<ExportResult> {
   const { exportPdf } = await import('./exporter');
-  return exportPdf(target, pageIds);
+  return exportPdf(target, pageIds, options);
 }
 
 // --- tabs -------------------------------------------------------------------
@@ -142,7 +142,7 @@ const autosave = new AutoSave({
   write: async (target) => {
     const at = target.version();
     const { exportPdf } = await import('./exporter');
-    const { bytes } = await exportPdf(target);
+    const { bytes } = await exportPdf(target, undefined, { requireCleanUp: true });
     await api.save(target.path!, bytes);
     target.markSaved(target.name, target.path, at);
   },
@@ -579,7 +579,7 @@ async function save(saveAs = false): Promise<boolean> {
   const current = doc;
   const at = current.version();
   try {
-    const { bytes, warnings } = await withBusy(t('Saving…'), () => exportPdf(current));
+    const { bytes, warnings } = await withBusy(t('Saving…'), () => exportPdf(current, undefined, { requireCleanUp: true }));
     let path = current.path;
     if (!saveAs && path) {
       await withBusy(t('Saving…'), () => api.save(path!, bytes));
@@ -1011,13 +1011,13 @@ async function run(command: Command) {
       const current = doc!;
       if (editor.text.active) editor.text.finish();
       return tool(isMobile() ? t('Couldn’t send it to the computer') : t('Couldn’t send it to the phone'), async () =>
-        (await import('./link-ui')).sendToDevice(current.name, async () => (await withBusy(t('Making PDF…'), () => exportPdf(current))).bytes));
+        (await import('./link-ui')).sendToDevice(current.name, async () => (await withBusy(t('Making PDF…'), () => exportPdf(current, undefined, { requireCleanUp: true }))).bytes));
     }
     case 'share': {
       const current = doc!;
       if (editor.text.active) editor.text.finish();
       return tool(t('Couldn’t share it'), async () => {
-        const { bytes } = await withBusy(t('Making PDF…'), () => exportPdf(current));
+        const { bytes } = await withBusy(t('Making PDF…'), () => exportPdf(current, undefined, { requireCleanUp: true }));
         await api.shareFile?.(bytes, current.name);
       });
     }
@@ -1195,7 +1195,7 @@ async function convertFromPdf(target: EditorDoc, initial: ExportFormat = 'docx')
 async function saveAsPdfA(target: EditorDoc) {
   const result = await withBusy(t('Making a PDF/A…'), async () => {
     const [{ toPdfA }] = await Promise.all([import('./pdfa')]);
-    const { bytes } = await exportPdf(target);
+    const { bytes } = await exportPdf(target, undefined, { requireCleanUp: true });
     return toPdfA(bytes, target.name.replace(/\.pdf$/i, ''));
   });
   const path = await api.saveCopy(result.bytes, `${target.name.replace(/\.pdf$/i, '')} (PDF-A).pdf`, 'pdf');
@@ -2458,6 +2458,7 @@ async function start() {
     getDoc, viewer, editor, exportPdf, autosave, t, tabCount: () => tabs.length, run: (c: Command) => run(c),
     allDocs: () => tabs.map((t) => t.doc),
     exportBatch: async (d: EditorDoc, groups: string[][]) => (await import('./exporter')).exportBatch(d, groups),
+    core: async () => (await import('./core')).core,
   };
 }
 

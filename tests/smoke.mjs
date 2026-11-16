@@ -288,6 +288,31 @@ async function editingTest() {
   check('added text is in the file', t.includes('Approved by front office'));
   check('deleted page is gone', !t.includes('Page two heading'));
   check('saved file has 3 pages', pageCount(file) === 3);
+  // if the clean-up pass fails, a file that's kept or sent on must not be made
+  // from the un-cleaned bytes; callers that only read the result carry on
+  const cleanUpFailure = await win.evaluate(async () => {
+    const { core: loadCore, exportPdf, getDoc } = window.__inkleaf;
+    const core = await loadCore();
+    const real = core.finalize;
+    core.finalize = async () => { throw new Error('forced'); };
+    const result = {};
+    try {
+      await exportPdf(getDoc(), undefined, { requireCleanUp: true });
+      result.strict = 'saved anyway';
+    } catch (err) {
+      result.strict = String(err.message);
+    }
+    try {
+      result.tolerantBytes = (await exportPdf(getDoc())).bytes.length;
+    } catch (err) {
+      result.tolerantError = String(err.message);
+    } finally {
+      core.finalize = real;
+    }
+    return result;
+  });
+  check('a failed clean-up stops a save or share', /nothing was saved or sent/.test(cleanUpFailure.strict), cleanUpFailure.strict);
+  check('a failed clean-up doesn’t stop print or preview', cleanUpFailure.tolerantBytes > 0, JSON.stringify(cleanUpFailure));
   const raw = execFileSync('qpdf', ['--qdf', '--object-streams=disable', file, '-']).toString('latin1');
   check('no copy of the old invoice number anywhere in the bytes', !raw.includes('INV-2041') && !raw.includes('18,450'));
 
