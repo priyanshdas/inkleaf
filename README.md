@@ -262,7 +262,7 @@ then create its JSON file.
 
 ## Getting started
 
-You need [Node.js](https://nodejs.org) 20 or newer.
+You need [Node.js](https://nodejs.org) 22 or newer.
 
 ```bash
 npm install
