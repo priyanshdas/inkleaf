@@ -24,6 +24,10 @@ must travel with any copy of InkLeaf PDF you share.
 | [marked](https://github.com/markedjs/marked) | Reading Markdown | MIT |
 | [LibreOffice](https://www.libreoffice.org) | Exact office conversion, when the user has it installed (not bundled) | MPL-2.0 |
 | [electron-updater](https://github.com/electron-userland/electron-builder) | Automatic updates | MIT |
+| [HarfBuzz](https://github.com/harfbuzz/harfbuzzjs) (harfbuzzjs) | Trimming fonts down to the characters a saved PDF uses | MIT |
+| [bidi-js](https://github.com/lojjic/bidi-js) | Ordering right-to-left text | MIT |
+| [regenerator-runtime](https://github.com/facebook/regenerator/tree/main/packages/runtime) | Support code fontkit needs for Indic and South-East Asian scripts | MIT |
+| [@vercel/blob](https://github.com/vercel/storage/tree/main/packages/blob) | Sending files between phone and computer through the share relay | Apache-2.0 |
 | [Lucide](https://lucide.dev) | Icons | ISC |
 | [Instrument Sans](https://github.com/Instrument/instrument-sans) | Interface font | SIL Open Font License 1.1 |
 | [DejaVu fonts](https://dejavu-fonts.github.io) | Fallback font in saved PDFs | Bitstream Vera licence |
