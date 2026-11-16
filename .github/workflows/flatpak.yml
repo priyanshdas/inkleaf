@@ -34,6 +34,10 @@ on:
       RELEASES_TOKEN:
         required: true
 
+# the build only reads the repository; `publish` adds what it needs
+permissions:
+  contents: read
+
 env:
   VERSION: ${{ inputs.version }}
   SITE: https://priyanshdas.github.io/inkleaf/flatpak
@@ -42,10 +46,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08@sha256:c91a88269eee8fcdd73ecf43064232fbebe27411f926f63f38bdf70c51f2ceae
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: The release's .deb
         run: |
@@ -91,7 +95,7 @@ jobs:
 
           tar -czf inkleaf-flatpak-repo.tar.gz -C site .
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: inkleaf-flatpak
           path: |
@@ -103,10 +107,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      actions: write
+      actions: write # lets `gh workflow run` start pages.yml
       contents: read
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: inkleaf-flatpak
 
