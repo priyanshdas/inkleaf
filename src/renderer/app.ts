@@ -222,7 +222,9 @@ const toolHost: ToolHost = {
 
 function showError(title: string, err: unknown) {
   console.error(err);
-  modal({ title, body: (err as Error)?.message ?? String(err) });
+  // the main process's errors arrive wrapped in Electron's own wording
+  const message = isReadOnlyFolder(err) ? READ_ONLY_MESSAGE() : String((err as Error)?.message ?? err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+  modal({ title, body: message });
 }
 
 // --- reacting to edits -------------------------------------------------------------
@@ -572,6 +574,9 @@ async function newBlank() {
 
 const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;
 
+const READ_ONLY_MESSAGE = () => t('InkLeaf PDF isn’t allowed to save in that folder, so nothing was saved. Use Save As and pick another folder, such as Documents.');
+const isReadOnlyFolder = (err: unknown) => String((err as Error)?.message ?? err).includes('inkleaf:read-only-folder');
+
 /** Saves the active document. Resolves true if it ended up on disk. */
 async function save(saveAs = false): Promise<boolean> {
   if (!doc) return false;
@@ -582,7 +587,16 @@ async function save(saveAs = false): Promise<boolean> {
     const { bytes, warnings } = await withBusy(t('Saving…'), () => exportPdf(current, undefined, { requireCleanUp: true }));
     let path = current.path;
     if (!saveAs && path) {
-      await withBusy(t('Saving…'), () => api.save(path!, bytes));
+      try {
+        await withBusy(t('Saving…'), () => api.save(path!, bytes));
+      } catch (err) {
+        // a folder InkLeaf may only read, such as Downloads in the Flatpak:
+        // say so and offer Save As straight away instead of just failing
+        if (!isReadOnlyFolder(err)) throw err;
+        toast(READ_ONLY_MESSAGE(), 'info', 9000);
+        path = await api.saveAs(bytes, current.name);
+        if (!path) return false;
+      }
     } else {
       path = await api.saveAs(bytes, current.name);
       if (!path) return false;

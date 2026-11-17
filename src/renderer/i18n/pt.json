@@ -1458,6 +1458,8 @@
   "1nytk7u": "Boas-vindas ao InkLeaf PDF",
   "1rkgnew": "Com o InkLeaf PDF aberto, PDFs novos em {folder} abrem em uma nova aba.",
   "0s9wwbf": "Quem tiver o código pode abrir, no InkLeaf PDF ou em qualquer app de PDF.",
-  "0q45xbw": "As Configurações do Windows estão abertas. Escolha o InkLeaf PDF para arquivos .pdf lá."
+  "0q45xbw": "As Configurações do Windows estão abertas. Escolha o InkLeaf PDF para arquivos .pdf lá.",
+  "18u3say": "Não foi possível remover o conteúdo das páginas excluídas, então nada foi salvo nem enviado. Tente novamente.",
+  "0hnowh5": "O InkLeaf não tem permissão para salvar nessa pasta, então nada foi salvo. Use Salvar como e escolha outra pasta, como Documentos."
  }
 }

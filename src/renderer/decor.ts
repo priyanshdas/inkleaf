@@ -113,7 +113,3 @@ export function decorTexts(doc: EditorDoc, ref: PageRef): TextAnnot[] {
   return out;
 }
 
-export function hasDecor(doc: EditorDoc): boolean {
-  const d = doc.decor;
-  return !!(d.watermark || d.numbers || d.header || d.footer);
-}

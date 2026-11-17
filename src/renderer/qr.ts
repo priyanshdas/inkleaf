@@ -3,7 +3,6 @@
 // with the camera or from a screenshot someone sent.
 
 import qrcode from 'qrcode-generator';
-import jsQR from 'jsqr';
 import { t } from '../shared/i18n';
 import { h, modal } from './ui';
 
@@ -46,7 +45,11 @@ export async function qrPng(text: string, caption: string): Promise<Uint8Array> 
   return new Uint8Array(await blob.arrayBuffer());
 }
 
-function decode(source: CanvasImageSource, width: number, height: number): string | null {
+/** The QR reader is big and only needed when scanning, so it loads then. */
+let reader: Promise<typeof import('jsqr').default> | null = null;
+const loadReader = () => (reader ??= import('jsqr').then((m) => m.default));
+
+function decode(jsQR: typeof import('jsqr').default, source: CanvasImageSource, width: number, height: number): string | null {
   const scale = Math.min(1, 1200 / Math.max(width, height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(width * scale));
@@ -65,8 +68,8 @@ export function qrFromPicture(): Promise<string | null> {
       const file = input.files?.[0];
       if (!file) return resolve(null);
       try {
-        const bitmap = await createImageBitmap(file);
-        resolve(decode(bitmap, bitmap.width, bitmap.height));
+        const [jsQR, bitmap] = await Promise.all([loadReader(), createImageBitmap(file)]);
+        resolve(decode(jsQR, bitmap, bitmap.width, bitmap.height));
       } catch {
         resolve(null);
       }
@@ -87,11 +90,12 @@ export async function scanQr(title: string, hint: string, accept: (text: string)
   let found: string | null = null;
   let running = true;
   let closeModal: (value: string) => void = () => {};
+  const jsQR = await loadReader();
 
   const tick = () => {
     if (!running) return;
     if (video.readyState >= 2 && video.videoWidth) {
-      const text = decode(video, video.videoWidth, video.videoHeight);
+      const text = decode(jsQR, video, video.videoWidth, video.videoHeight);
       if (text && accept(text)) {
         found = text;
         closeModal('ok');

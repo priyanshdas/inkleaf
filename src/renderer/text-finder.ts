@@ -319,16 +319,3 @@ export function placeQuad(el: HTMLElement, quad: Quad, toLocal: (x: number, y: n
   });
 }
 
-/** Boxes covering characters [from, to) of a page's joined text. */
-export function matchBoxes(pt: PageText, from: number, to: number): Box[] {
-  const boxes: Box[] = [];
-  for (let i = 0; i < pt.runs.length; i++) {
-    const start = pt.starts[i], end = start + pt.runs[i].str.length;
-    if (end <= from || start >= to) continue;
-    const a = Math.max(from, start) - start, b = Math.min(to, end) - start;
-    if (b <= a) continue;
-    const [x0, x1] = runSpan(pt.runs[i], a, b);
-    boxes.push(spanBox(pt.runs[i], x0, x1));
-  }
-  return boxes;
-}

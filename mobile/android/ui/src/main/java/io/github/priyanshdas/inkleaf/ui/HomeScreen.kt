@@ -209,7 +209,7 @@ private fun EmptyRecent(searching: Boolean) {
         Lc(if (searching) R.drawable.lc_search else R.drawable.lc_files, null, tint = Inkleaf.colors.muted, size = 30.dp)
         Spacer(Modifier.height(12.dp))
         Text(
-            if (searching) tr("No PDFs match that.") else tr("Files you open will show up here, along with PDFs you share to Inkleaf from other apps or send from your computer."),
+            if (searching) tr("No PDFs match that.") else tr("Files you open will show up here, along with PDFs you share to InkLeaf PDF from other apps or send from your computer."),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )

@@ -1458,6 +1458,8 @@
   "1nytk7u": "歡迎使用 InkLeaf PDF",
   "1rkgnew": "InkLeaf PDF 執行時，{folder} 中的新 PDF 會在新分頁中開啟。",
   "0s9wwbf": "拿到代碼的人可以在 InkLeaf PDF 或任何 PDF 應用程式中開啟。",
-  "0q45xbw": "Windows 設定已開啟。請在那裡為 .pdf 檔案選擇 InkLeaf PDF。"
+  "0q45xbw": "Windows 設定已開啟。請在那裡為 .pdf 檔案選擇 InkLeaf PDF。",
+  "18u3say": "無法移除已刪除頁面的內容，因此沒有儲存或傳送任何內容。請再試一次。",
+  "0hnowh5": "InkLeaf 無權在該資料夾中儲存，因此沒有儲存任何內容。請使用「另存新檔」，選擇其他資料夾，例如「文件」。"
  }
 }

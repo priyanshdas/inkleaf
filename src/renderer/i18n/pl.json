@@ -1458,6 +1458,8 @@
   "1nytk7u": "Witamy w InkLeaf PDF",
   "1rkgnew": "Gdy InkLeaf PDF działa, nowe pliki PDF w {folder} otwierają się w nowej karcie.",
   "0s9wwbf": "Każdy, kto ma kod, może to otworzyć, w InkLeaf PDF lub dowolnej aplikacji PDF.",
-  "0q45xbw": "Ustawienia systemu Windows są otwarte. Wybierz tam InkLeaf PDF dla plików .pdf."
+  "0q45xbw": "Ustawienia systemu Windows są otwarte. Wybierz tam InkLeaf PDF dla plików .pdf.",
+  "18u3say": "Nie udało się usunąć zawartości usuniętych stron, więc nic nie zostało zapisane ani wysłane. Spróbuj ponownie.",
+  "0hnowh5": "InkLeaf nie może zapisywać w tym folderze, więc nic nie zostało zapisane. Użyj opcji Zapisz jako i wybierz inny folder, na przykład Dokumenty."
  }
 }

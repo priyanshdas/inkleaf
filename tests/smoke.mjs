@@ -2493,10 +2493,97 @@ async function pageDeleteTest() {
   await quit(app, win);
 }
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete) runs just that part
+// --- styling existing text without retyping it ---------------------------------------
+
+async function editStyleTest() {
+  console.log('\nBold and italic on existing text (sample.pdf)');
+  const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  const openLine = async () => {
+    const p = await at(win, 0, 200, 762);
+    await win.mouse.move(p.x, p.y);
+    await win.waitForTimeout(150);
+    await win.mouse.click(p.x, p.y);
+    await win.waitForSelector('.text-editor');
+  };
+  const marks = () => win.evaluate(() => window.__inkleaf.getDoc().annots(window.__inkleaf.getDoc().pages[0].id).length);
+  await win.click('[data-tool="edit-text"]');
+
+  // opening a line and leaving it as it was still changes nothing
+  await openLine();
+  await win.keyboard.press('Escape');
+  check('opening a line without changing it leaves the file alone', (await marks()) === 0, `${await marks()} marks`);
+
+  // only the style changes, not a single letter
+  await openLine();
+  await win.keyboard.press('Control+b');
+  await win.keyboard.press('Control+i');
+  await win.keyboard.press('Escape');
+  check('making a line bold and italic without retyping it is kept', (await marks()) === 1, `${await marks()} marks`);
+  const file = path.join(out, 'styled-line.pdf');
+  await save(win, file);
+  await quit(app, win);
+  const fonts = execFileSync('pdffonts', [file]).toString();
+  check('and it is saved in bold italic', fonts.includes('Helvetica-BoldOblique'), fonts);
+}
+
+// --- saving into a folder InkLeaf can only read --------------------------------------
+
+/** Makes `dir` read-only (a read-only mount when running as root, which ignores file modes). */
+function makeReadOnly(dir) {
+  if (process.getuid?.() === 0) {
+    try {
+      execFileSync('mount', ['--bind', dir, dir]);
+      execFileSync('mount', ['-o', 'remount,bind,ro', dir]);
+      return () => execFileSync('umount', [dir]);
+    } catch {
+      return null;
+    }
+  }
+  for (const f of fs.readdirSync(dir)) fs.chmodSync(path.join(dir, f), 0o444);
+  fs.chmodSync(dir, 0o555);
+  return () => {
+    fs.chmodSync(dir, 0o755);
+    for (const f of fs.readdirSync(dir)) fs.chmodSync(path.join(dir, f), 0o644);
+  };
+}
+
+async function readOnlyFolderTest() {
+  console.log('\nSaving a PDF that sits in a read-only folder');
+  const dir = path.join(out, 'read-only');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'sample.pdf');
+  fs.copyFileSync(path.join(fixtures, 'sample.pdf'), file);
+  const before = fs.readFileSync(file);
+  const undo = makeReadOnly(dir);
+  if (!undo) return console.log('  (skipped: can’t make a read-only folder here)');
+  try {
+    const { app, win } = await launch(file);
+    await waitForPages(win);
+    await win.evaluate(() => {
+      const doc = window.__inkleaf.getDoc();
+      doc.addAnnot(doc.pages[0].id, { id: 'ro1', type: 'text', x: 60, y: 600, angle: 0, text: 'Saved somewhere else', size: 14, font: 'sans', bold: false, italic: false, color: '#111111' });
+      doc.commit();
+    });
+    const elsewhere = path.join(out, 'read-only-saved-elsewhere.pdf');
+    await stubDialog(app, 'showSaveDialog', elsewhere);
+    await win.evaluate(() => { void window.__inkleaf.run('save'); });
+    await win.waitForFunction(() => !window.__inkleaf.getDoc().dirty, null, { timeout: 15000 });
+    check('Save in a read-only folder offers Save As instead of failing', fs.existsSync(elsewhere) && fs.statSync(elsewhere).size > 0);
+    check('the original file is left as it was', Buffer.compare(fs.readFileSync(file), before) === 0);
+    check('no stray temporary file is left behind', fs.readdirSync(dir).length === 1, fs.readdirSync(dir).join(', '));
+    check('the document now points at the new copy', (await win.evaluate(() => window.__inkleaf.getDoc().path)) === elsewhere);
+    check('no error box was shown', !(await win.isVisible('.modal')));
+    await quit(app, win);
+  } finally {
+    undo();
+  }
+}
+
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

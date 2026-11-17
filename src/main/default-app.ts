@@ -235,6 +235,9 @@ export async function defaultAppState(): Promise<DefaultAppState> {
     if (!app.isPackaged || isPortable()) return 'unsupported';
     return (await windowsIsDefault()) ? 'default' : 'not-default';
   }
+  // inside the Flatpak, xdg-mime only changes the sandbox's own copy of the
+  // setting, which the desktop never reads, so don't offer it
+  if (process.platform === 'linux' && process.env.FLATPAK_ID) return 'unsupported';
   if (process.platform === 'linux') {
     const desktop = linuxDesktopFile();
     if (!desktop) return 'unsupported';
@@ -264,6 +267,8 @@ export async function makeDefaultApp(): Promise<DefaultAppResult> {
       return 'failed';
     }
   }
+  // the Flatpak can't change it (see above): point to the system settings
+  if (process.platform === 'linux' && process.env.FLATPAK_ID) return 'failed';
   if (process.platform === 'linux') {
     const desktop = linuxDesktopFile();
     if (!desktop) return 'unsupported';

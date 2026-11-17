@@ -1458,6 +1458,8 @@
   "1nytk7u": "Bienvenue dans InkLeaf PDF",
   "1rkgnew": "Pendant qu’InkLeaf PDF est ouvert, les nouveaux PDF dans {folder} s’ouvrent dans un nouvel onglet.",
   "0s9wwbf": "Quiconque a le code peut l’ouvrir, dans InkLeaf PDF ou n’importe quelle appli PDF.",
-  "0q45xbw": "Les Paramètres Windows sont ouverts. Choisissez-y InkLeaf PDF pour les fichiers .pdf."
+  "0q45xbw": "Les Paramètres Windows sont ouverts. Choisissez-y InkLeaf PDF pour les fichiers .pdf.",
+  "18u3say": "Impossible de retirer le contenu des pages supprimées : rien n’a été enregistré ni envoyé. Réessayez.",
+  "0hnowh5": "InkLeaf n’a pas le droit d’enregistrer dans ce dossier, donc rien n’a été enregistré. Utilisez Enregistrer sous et choisissez un autre dossier, par exemple Documents."
  }
 }

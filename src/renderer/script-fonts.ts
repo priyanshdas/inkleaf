@@ -113,11 +113,6 @@ const families = new Map<FontScript, Family>();
 /** True when a pack has to be downloaded before this script can be used. */
 export const isDownloaded = (script: FontScript) => DOWNLOADED_SCRIPTS.has(script as Script);
 
-/** Pack file names a script's fonts need. */
-export function packFiles(script: FontScript): string[] {
-  return isDownloaded(script) ? [`fonts/${FILES[script]}-Regular.ttf`, `fonts/${FILES[script]}-Bold.ttf`] : [];
-}
-
 function fetchBytes(url: string): Promise<Uint8Array> {
   return fetch(url).then((r) => {
     if (!r.ok) throw new Error(`${url}: ${r.status}`);

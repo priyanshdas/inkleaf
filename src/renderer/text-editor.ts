@@ -18,6 +18,8 @@ export class TextEditor {
   private pageId = '';
   private annotId = '';
   private isNew = false;
+  /** How an opened line looked to start with, so a style-only change still counts. */
+  private startLook = '';
   private onDone: (() => void) | null = null;
   /** Told whenever editing ends; `byKey` is true for Esc or Ctrl+Enter. */
   /** Ctrl+B / I / U while typing; the editor turns these into style changes. */
@@ -51,6 +53,7 @@ export class TextEditor {
     this.pageId = view.ref.id;
     this.annotId = annot.id;
     this.isNew = !!options.isNew;
+    this.startLook = look(annot);
     this.onDone = options.onDone ?? null;
 
     const area = document.createElement('textarea');
@@ -174,8 +177,9 @@ export class TextEditor {
         // an empty new text box is just a stray click
         doc.removeAnnot(this.pageId, annot.id);
         kept = false;
-      } else if (annot.type === 'replace' && text === annot.original && this.isNew) {
-        // opened an existing line and changed nothing: don't touch the file
+      } else if (annot.type === 'replace' && text === annot.original && this.isNew && look(annot) === this.startLook) {
+        // opened an existing line and changed nothing (not even bold, italic,
+        // size or colour): don't touch the file
         doc.removeAnnot(this.pageId, annot.id);
         kept = false;
       } else {
@@ -194,4 +198,9 @@ export class TextEditor {
     done?.();
     this.onFinished?.({ pageId, id, kept, byKey });
   }
+}
+
+/** Everything about a text box's appearance, except the words themselves. */
+function look(a: Editable): string {
+  return JSON.stringify([a.font, a.family, a.size, a.bold, a.italic, a.underline, a.color, a.background, a.align, a.opacity, a.x, a.y, a.angle]);
 }

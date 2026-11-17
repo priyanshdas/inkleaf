@@ -90,8 +90,6 @@ export const LANGUAGES: Language[] = [
   { code: 'hy', name: 'Armenian', native: 'Հայերեն', ocr: 'hye', script: 'armenian' },
 ];
 
-export const languageByCode = (code: string) => LANGUAGES.find((l) => l.code === code);
-
 /** A language's name in the interface language ("Hindi" in English, "Hindi" → "हिन्दी" in Hindi…). */
 export function languageName(nameOrCode: string): string {
   const lang = LANGUAGES.find((l) => l.name === nameOrCode || l.code === nameOrCode);
@@ -108,7 +106,6 @@ export function languageLabel(lang: Language): string {
   const shown = languageName(lang.code);
   return shown === lang.native ? shown : `${shown} (${lang.native})`;
 }
-export const languageByOcr = (ocr: string) => LANGUAGES.find((l) => l.ocr === ocr);
 
 /** Scripts whose fonts download on first use rather than shipping with the app. */
 export const DOWNLOADED_SCRIPTS = new Set<Script>(['sc', 'tc', 'jp', 'kr']);

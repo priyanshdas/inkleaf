@@ -500,13 +500,34 @@ async function handleLaunch(launch: Launch, firstStart: boolean) {
 /** Inkleaf's own arguments start after the program (and, from source, after the app's folder). */
 const argStart = () => (app.isPackaged ? 1 : 2);
 
+/** What a save into a folder InkLeaf can only read fails with. */
+const READ_ONLY_FOLDER = 'inkleaf:read-only-folder';
+
 async function writeFileSafely(target: string, data: Uint8Array) {
   // Write next to the target first so a crash or full disk never leaves the
   // user with half a PDF where their document used to be.
   const temp = `${target}.inkleaf-${process.pid}.tmp`;
   // so a PDF saved into Downloads isn't taken for a new download
   markOwnWrite(target);
-  await fs.writeFile(temp, data);
+  try {
+    await fs.writeFile(temp, data);
+  } catch {
+    // Some places let us change the file but not add one beside it: a file
+    // handed over by the Flatpak file chooser, or a folder the sandbox can
+    // only read. Write straight into the file instead.
+    await fs.rm(temp, { force: true }).catch(() => {});
+    try {
+      await fs.writeFile(target, data);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'EROFS' || code === 'EACCES' || code === 'EPERM') {
+        // the window turns this into Save As, with its own message
+        throw new Error(READ_ONLY_FOLDER);
+      }
+      throw err;
+    }
+    return;
+  }
   try {
     await fs.rename(temp, target);
   } catch {

@@ -119,7 +119,7 @@ fun DevicesScreen(state: UiState, actions: Actions, modifier: Modifier = Modifie
                         Spacer(Modifier.height(16.dp))
                         Text(tr("Connect to a computer"), style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(6.dp))
-                        Step(1, tr("On your computer, open Inkleaf and choose Tools › Connect a Phone."))
+                        Step(1, tr("On your computer, open InkLeaf PDF and choose Tools › Connect a Phone."))
                         Step(2, tr("Connect the phone to the same Wi-Fi as the computer."))
                         Step(3, tr("Tap the button below and scan the code on the computer’s screen."))
                         Spacer(Modifier.height(16.dp))
@@ -157,7 +157,7 @@ fun DevicesScreen(state: UiState, actions: Actions, modifier: Modifier = Modifie
                     Text(if (doc != null) tr("Send “{name}”", "name" to doc.name) else tr("Open a PDF to send it"))
                 }
                 Text(
-                    tr("Files you send arrive on the computer straight away. Files sent from the computer open here while Inkleaf is open."),
+                    tr("Files you send arrive on the computer straight away. Files sent from the computer open here while InkLeaf PDF is open."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -233,7 +233,7 @@ fun SettingsScreen(state: UiState, actions: Actions, onBack: () -> Unit) {
         SectionLabel(tr("About"), Modifier.padding(top = 8.dp))
         ListRow(R.drawable.lc_info, "InkLeaf PDF", tr("Version {version}", "version" to state.version))
         ListRow(R.drawable.lc_refresh_cw, tr("Check for updates"), null) { actions.run("check-updates") }
-        ListRow(R.drawable.lc_heart, tr("Buy me a coffee"), tr("Inkleaf is free. If it helps you, you can buy me a coffee on Ko-fi")) { actions.run("donate") }
+        ListRow(R.drawable.lc_heart, tr("Buy me a coffee"), tr("InkLeaf PDF is free. If it helps you, you can buy me a coffee on Ko-fi")) { actions.run("donate") }
         ListRow(R.drawable.lc_book_open, tr("Source code"), "github.com/priyanshdas/inkleaf") { actions.run("open-github") }
         ListRow(R.drawable.lc_alert_circle, tr("Report a problem"), null) { actions.run("report-problem") }
         HorizontalDivider(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
