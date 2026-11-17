@@ -2595,11 +2595,47 @@ async function thumbAnchorTest() {
   check('shift-click after deleting the anchor page works', errors.length === 0 && (await win.locator('.thumb.selected').count()) >= 1, errors.join('; '));
   await quit(app, win);
 }
+// Extract and Split hand a file to the user, so a failed clean-up of deleted pages must stop them
+// too. It only bites when a group covers every page that's left (the whole-document path).
+async function extractSplitCleanUpTest() {
+  console.log('\nExtract and split after deleting a page (sample.pdf)');
+  const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  await win.evaluate(() => { const doc = window.__inkleaf.getDoc(); doc.deletePages([doc.pages[1].id]); });
+  const dir = path.join(out, 'extract-split-cleanup');
+  fs.mkdirSync(dir, { recursive: true });
+  await win.evaluate(async () => {
+    const core = await window.__inkleaf.core();
+    core.finalize = async () => { throw new Error('forced'); };
+  });
+  const written = () => fs.readdirSync(dir);
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor) runs just that part
+  await stubDialog(app, 'showSaveDialog', path.join(dir, 'extract.pdf'));
+  await win.evaluate(() => { void window.__inkleaf.run('extract'); });
+  await win.waitForSelector('.modal input');
+  await win.fill('.modal input', '1-2');
+  await modalButton(win, 'OK');
+  await win.waitForTimeout(1500);
+  check('extract of every remaining page saves nothing when clean-up fails', written().length === 0, written().join(', '));
+  await win.keyboard.press('Escape');
+  await win.waitForTimeout(300);
+
+  await stubDialog(app, 'showOpenDialog', [dir]);
+  await win.evaluate(() => { void window.__inkleaf.run('split'); });
+  await win.waitForSelector('.modal select');
+  await win.selectOption('.modal select', 'ranges');
+  await win.fill('.modal input[placeholder^="e.g."]', '1-2');
+  await modalButton(win, 'Choose folder');
+  await win.waitForTimeout(1500);
+  check('split into one file of every remaining page saves nothing when clean-up fails', written().length === 0, written().join(', '));
+  await win.keyboard.press('Escape');
+  await quit(app, win);
+}
+
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }
