@@ -2493,10 +2493,36 @@ async function pageDeleteTest() {
   await quit(app, win);
 }
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete) runs just that part
+async function recoveryRaceTest() {
+  console.log('\nRecovery copy racing a save');
+  const { app, win, profile } = await launch(null, { autosave: true });
+  await win.keyboard.press('Control+n');
+  await win.waitForFunction(() => !!window.__inkleaf.getDoc());
+  await waitForPages(win);
+  await win.keyboard.press('t');
+  const p = await at(win, 0, 100, 700);
+  await win.mouse.click(p.x, p.y);
+  await win.waitForSelector('.text-editor');
+  await win.keyboard.type('Saved meanwhile');
+  await win.keyboard.press('Escape');
+  const recoveryFiles = () => (fs.existsSync(path.join(profile, 'Recovery')) ? fs.readdirSync(path.join(profile, 'Recovery')) : []);
+  // forget() runs while the recovery copy is still being made: that is what a
+  // save or close during a slow export looks like
+  await win.evaluate(async () => {
+    const { autosave, getDoc } = window.__inkleaf;
+    const copying = autosave.copyForRecovery();
+    autosave.forget(getDoc());
+    await copying;
+  });
+  await new Promise((r) => setTimeout(r, 500)); // clearRecovery is fire-and-forget
+  check('a recovery copy finished after the save is not written', recoveryFiles().length === 0, recoveryFiles().join(', '));
+  await quit(app, win);
+}
+
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, recoveryrace) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, recoveryrace: recoveryRaceTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

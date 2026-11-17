@@ -29,6 +29,8 @@ interface Tracked {
   recoveryId: string;
   /** The state last copied for recovery, to skip copies when nothing changed. */
   recovered: unknown;
+  /** Bumped by forget(), so an export that started earlier can tell it is stale. */
+  generation: number;
   error: string | null;
 }
 
@@ -72,7 +74,7 @@ export class AutoSave {
   private info(doc: EditorDoc): Tracked {
     let t = this.tracked.get(doc);
     if (!t) {
-      t = { timer: 0, recoveryId: newId('rec').replace(/[^A-Za-z0-9_-]/g, ''), recovered: null, error: null };
+      t = { timer: 0, recoveryId: newId('rec').replace(/[^A-Za-z0-9_-]/g, ''), recovered: null, generation: 0, error: null };
       this.tracked.set(doc, t);
     }
     return t;
@@ -144,15 +146,23 @@ export class AutoSave {
 
   /** Copies unsaved work somewhere safe, for after a crash. */
   async copyForRecovery() {
-    const { exportPdf } = await import('./exporter');
     for (const doc of this.host.docs()) {
       const t = this.info(doc);
       if (!doc.dirty) continue;
       const version = doc.version();
+      const generation = t.generation;
       if (t.recovered === version.snapshot) continue;
       try {
+        const { exportPdf } = await import('./exporter');
         const { bytes } = await exportPdf(doc);
+        // saved or closed while exporting: the copy would outlive its document
+        if (t.generation !== generation) continue;
         await window.inkleaf.writeRecovery(t.recoveryId, doc.name, doc.path, bytes);
+        if (t.generation !== generation) {
+          // forgotten while the copy was being written: take it back out
+          window.inkleaf.clearRecovery(t.recoveryId);
+          continue;
+        }
         t.recovered = version.snapshot;
       } catch (err) {
         console.warn('recovery copy failed', err);
@@ -165,6 +175,7 @@ export class AutoSave {
     const t = this.info(doc);
     clearTimeout(t.timer);
     t.recovered = null;
+    t.generation++;
     window.inkleaf.clearRecovery(t.recoveryId);
   }
 
