@@ -943,12 +943,15 @@ async function run(command: Command) {
       const { scanDialog } = await import('./scan');
       const scanned = await scanDialog({ insert: true });
       if (!scanned) return;
+      const had = target.pages.length;
       try {
         const bytes = await withBusy(t('Making the pages…'), () => scanned.make(progress));
         await withBusy(t('Inserting pages…'), () => insertPdfFiles(target, [{ name: 'Scan.pdf', data: bytes }], at));
       } catch (err) {
         return showError(t('Couldn’t add the scanned pages'), err);
       }
+      // insertPdfFiles reports a file it can't use and carries on, so nothing may have come in
+      if (target.pages.length <= had) return;
       if (target === doc) viewer.scrollToPage(target.pages[at].id);
       if (scanned.ocr) await tool(t('Text recognition didn’t work'), () => runOcr(target));
       return;

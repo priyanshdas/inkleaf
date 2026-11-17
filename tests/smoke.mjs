@@ -2688,11 +2688,43 @@ async function findAfterPageChangeTest() {
   await win.keyboard.press('Escape');
   await quit(app, win);
 }
+/** A scan that can't be inserted (the file is rejected) must not leave an error behind when the last page is on screen. */
+async function scanInsertFailTest() {
+  console.log('\nscaninsert: a scan that adds no pages, with the last page on screen');
+  const fake = makeFakeScanner();
+  const { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'), { env: { PATH: `${fake.dir}${path.delimiter}${process.env.PATH}` } });
+  await waitForPages(win);
+  const count = () => win.evaluate(() => window.__inkleaf.getDoc().pages.length);
+  const before = await count();
+  await win.evaluate(() => {
+    const { getDoc, viewer } = window.__inkleaf;
+    viewer.scrollToPage(getDoc().pages.at(-1).id, false);
+    // as if the scan came out unreadable: the insert reports it and adds nothing
+    getDoc().addSource = async () => { throw new Error('not a PDF'); };
+  });
+  await win.waitForTimeout(300);
+  // keep the command's own promise, so a failure inside it can't slip past unseen
+  await win.evaluate(() => { window.__scan = window.__inkleaf.run('insert-scan').then(() => null, (e) => String(e)); });
+  await win.waitForSelector('.scanner-bar:not([hidden])', { timeout: 10000 });
+  await win.waitForFunction(() => [...document.querySelectorAll('.scanner-pick option')].some((o) => o.value.startsWith('sane:hpaio:')), null, { timeout: 15000 });
+  await win.selectOption('.scanner-pick', await win.evaluate(() => [...document.querySelectorAll('.scanner-pick option')].find((o) => o.value.startsWith('sane:hpaio:')).value));
+  await win.click('.scanner-go');
+  await win.waitForFunction(() => document.querySelectorAll('.scan-thumb').length === 1, null, { timeout: 60000 });
+  await win.waitForFunction(() => !document.querySelector('.scanner-go').disabled, null, { timeout: 10000 });
+  await win.click('.modal button:has-text("Insert pages")');
+  await win.waitForSelector('.modal', { state: 'detached', timeout: 30000 });
+  await win.waitForTimeout(500);
+  check('nothing was added', await count() === before);
+  const failure = await win.evaluate(() => window.__scan);
+  check('the command finishes without an error', failure === null, String(failure));
+  check('no error is left behind', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+}
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages) runs just that part
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, scaninsert) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, scaninsert: scanInsertFailTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }
