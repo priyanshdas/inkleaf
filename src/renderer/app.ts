@@ -238,6 +238,7 @@ function onDocChange(event: Event) {
     thumbs.sync();
     viewer.redraw();
     inspector.render();
+    findBar.refresh();
   }
   if (kind === 'annots' || kind === 'all') {
     for (const id of pageIds ?? []) redrawQueued.add(id);

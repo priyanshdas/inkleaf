@@ -92,6 +92,11 @@ export class FindBar {
     }
   }
 
+  /** Pages were added, removed or reordered: the hits we hold point at the old layout. */
+  refresh() {
+    if (this.isOpen && this.input.value) this.search();
+  }
+
   private text(doc: EditorDoc, pageId: string): Promise<PageText> | null {
     const ref = doc.page(pageId);
     const source = ref && doc.sources.get(ref.src);

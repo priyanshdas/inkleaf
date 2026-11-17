@@ -2493,10 +2493,45 @@ async function pageDeleteTest() {
   await quit(app, win);
 }
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete) runs just that part
+// --- find bar after the pages change ----------------------------------------------
+
+async function findAfterPageChangeTest() {
+  console.log('\nFind after page changes (sample.pdf)');
+  const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  // two copies of page 1 after it: "rupees" is now on pages 1, 2 and 3
+  await win.evaluate(() => {
+    const doc = window.__inkleaf.getDoc();
+    const { src, index } = doc.pages[0];
+    doc.insertPages(1, [{ src, index }, { src, index }]);
+  });
+  await win.waitForTimeout(300);
+  await win.keyboard.press('Control+f');
+  await win.fill('.find-input', 'rupees');
+  await win.waitForFunction(() => /^1 of 3$/.test(document.querySelector('.find-count')?.textContent ?? ''));
+  const count = () => win.textContent('.find-count');
+
+  // delete the page holding the second hit, then step to the next hit
+  await win.evaluate(() => { const doc = window.__inkleaf.getDoc(); doc.deletePages([doc.pages[1].id]); });
+  await win.waitForFunction(() => /^1 of 2$/.test(document.querySelector('.find-count')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {});
+  check('deleting a page with a hit updates the count', (await count()) === '1 of 2', await count());
+  await win.keyboard.press('Enter');
+  await win.waitForTimeout(400);
+  check('stepping lands on a page that still exists', (await count()) === '2 of 2', await count());
+
+  // undo brings the page and its hit back
+  await win.evaluate(() => { window.__inkleaf.getDoc().undo(); });
+  await win.waitForFunction(() => /of 3$/.test(document.querySelector('.find-count')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {});
+  check('undo brings the hit back', /of 3$/.test(await count()), await count());
+
+  await win.keyboard.press('Escape');
+  await quit(app, win);
+}
+
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, findpages) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, findpages: findAfterPageChangeTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }
