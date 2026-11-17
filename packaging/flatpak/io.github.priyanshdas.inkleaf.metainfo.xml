@@ -60,6 +60,20 @@
   </provides>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="3.3.2" date="2026-11-17">
+      <description>
+        <p>Fixes, and saving that works better in the Flatpak.</p>
+        <ul>
+          <li>Saving a PDF that sits in a folder InkLeaf PDF can only read, such as Downloads in the Flatpak, now opens Save As instead of failing</li>
+          <li>Making existing text bold, italic or another colour without changing any words is no longer lost when saving</li>
+          <li>Extract and Split are as careful as Save about removing deleted pages</li>
+          <li>Find keeps up when pages are added, deleted or moved</li>
+          <li>Rotating or cropping a page in a way that changes nothing no longer marks the file as changed</li>
+          <li>Inserting a scan that adds no pages no longer stops with an error</li>
+          <li>A document saved while it was being backed up is no longer offered for recovery later</li>
+        </ul>
+      </description>
+    </release>
     <release version="3.3.1" date="2026-11-14">
       <description>
         <p>Fixes for the Flatpak: the app menu entry opens files correctly.</p>
