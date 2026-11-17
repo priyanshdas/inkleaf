@@ -284,9 +284,10 @@ export class EditorDoc extends EventTarget {
   /** Crops pages to `box` (clipped to each page), or uncrops them with null. */
   setCrop(ids: string[], box: Box | null) {
     const targets = new Set(ids);
-    this.state.pages = this.state.pages.map((p) => {
+    const pages = this.state.pages.map((p) => {
       if (!targets.has(p.id)) return p;
       if (!box) {
+        if (!p.crop) return p;
         const { crop: _, ...rest } = p;
         return rest;
       }
@@ -296,6 +297,8 @@ export class EditorDoc extends EventTarget {
       if (cx1 - cx0 < 10 || cy1 - cy0 < 10) return p; // the box misses this page
       return { ...p, crop: { x: cx0, y: cy0, w: cx1 - cx0, h: cy1 - cy0 } };
     });
+    if (pages.every((p, i) => p === this.state.pages[i])) return; // nothing changed
+    this.state.pages = pages;
     this.emit({ kind: 'pages' });
     this.commit();
   }
@@ -351,9 +354,12 @@ export class EditorDoc extends EventTarget {
 
   rotatePages(ids: string[], delta: number) {
     const targets = new Set(ids);
-    this.state.pages = this.state.pages.map((p) =>
-      targets.has(p.id) ? { ...p, rotation: (((p.rotation + delta) % 360) + 360) % 360 } : p,
+    const turn = (p: PageRef) => (((p.rotation + delta) % 360) + 360) % 360;
+    const pages = this.state.pages.map((p) =>
+      targets.has(p.id) && turn(p) !== p.rotation ? { ...p, rotation: turn(p) } : p,
     );
+    if (pages.every((p, i) => p === this.state.pages[i])) return; // nothing changed
+    this.state.pages = pages;
     this.emit({ kind: 'pages' });
     this.commit();
   }
