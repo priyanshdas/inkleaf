@@ -56,6 +56,9 @@ public class InkleafFilesPlugin extends Plugin {
     private static final List<Uri> incoming = new ArrayList<>();
     private static InkleafFilesPlugin instance;
 
+    /** Biggest PDF accepted from another app; the file crosses the bridge as one base64 string. */
+    private static final long MAX_INCOMING_BYTES = 64L * 1024 * 1024;
+
     @Override
     public void load() {
         instance = this;
@@ -65,20 +68,41 @@ public class InkleafFilesPlugin extends Plugin {
     static void handleIntent(Context context, Intent intent) {
         if (intent == null) return;
         String action = intent.getAction();
-        synchronized (incoming) {
-            if (Intent.ACTION_VIEW.equals(action) && intent.getData() != null) {
-                incoming.add(intent.getData());
+        List<Uri> offered = new ArrayList<>();
+        try {
+            if (Intent.ACTION_VIEW.equals(action)) {
+                if (intent.getData() != null) offered.add(intent.getData());
             } else if (Intent.ACTION_SEND.equals(action)) {
                 Uri uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                if (uri != null) incoming.add(uri);
+                if (uri != null) offered.add(uri);
             } else if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
                 ArrayList<Uri> uris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
-                if (uris != null) incoming.addAll(uris);
+                if (uris != null) offered.addAll(uris);
             } else {
                 return;
             }
+        } catch (RuntimeException e) {
+            // an extra of the wrong type
+            return;
+        }
+        synchronized (incoming) {
+            for (Uri uri : offered) {
+                if (uri != null && isAcceptableSource(context, uri)) incoming.add(uri);
+            }
         }
         if (instance != null) instance.notifyListeners("incoming", new JSObject());
+    }
+
+    /**
+     * Other apps may only hand Inkleaf a content:// address, which the sending app has to grant
+     * access to. file:// addresses and Inkleaf's own providers would be read with Inkleaf's own
+     * access to its private files, so they are turned away.
+     */
+    private static boolean isAcceptableSource(Context context, Uri uri) {
+        if (!"content".equalsIgnoreCase(uri.getScheme())) return false;
+        String authority = uri.getAuthority();
+        if (authority == null || authority.isEmpty()) return false;
+        return !authority.toLowerCase(java.util.Locale.ROOT).contains(context.getPackageName().toLowerCase(java.util.Locale.ROOT));
     }
 
     /**
@@ -115,12 +139,13 @@ public class InkleafFilesPlugin extends Plugin {
         JSArray files = new JSArray();
         for (Uri uri : uris) {
             try {
+                if (declaredSize(uri) > MAX_INCOMING_BYTES) continue;
                 JSObject file = new JSObject();
                 file.put("name", displayName(uri));
                 file.put("data", Base64.encodeToString(readAll(uri), Base64.NO_WRAP));
                 files.put(file);
             } catch (Exception e) {
-                // a file we couldn't read (permission revoked, deleted): skip it
+                // a file we couldn't read (permission revoked, deleted, bigger than it claimed): skip it
             }
         }
         JSObject result = new JSObject();
@@ -337,9 +362,29 @@ public class InkleafFilesPlugin extends Plugin {
         return last == null ? "Document.pdf" : last.substring(last.lastIndexOf('/') + 1);
     }
 
+    /** The size the sending app reports, or -1 when it doesn't say. */
+    private long declaredSize(Uri uri) {
+        try (Cursor cursor = getContext().getContentResolver().query(uri, new String[] { OpenableColumns.SIZE }, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) return cursor.getLong(0);
+        } catch (Exception ignored) {
+            // size unknown: the read itself is capped
+        }
+        return -1;
+    }
+
     private byte[] readAll(Uri uri) throws Exception {
         try (InputStream in = getContext().getContentResolver().openInputStream(uri)) {
-            return drain(in);
+            if (in == null) throw new java.io.IOException("no stream");
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[64 * 1024];
+            long total = 0;
+            int n;
+            while ((n = in.read(buffer)) > 0) {
+                total += n;
+                if (total > MAX_INCOMING_BYTES) throw new java.io.IOException("too large");
+                out.write(buffer, 0, n);
+            }
+            return out.toByteArray();
         }
     }
 
