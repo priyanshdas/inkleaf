@@ -3,12 +3,12 @@ import { t } from '../shared/i18n';
 import { core } from './core';
 import { mightBeEncrypted } from './pdf';
 import type { EditorDoc } from './document';
-import type { ExportResult } from './exporter';
+import type { ExportOptions, ExportResult } from './exporter';
 
 // The PDF writer is loaded the first time it's needed, not at start-up.
-async function exportPdf(doc: EditorDoc, pageIds?: string[]): Promise<ExportResult> {
+async function exportPdf(doc: EditorDoc, pageIds?: string[], options?: ExportOptions): Promise<ExportResult> {
   const { exportPdf } = await import('./exporter');
-  return exportPdf(doc, pageIds);
+  return exportPdf(doc, pageIds, options);
 }
 import { h, icon, modal, promptDialog, toast } from './ui';
 import { asShareCode, isDeviceLocked, openDeviceLocked } from './secure-share';
@@ -209,7 +209,7 @@ export async function extractPages(doc: EditorDoc, chosen: string[]) {
   const groups = parseRanges(text, total) as number[][];
   const indices = [...new Set(groups.flat())].sort((a, b) => a - b);
   const ids = indices.map((i) => doc.pages[i].id);
-  const { bytes, warnings } = await exportPdf(doc, ids);
+  const { bytes, warnings } = await exportPdf(doc, ids, { requireCleanUp: true });
   const saved = await window.inkleaf.saveAs(bytes, `${baseName(doc.name)} (pages ${describePages(indices)}).pdf`);
   if (saved) {
     toast(t('{count, plural, one {Saved # page to a new file.} other {Saved # pages to a new file.}}', { count: indices.length }), 'success');
@@ -270,7 +270,7 @@ export async function splitDocument(doc: EditorDoc) {
   if (result !== 'ok') return;
 
   const { exportBatch } = await import('./exporter');
-  const outputs = await exportBatch(doc, groups.map((group) => group.map((i) => doc.pages[i].id)));
+  const outputs = await exportBatch(doc, groups.map((group) => group.map((i) => doc.pages[i].id)), { requireCleanUp: true });
   const files = outputs.map((out, i) => ({ name: `${baseName(doc.name)} - ${describePages(groups[i])}`, data: out.bytes }));
   const warnings = outputs.flatMap((out) => out.warnings);
   const folder = await window.inkleaf.saveMany(files);
