@@ -2631,11 +2631,34 @@ async function extractSplitCleanUpTest() {
   await win.keyboard.press('Escape');
   await quit(app, win);
 }
+async function noopPageEditTest() {
+  console.log('\nPage edits that change nothing (sample.pdf)');
+  const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  const probe = (edit) => win.evaluate((edit) => {
+    const doc = window.__inkleaf.getDoc();
+    doc.markSaved(doc.name, doc.path);
+    const ids = doc.pages.map((p) => p.id);
+    if (edit === 'crop-miss') doc.setCrop(ids, { x: 100000, y: 100000, w: 50, h: 50 });
+    if (edit === 'uncrop') doc.setCrop(ids, null);
+    if (edit === 'rotate-none') doc.rotatePages([], 90);
+    if (edit === 'rotate-full') doc.rotatePages(ids, 360);
+    if (edit === 'rotate') doc.rotatePages(ids, 90);
+    return { canUndo: doc.canUndo, dirty: doc.dirty };
+  }, edit);
+  for (const edit of ['crop-miss', 'uncrop', 'rotate-none', 'rotate-full']) {
+    const r = await probe(edit);
+    check(`${edit} leaves no undo step and the document clean`, !r.canUndo && !r.dirty, JSON.stringify(r));
+  }
+  const real = await probe('rotate');
+  check('a real rotation still records an undo step and marks the document dirty', real.canUndo && real.dirty, JSON.stringify(real));
+  await quit(app, win);
+}
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit) runs just that part
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, noop: noopPageEditTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }
