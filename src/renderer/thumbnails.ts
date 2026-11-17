@@ -70,6 +70,7 @@ export class Thumbnails extends EventTarget {
       this.thumbs.clear();
       this.list.replaceChildren();
       this.selected.clear();
+      this.anchor = null;
       return;
     }
     const ids = new Set(doc.pages.map((p) => p.id));
@@ -79,6 +80,7 @@ export class Thumbnails extends EventTarget {
         t.el.remove();
         this.thumbs.delete(id);
         this.selected.delete(id);
+        if (this.anchor === id) this.anchor = null;
       }
     }
     doc.pages.forEach((ref, i) => {
