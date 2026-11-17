@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 and newer.
+  Cloud backup leaves out documents, backups, recovery copies, packs, settings and the WebView's
+  storage. A phone-to-phone move keeps the library and settings; it only leaves out the WebView
+  storage (pairing/link data in localStorage) and the downloadable packs.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="library" />
+        <exclude domain="file" path="backups" />
+        <exclude domain="file" path="recovery" />
+        <exclude domain="file" path="packs" />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="root" path="app_webview" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="packs" />
+        <exclude domain="root" path="app_webview" />
+    </device-transfer>
+</data-extraction-rules>

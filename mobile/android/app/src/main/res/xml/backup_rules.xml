@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older: keep documents, backups, recovery copies and settings out of cloud backup. -->
+<full-backup-content>
+    <exclude domain="file" path="library" />
+    <exclude domain="file" path="backups" />
+    <exclude domain="file" path="recovery" />
+    <exclude domain="file" path="packs" />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="root" path="app_webview" />
+</full-backup-content>
