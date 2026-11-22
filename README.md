@@ -240,6 +240,7 @@ GitHub.)
 ## Contributing
 
 Bug reports, ideas, translations and pull requests are all welcome. See
+[ROADMAP.md](ROADMAP.md) for what's being worked on and what comes next,
 [CONTRIBUTING.md](CONTRIBUTING.md) to get started and
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for how we treat each other. Please
 report security problems privately, as described in [SECURITY.md](SECURITY.md).
