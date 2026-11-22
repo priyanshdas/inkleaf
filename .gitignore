@@ -7,6 +7,8 @@ src/renderer/generated/
 *.log
 .DS_Store
 keys/
+# the website's contributor pictures are downloaded when the site is published
+website/contributors/
 tests/bench/big.pdf
 build/installer-terms.txt
 build/license_en.txt

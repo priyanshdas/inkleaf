@@ -7,6 +7,11 @@ on:
     paths:
       - "website/**"
       - ".github/workflows/pages.yml"
+      - "scripts/website-contributors.mjs"
+
+  # once a week too, so new contributors show up without a website change
+  schedule:
+    - cron: "17 3 * * 1"
 
   workflow_dispatch:
 
@@ -45,6 +50,13 @@ jobs:
               break
             fi
           done
+
+      # names and pictures of everyone who has committed, from GitHub; the
+      # list already in index.html stays if GitHub can't be reached
+      - name: Fill in the contributors
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/website-contributors.mjs
 
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

@@ -437,6 +437,50 @@ thead th {
 }
 .roles dd { margin: 0; }
 
+.people {
+  margin-top: clamp(40px, 6vw, 64px);
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+.people > p { max-width: 42em; color: var(--muted); }
+.contributors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+  padding: 0;
+  list-style: none;
+}
+.contributors a {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.contributors a:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.contributors img, .contributor-initial {
+  grid-row: span 2;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+.contributor-initial {
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+.contributor-name { align-self: end; font-weight: 600; overflow-wrap: anywhere; }
+.contributor-meta { align-self: start; color: var(--muted); font-size: 0.875rem; overflow-wrap: anywhere; }
+
 /* ---- footer ------------------------------------------------------------- */
 
 .foot {
