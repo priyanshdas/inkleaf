@@ -10,19 +10,22 @@ places to start. Open an issue first so we can talk it through, and see
 [open an issue](https://github.com/priyanshdas/inkleaf/issues) and say what
 you're trying to do.
 
-## Now: 4.0
+## Now: 4.0, rebuilt as native apps
 
-InkLeaf PDF moves from Electron to [Tauri](https://tauri.app). Electron bundles
-its own copy of Chrome; Tauri uses the web view your system already has.
+InkLeaf PDF moves from a web-based app (Electron) to apps made for each kind
+of device, sharing one engine underneath. Until 4.0 is ready, 3.x keeps
+getting fixes.
 
-- [ ] Smaller downloads, and less memory while you work (about a third less in
-      early tests)
-- [ ] Every tool from 3.3 on Windows, Linux and Android, working the same way
+- [ ] **Desktop app for Windows and Linux** built with [Qt](https://www.qt.io):
+      starts faster, uses less memory, and works like a real desktop program
+- [ ] **A new Android app** made natively for phones (Kotlin)
+- [ ] **One shared engine**: pages drawn by [PDFium](https://pdfium.googlesource.com/pdfium/),
+      the PDF engine inside Chrome, and InkLeaf's own Rust engine (`core/`)
+      for editing and saving
+- [ ] Every tool from 3.x, on all three
 - [ ] Your settings, saved signatures, language packs and AI keys carried over
       from 3.x, with nothing to set up again
-- [ ] Web page to PDF using the system's own web view, so no extra browser to
-      download
-- [ ] A new website, with release notes, a features page and this roadmap
+- [x] A new website, with release notes, a features page and this roadmap
 
 ## Next
 
@@ -32,7 +35,6 @@ its own copy of Chrome; Tauri uses the web view your system already has.
 - [ ] **Signed Windows installers** through SignPath Foundation, so the
       installer from GitHub no longer shows a SmartScreen warning. The
       Microsoft Store version already installs without one.
-- [ ] **Mac**, signed and notarised, for Apple Silicon and Intel.
 - [ ] **Share securely on the phone**: lock, send and receive files with a
       pickup code, as the desktop app can.
 - [ ] **Form fields on merged pages.** Pages merged in from another PDF keep
@@ -40,15 +42,18 @@ its own copy of Chrome; Tauri uses the web view your system already has.
 
 ## Later
 
-- [ ] **iPhone and iPad**, after the Mac version.
+- [ ] **Mac**, signed and notarised, for Apple Silicon and Intel, then
+      **iPhone and iPad**.
 - [ ] **Change your edits after saving.** Today, text and objects you add can
       be moved and restyled until you save; after that they're part of the
       page. The idea is to keep them editable when the file is opened again in
       InkLeaf PDF, with an option to flatten them for sending.
 - [ ] **Vertical Chinese, Japanese and Korean text**: editing it in place.
       Finding it already works.
-- [ ] **InkLeaf Suite**: InkLeaf Docs and other apps sharing one engine with
-      InkLeaf PDF, all free, offline and open source.
+- [ ] **InkLeaf Suite**: InkLeaf Docs, and later spreadsheets, slides and
+      notes, as native apps on the same engine as InkLeaf PDF. Each one can be
+      downloaded on its own, or all of them together as the Suite. All free,
+      offline and open source.
 
 ## Always welcome
 

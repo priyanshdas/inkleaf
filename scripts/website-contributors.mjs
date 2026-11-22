@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const site = path.join(root, 'website');
-const page = path.join(site, 'index.html');
+const page = path.join(site, 'about', 'index.html');
 const pictures = path.join(site, 'contributors');
 const REPO = 'priyanshdas/inkleaf';
 

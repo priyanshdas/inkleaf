@@ -8,10 +8,11 @@ on:
       - "website/**"
       - ".github/workflows/pages.yml"
       - "scripts/website-contributors.mjs"
+      - "scripts/website-releases.mjs"
 
-  # once a week too, so new contributors show up without a website change
+  # every day too, so new releases and contributors show up without a website change
   schedule:
-    - cron: "17 3 * * 1"
+    - cron: "17 3 * * *"
 
   workflow_dispatch:
 
@@ -57,6 +58,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/website-contributors.mjs
+
+      # release notes and the latest version number, from the GitHub releases
+      - name: Fill in the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/website-releases.mjs
 
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

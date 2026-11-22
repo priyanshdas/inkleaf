@@ -2,6 +2,26 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://priyanshdas.github.io/inkleaf/</loc>
-    <lastmod>2026-11-22</lastmod>
+    <lastmod>2026-11-23</lastmod>
   </url>
-</urlset>
+  <url>
+    <loc>https://priyanshdas.github.io/inkleaf/features/</loc>
+    <lastmod>2026-11-23</lastmod>
+  </url>
+  <url>
+    <loc>https://priyanshdas.github.io/inkleaf/download/</loc>
+    <lastmod>2026-11-23</lastmod>
+  </url>
+  <url>
+    <loc>https://priyanshdas.github.io/inkleaf/releases/</loc>
+    <lastmod>2026-11-23</lastmod>
+  </url>
+  <url>
+    <loc>https://priyanshdas.github.io/inkleaf/roadmap/</loc>
+    <lastmod>2026-11-23</lastmod>
+  </url>
+  <url>
+    <loc>https://priyanshdas.github.io/inkleaf/about/</loc>
+    <lastmod>2026-11-23</lastmod>
+  </url>
+</urlset>

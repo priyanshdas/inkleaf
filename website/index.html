@@ -4,23 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>InkLeaf PDF: free, open-source PDF editor that edits the actual text</title>
-<meta name="description" content="InkLeaf PDF (formerly Inkleaf) is a free, open-source PDF editor for Windows, Linux and Android. Change the words in a PDF, redact, sign, fill forms, scan, OCR and compress, all on your own device.">
+<meta name="description" content="InkLeaf PDF is a free, open-source PDF editor for Windows, Linux and Android. Change the words in a PDF, redact, sign, fill forms, scan, OCR and compress, all on your own device.">
 <link rel="canonical" href="https://priyanshdas.github.io/inkleaf/">
-<meta name="author" content="Priyansh Das">
-<meta property="og:title" content="InkLeaf PDF, a free PDF editor that edits the actual text">
-<meta property="og:description" content="Open source, works offline, no account. Windows, Linux and Android.">
+
+<meta property="og:title" content="InkLeaf PDF: free, open-source PDF editor that edits the actual text">
+<meta property="og:description" content="InkLeaf PDF is a free, open-source PDF editor for Windows, Linux and Android. Change the words in a PDF, redact, sign, fill forms, scan, OCR and compress, all on your own device.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="InkLeaf PDF">
 <meta property="og:url" content="https://priyanshdas.github.io/inkleaf/">
 <meta property="og:image" content="https://priyanshdas.github.io/inkleaf/edit.webp">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="InkLeaf PDF, a free PDF editor that edits the actual text">
-<meta name="twitter:description" content="Open source, works offline, no account. Windows, Linux and Android.">
-<meta name="twitter:image" content="https://priyanshdas.github.io/inkleaf/edit.webp">
-<meta name="theme-color" content="#123b2f">
+<meta name="theme-color" content="#0b211b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f7f2" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<script>try { const t = localStorage.getItem('inkleaf-theme'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wdth,wght@0,75..100,400..700;1,75..100,400..700&display=swap">
@@ -37,356 +36,220 @@
   "applicationCategory": "BusinessApplication",
   "applicationSubCategory": "PDF editor",
   "operatingSystem": "Windows 10, Windows 11, Linux, Android 7+",
-  "softwareVersion": "3.3.2",
+  "softwareVersion": "3.3.3",
   "license": "https://www.gnu.org/licenses/gpl-3.0.html",
   "isAccessibleForFree": true,
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "downloadUrl": "https://github.com/priyanshdas/inkleaf-releases/releases/latest",
+  "downloadUrl": "https://priyanshdas.github.io/inkleaf/download/",
   "installUrl": "https://apps.microsoft.com/detail/9NKC5ZQ6P2JR",
   "author": { "@type": "Person", "name": "Priyansh Das", "url": "https://github.com/priyanshdas" },
-  "sameAs": [
-    "https://github.com/priyanshdas/inkleaf",
-    "https://apps.microsoft.com/detail/9NKC5ZQ6P2JR",
-    "https://ko-fi.com/inkleaf"
-  ]
+  "sameAs": ["https://github.com/priyanshdas/inkleaf", "https://apps.microsoft.com/detail/9NKC5ZQ6P2JR", "https://ko-fi.com/inkleaf"]
 }
 </script>
 </head>
 <body>
 
 <header class="bar">
-  <a class="brand" href="#top">
-    <img src="icon-48.png" alt="" width="24" height="24">
-    InkLeaf PDF
-  </a>
-  <nav aria-label="Main">
-    <a href="#what-it-does" class="wide-only">What it does</a>
-    <a href="#privacy" class="wide-only">Privacy</a>
-    <a href="#roadmap" class="wide-only">Roadmap</a>
-    <a href="https://github.com/priyanshdas/inkleaf">Source code</a>
-    <a href="#download" class="bar-download">Download</a>
-  </nav>
+  <div class="wrap bar-inner">
+    <a class="brand" href="./">
+      <img src="icon-48.png" alt="" width="28" height="28">
+      InkLeaf PDF
+    </a>
+    <button class="menu-button" type="button" aria-expanded="false" aria-controls="nav">Menu</button>
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="features/">Features</a><a href="download/">Download</a><a href="releases/">What’s new</a><a href="roadmap/">Roadmap</a><a href="about/">About</a><a href="https://github.com/priyanshdas/inkleaf">GitHub</a>
+    </nav>
+    <button class="theme-toggle" type="button" aria-label="Switch between light and dark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg>
+    </button>
+  </div>
 </header>
 
 <main id="top">
 
-  <!-- Sheet 1 -->
-  <article class="sheet hero">
-    <h1>A PDF editor that changes the words, not just covers them up.</h1>
-
-    <div class="demo" aria-hidden="true">
-      <span class="demo-line">Wild mushroom <span class="demo-word" data-from="risoto" data-to="risotto">risotto</span>, aged parmesan</span>
-      <span class="demo-price">760</span>
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <h1>Change the words in any PDF.</h1>
+      <p class="lead">
+        Click a line and retype it, the way you would in a document. When you
+        save, the old words are gone from the file, not hidden under a box.
+        InkLeaf PDF is free, open source and works without the internet.
+      </p>
+      <div class="actions">
+        <a class="button" href="download/" id="get-button">Download InkLeaf PDF</a>
+        <a class="button-quiet" href="features/">See everything it does</a>
+      </div>
+      <ul class="facts">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 9.5c0-1.4 1.3-2.5 3-2.5s3 1 3 2.3c0 2.9-6 1.8-6 4.9 0 1.3 1.3 2.3 3 2.3s3-1.1 3-2.5M12 5v2M12 17v2"/></svg>Free, every tool</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M8.5 16.5a5 5 0 017 0M5 13a10 10 0 015.5-2.8M19 13a10 10 0 00-3-2.2M2 9.5a15 15 0 015-3M22 9.5A15 15 0 0012 5.5"/></svg>Works offline</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>No account</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 5l-4 14"/></svg>Open source</li>
+      </ul>
     </div>
 
-    <p class="lead">
-      Click any line in a PDF and retype it. When you save, the old text is
-      gone from the file, so nobody can copy it back out. InkLeaf PDF is free,
-      open source and works without the internet.
-    </p>
-
-    <div class="get">
-      <a class="button" href="#download" id="get-button">Download InkLeaf PDF</a>
-      <a class="quiet-link" href="https://apps.microsoft.com/detail/9NKC5ZQ6P2JR">Or get it from the Microsoft Store</a>
+    <div class="page" aria-hidden="true">
+      <p class="page-title">Trattoria Verde</p>
+      <p class="page-sub">Dinner menu</p>
+      <div class="page-rule"></div>
+      <div class="page-row page-fade"><span>Burrata, roasted tomatoes</span><span>540</span></div>
+      <div class="page-row editing"><span>Wild mushroom <span class="demo-word" data-from="risoto" data-to="risotto">risotto</span></span><span>760</span></div>
+      <div class="page-row page-fade"><span>Ricotta gnocchi, sage butter</span><span>690</span></div>
+      <div class="page-row page-fade"><span>Slow-cooked lamb shoulder</span><span>980</span></div>
+      <div class="page-row page-fade"><span>Kerala fish curry, red rice</span><span>840</span></div>
+      <div class="page-row page-fade"><span>Lemon tart, mascarpone</span><span>380</span></div>
+      <div class="page-row page-fade"><span>Cardamom panna cotta</span><span>360</span></div>
+      <div class="page-rule"></div>
+      <p class="page-sub">Ask us about wine pairings</p>
     </div>
+  </div>
+</section>
 
-    <figure class="shot">
-      <video id="shot-video" width="1920" height="1214" autoplay muted loop playsinline preload="auto" poster="edit-start.webp"
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>The real text, not a patch on top</h2>
+      <p>Most free editors put a white box over old words and type new ones on top, so the old text is still in the file. InkLeaf PDF rewrites the line itself, in a matching font.</p>
+    </div>
+    <figure class="window" style="margin:0">
+      <video id="shot-video" width="1920" height="1214" autoplay muted loop playsinline preload="metadata" poster="edit-start.webp"
         aria-label="InkLeaf PDF with a restaurant menu open. The pointer picks Edit text, clicks the line with the misspelled word risoto, adds the missing t, and saves the file.">
         <source src="edit.mp4" type="video/mp4">
         <source src="edit.webm" type="video/webm">
       </video>
-      <button class="shot-toggle" type="button" id="shot-toggle" aria-pressed="false">Pause</button>
+      <button class="window-toggle" type="button" id="shot-toggle" aria-pressed="false">Pause</button>
     </figure>
+  </div>
+</section>
 
-    <p class="folio">1</p>
-  </article>
-
-  <!-- Sheet 2 -->
-  <article class="sheet" id="what-it-does">
-    <h2>What it does</h2>
-
-    <dl class="tools">
-      <dt>Change the text</dt>
-      <dd>Retype existing lines, add new text anywhere, or redact. Hindi, Arabic, Tamil and other scripts are typed and saved properly. Redacted text is deleted from the file, not hidden behind a black box.</dd>
-
-      <dt>Fill and sign</dt>
-      <dd>Fill in forms, then draw, type or upload a signature. Photos of a paper signature lose their white background, and saved signatures are there next time.</dd>
-
-      <dt>Mark it up</dt>
-      <dd>Pen, highlighter, shapes, arrows, comments, stamps and images. Everything you add can be moved, resized, restyled or deleted later.</dd>
-
-      <dt>Fix bad scans</dt>
-      <dd>
-        Recognise the text in scanned pages, in 56 languages, so you can search and copy it.
-        Faded, grey photocopies can be cleaned up too: whiter paper, darker
-        text, sharper letters. Drag across the scan below to compare.
-      </dd>
-
-      <dt>Pages and files</dt>
-      <dd>Merge, split, reorder, rotate and extract pages. Make files smaller, turn Word, Excel and PowerPoint files into PDFs and back, add a password, and compare two versions word by word.</dd>
-
-      <dt>Share securely</dt>
-      <dd>Lock a copy with a strong code, or so only one person's computer can open it. Send it with a pickup code: they type it or scan its QR code and the file comes to them, over your Wi-Fi or the internet.</dd>
-
-      <dt>Scanners</dt>
-      <dd>Scan straight into a PDF from your scanner or all-in-one printer, glass or document feeder, one side or both. It works with WIA, TWAIN and network scanners on Windows and SANE on Linux, with no extra software.</dd>
-
-      <dt>Part of Windows</dt>
-      <dd>File Explorer shows a picture of each PDF's first page and previews every page in its preview pane. InkLeaf PDF can start with Windows, open PDFs as soon as you download them, and add Combine, Print and Compress to the right-click menu.</dd>
-
-      <dt>Ribbon or classic</dt>
-      <dd>Every tool is in a ribbon of labelled tabs, like Word's, or in a slim rail down the side if you prefer. Bookmarks can sit inside each other like chapters, and two-page view reads right to left for Japanese, Arabic and Hebrew books.</dd>
-
-      <dt>Phone and computer</dt>
-      <dd>The Android app has its own phone layout, built for reading first. Pair it with your computer once and send PDFs both ways over your home Wi-Fi.</dd>
-    </dl>
-
-    <figure class="compare" id="compare">
-      <div class="compare-frame">
-        <img src="scan-after.jpg" width="780" height="440" alt="The same memo after cleaning up: white paper and crisp black text." draggable="false">
-        <div class="compare-before">
-          <img src="scan-before.jpg" width="780" height="440" alt="A faded memo scan with grey-brown paper and pale text." draggable="false">
-        </div>
-        <span class="compare-tag compare-tag-before" aria-hidden="true">Before</span>
-        <span class="compare-tag compare-tag-after" aria-hidden="true">After</span>
-        <span class="compare-handle" aria-hidden="true">
-          <span class="compare-knob">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6"/><path d="M15 6l6 6-6 6"/></svg>
-          </span>
-        </span>
-        <input class="compare-range" type="range" min="0" max="100" value="50" id="compare-range"
-          aria-label="Compare the scan before and after. Move left to see more of the cleaned-up page.">
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>One app for the whole job</h2>
+      <p>Everything you'd otherwise need three or four programs for, and none of it behind a paywall.</p>
+    </div>
+    <div class="tiles">
+      <div class="tile wide">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>Change the text</h3>
+        <p>Retype existing lines, add text anywhere, or redact. Hindi, Arabic, Tamil and other scripts are typed and saved properly. Redacted text is deleted from the file, not hidden behind a black box.</p>
       </div>
-      <figcaption>Drag the handle to compare. Before: the scan as it came. After: Enhance Pages with the Scan preset.</figcaption>
-    </figure>
+      <div class="tile wide">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17c3-1 4-6 6-6s1 6 3 6 3-4 5-4 2 2 4 2"/><path d="M3 21h18"/></svg>Fill and sign</h3>
+        <p>Fill in forms, then draw, type or upload a signature. A photo of a paper signature loses its white background, and saved signatures are ready next time.</p>
+      </div>
+      <div class="tile">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h9l-6 9H8z"/><path d="M8 13l-3 7 6-4"/></svg>Mark it up</h3>
+        <p>Pen, highlighter, shapes, comments, stamps and pictures, all movable and editable later.</p>
+      </div>
+      <div class="tile">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="11" height="14" rx="1.5"/><path d="M8 21h10a1 1 0 001-1V7"/></svg>Pages and files</h3>
+        <p>Merge, split, reorder and rotate. Compress, convert Office files both ways, and compare two versions.</p>
+      </div>
+      <div class="tile">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>Share securely</h3>
+        <p>Lock a copy with a code, or to one person's computer, and send it with a pickup code.</p>
+      </div>
+      <div class="tile full">
+        <div>
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><path d="M4 12h16"/></svg>Fix bad scans</h3>
+          <p>Recognise the text in scanned pages, in 56 languages, so you can search and copy it. Faded grey photocopies come back with whiter paper and darker, sharper letters. Drag across the scan to compare.</p>
+        </div>
+        <figure class="compare">
+          <div class="compare-frame">
+            <img src="scan-after.jpg" width="780" height="440" alt="The same memo after cleaning up: white paper and crisp black text." draggable="false">
+            <div class="compare-before"><img src="scan-before.jpg" width="780" height="440" alt="A faded memo scan with grey-brown paper and pale text." draggable="false"></div>
+            <span class="compare-tag compare-tag-before" aria-hidden="true">Before</span>
+            <span class="compare-tag compare-tag-after" aria-hidden="true">After</span>
+            <span class="compare-handle" aria-hidden="true"><span class="compare-knob"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6"/><path d="M15 6l6 6-6 6"/></svg></span></span>
+            <input class="compare-range" type="range" min="0" max="100" value="50" id="compare-range" aria-label="Compare the scan before and after. Move left to see more of the cleaned-up page.">
+          </div>
+          <figcaption>Before: the scan as it came. After: Enhance Pages with the Scan preset.</figcaption>
+        </figure>
+      </div>
+      <div class="tile">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v6H7z"/></svg>Scanners</h3>
+        <p>Scan straight into a PDF from your scanner or all-in-one printer, with no extra software.</p>
+      </div>
+      <div class="tile">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 17l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>AI, if you want it</h3>
+        <p>Summaries, translation and questions about the PDF, with a built-in AI that runs on your own computer.</p>
+      </div>
+      <div class="tile">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/></svg>Phone and computer</h3>
+        <p>An Android app built for reading first. Pair it once and send PDFs both ways over your Wi-Fi.</p>
+      </div>
+    </div>
+    <p style="margin-top:22px"><a href="features/">Every feature, in detail</a></p>
+  </div>
+</section>
 
-    <p class="folio">2</p>
-  </article>
-
-  <!-- Sheet 3 -->
-  <article class="sheet" id="privacy">
-    <h2>What InkLeaf PDF sends, and when</h2>
-    <p class="lead">
-      Nothing about you, ever. There's no account, no analytics and no crash
-      reports. These are the only times it goes online at all.
-    </p>
-
+<section class="section" id="privacy">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>What it sends, and when</h2>
+      <p>Nothing about you, ever. There's no account, no analytics and no crash reports. These are the only times InkLeaf PDF goes online at all.</p>
+    </div>
     <div class="table-wrap">
       <table class="sends">
-        <thead>
-          <tr><th scope="col">When you</th><th scope="col">What goes where</th></tr>
-        </thead>
+        <thead><tr><th scope="col">When you</th><th scope="col">What goes where</th></tr></thead>
         <tbody>
           <tr><td>Open, edit or save a PDF</td><td>Nothing. Your files stay on your device.</td></tr>
           <tr><td>Send a PDF to your phone</td><td>It goes straight to the phone over your Wi-Fi, encrypted. Never through the internet.</td></tr>
           <tr><td>Check for updates</td><td>A request to GitHub for the latest version number.</td></tr>
           <tr><td>Use a language that isn't built in</td><td>The language pack is downloaded once from jsDelivr.</td></tr>
-          <tr><td>Use the AI summary or translation</td><td>The document's text goes to the AI service you picked, with your own API key. With AI on your computer, nothing leaves it.</td></tr>
+          <tr><td>Use the AI tools</td><td>With the built-in AI, nothing leaves your computer. With a service you picked, the document's text goes to it with your own API key.</td></tr>
           <tr><td>Turn a web page into a PDF</td><td>A normal visit to that page, in a private window that's cleared afterwards.</td></tr>
-          <tr><td>Send with a pickup code</td><td>On your Wi-Fi, straight to the other computer. Otherwise the file, encrypted first, waits on the InkLeaf PDF relay until it's picked up (7 days at most). Only the code can unlock it, and the relay never sees the code.</td></tr>
+          <tr><td>Send with a pickup code</td><td>On your Wi-Fi, straight to the other computer. Otherwise the file, encrypted first, waits on the InkLeaf PDF relay until it's picked up (7 days at most). The relay never sees the code that unlocks it.</td></tr>
         </tbody>
       </table>
     </div>
+    <p style="margin-top:18px">The full <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">privacy policy</a> is short and in plain English.</p>
+  </div>
+</section>
 
-    <p>The full <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">privacy policy</a> is short and in plain English.</p>
-
-    <p class="folio">3</p>
-  </article>
-
-  <!-- Sheet 4 -->
-  <article class="sheet" id="download">
-    <h2>Download</h2>
-    <p class="lead">Free, with every tool included. The installed version keeps itself up to date.</p>
-    <p class="note">Latest version: 3.3.2. <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest">See what's new</a>.</p>
-
-    <div class="table-wrap">
-      <table class="downloads">
-        <tbody>
-          <tr data-os="windows">
-            <th scope="row">Windows 10 and 11</th>
-            <td>
-              <a class="dl" href="https://apps.microsoft.com/detail/9NKC5ZQ6P2JR">Microsoft Store</a>
-              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-Setup.exe">Installer (.exe)</a>
-              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-Portable.exe">Portable, no install</a>
-              <p class="note">The Store version installs without any security warning. The installer from GitHub may show a SmartScreen message: click More info, then Run anyway.</p>
-            </td>
-          </tr>
-          <tr data-os="linux">
-            <th scope="row">Linux</th>
-            <td>
-              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-amd64.deb">.deb</a>
-              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-x86_64.rpm">.rpm</a>
-              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-x86_64.AppImage">AppImage</a>
-              <a class="dl" href="https://priyanshdas.github.io/inkleaf/flatpak/inkleaf-pdf.flatpakref">Flatpak</a>
-              <p class="note">Use the .deb on Ubuntu, Debian or Mint, the .rpm on Fedora or openSUSE, and the AppImage anywhere else. The Flatpak works on any distribution and keeps itself up to date: open it with your software centre, or run <code>flatpak install --user https://priyanshdas.github.io/inkleaf/flatpak/inkleaf-pdf.flatpakref</code>. On ARM: <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-arm64.deb">.deb</a> or <a href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-linux-arm64.AppImage">AppImage</a>.</p>
-            </td>
-          </tr>
-          <tr data-os="android">
-            <th scope="row">Android 7 and newer</th>
-            <td>
-              <a class="dl" href="https://github.com/priyanshdas/inkleaf-releases/releases/latest/download/Inkleaf-Android.apk">Android app (.apk)</a>
-              <p class="note">The first time, your phone will ask you to allow installs from your browser.</p>
-            </td>
-          </tr>
-          <tr data-os="mac" class="later">
-            <th scope="row">Mac</th>
-            <td><p class="note">Not yet. A signed version for Apple Silicon and Intel is planned.</p></td>
-          </tr>
-          <tr data-os="ios" class="later">
-            <th scope="row">iPhone and iPad</th>
-            <td><p class="note">Not yet. Planned after the Mac version.</p></td>
-          </tr>
-        </tbody>
-      </table>
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>On your computer and your phone</h2>
     </div>
-
-    <p>Older versions, release notes and checksums are on the <a href="https://github.com/priyanshdas/inkleaf-releases/releases">releases page</a>.</p>
-
-    <p class="folio">4</p>
-  </article>
-
-  <!-- Sheet 5 -->
-  <article class="sheet" id="roadmap">
-    <h2>What's coming</h2>
-    <p class="lead">No dates: a version ships when it's ready and the tests pass. Anything under Later is an idea, not a promise.</p>
-
-    <div class="road">
-      <section class="road-stage now" aria-labelledby="road-now">
-        <h3 id="road-now"><span class="road-tag">Now</span> Version 4.0</h3>
-        <ul>
-          <li>Moves from Electron to Tauri: a smaller download and less memory while you work</li>
-          <li>Every tool from 3.3 on Windows, Linux and Android</li>
-          <li>Your settings, signatures and language packs carried over</li>
-          <li>Web page to PDF with your system's own web view</li>
-          <li>A new website</li>
-        </ul>
-      </section>
-      <section class="road-stage" aria-labelledby="road-next">
-        <h3 id="road-next"><span class="road-tag">Next</span></h3>
-        <ul>
-          <li>Flathub listing</li>
-          <li>Signed Windows installers, with no SmartScreen warning</li>
-          <li>Mac, signed, for Apple Silicon and Intel</li>
-          <li>Share securely on the phone</li>
-          <li>Fillable forms on pages merged from another PDF</li>
-        </ul>
-      </section>
-      <section class="road-stage" aria-labelledby="road-later">
-        <h3 id="road-later"><span class="road-tag">Later</span></h3>
-        <ul>
-          <li>iPhone and iPad</li>
-          <li>Change your edits after saving</li>
-          <li>Edit vertical Chinese, Japanese and Korean text</li>
-          <li>InkLeaf Suite: Docs and more, on one shared engine</li>
-        </ul>
-      </section>
+    <div class="platforms">
+      <a class="platform" href="download/#windows"><strong>Windows 10 and 11</strong><span>Microsoft Store, installer or portable</span></a>
+      <a class="platform" href="download/#linux"><strong>Linux</strong><span>Flatpak, .deb, .rpm or AppImage</span></a>
+      <a class="platform" href="download/#android"><strong>Android 7 and newer</strong><span>The app, as an .apk</span></a>
     </div>
+    <p class="note" style="margin-top:16px">Mac, then iPhone and iPad, are on the <a href="roadmap/">roadmap</a>.</p>
+  </div>
+</section>
 
-    <p>
-      The full list, with what's done and where you can help, is in
-      <a href="https://github.com/priyanshdas/inkleaf/blob/main/ROADMAP.md">ROADMAP.md</a>.
-      Something missing? <a href="https://github.com/priyanshdas/inkleaf/issues">Open an issue</a>
-      and say what you're trying to do.
-    </p>
-
-    <p class="folio">5</p>
-  </article>
-
-  <!-- Sheet 6 -->
-  <article class="sheet" id="about">
-    <h2>Who makes it</h2>
-    <div class="note-from">
-      <p>
-        I'm Priyansh. I'm a chef, and I write code in my spare time. I made
-        InkLeaf PDF because every PDF editor I tried wanted a subscription, an
-        account, or my files on their server, and most of the free ones
-        couldn't really change the text at all.
-      </p>
-      <p>
-        Plenty of free tools are good at one job: Xournal++ for writing on a
-        PDF, PDF Arranger for pages, LibreOffice Draw for changing text
-        (though the layout often shifts). I couldn't find one free app that
-        really replaces the words in the file and also signs, fills forms,
-        cleans up scans and handles pages, offline, on my computer and my
-        phone. If one of those tools already does what you need, it's a fine
-        choice.
-      </p>
-      <p>
-        It's licensed under the GPL, so it will stay free and you can read,
-        change and share every line of it. If something breaks or feels
-        awkward, <a href="https://github.com/priyanshdas/inkleaf/issues">open an issue</a>.
-        Fixes to translations from people who speak the language are
-        especially welcome.
-      </p>
-      <p>
-        If InkLeaf PDF saves you some time, you can
-        <a href="https://ko-fi.com/inkleaf">buy me a coffee</a>. It's never required.
-      </p>
+<section class="section closing">
+  <div class="wrap">
+    <h2>Fix that PDF now</h2>
+    <p>Free, with every tool included. No account to make and nothing to pay, today or later.</p>
+    <div class="actions">
+      <a class="button" href="download/">Download InkLeaf PDF</a>
+      <a class="button-quiet" href="https://github.com/priyanshdas/inkleaf">Read the source code</a>
     </div>
-
-    <section class="people" id="contributors" aria-labelledby="contributors-title">
-      <h3 id="contributors-title">Contributors</h3>
-      <p>
-        Everyone who has sent a fix, a feature or a packaging change. Thank you.
-        This list updates itself each time the site is published.
-      </p>
-      <ul class="contributors">
-        <!-- contributors -->
-        <li><a href="https://github.com/priyanshdas"><span class="contributor-initial" aria-hidden="true">P</span><span class="contributor-name">Priyansh Das</span><span class="contributor-meta">@priyanshdas</span></a></li>
-        <li><a href="https://github.com/bearyjd"><span class="contributor-initial" aria-hidden="true">B</span><span class="contributor-name">bearyjd</span><span class="contributor-meta">@bearyjd</span></a></li>
-        <!-- /contributors -->
-      </ul>
-      <p class="people-more">
-        Want to be on this list? Read
-        <a href="https://github.com/priyanshdas/inkleaf/blob/main/CONTRIBUTING.md">how to contribute</a>,
-        or see <a href="https://github.com/priyanshdas/inkleaf/graphs/contributors">every contribution on GitHub</a>.
-      </p>
-    </section>
-
-    <section class="signing" id="code-signing" aria-labelledby="signing-title">
-      <h3 id="signing-title">Code signing policy</h3>
-      <p>
-        Free code signing provided by <a href="https://about.signpath.io">SignPath.io</a>,
-        certificate by <a href="https://signpath.org">SignPath Foundation</a>.
-      </p>
-      <p>
-        Windows builds are made by GitHub Actions straight from the
-        <a href="https://github.com/priyanshdas/inkleaf">public source code</a>,
-        and signed only after a maintainer approves the release. Nothing built
-        on anyone's own computer is signed.
-      </p>
-      <dl class="roles">
-        <dt>Committers and reviewers</dt>
-        <dd><a href="https://github.com/priyanshdas">Priyansh Das</a></dd>
-        <dt>Approvers</dt>
-        <dd><a href="https://github.com/priyanshdas">Priyansh Das</a></dd>
-      </dl>
-      <p>Changes from anyone else are reviewed by a committer before they're merged.</p>
-      <p>
-        InkLeaf PDF doesn't send any information to other networked systems
-        unless you ask it to: when you use the AI tools, Web page to PDF,
-        send or receive a file with a pickup code, download a language pack
-        or check for updates. The
-        <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">privacy policy</a>
-        says exactly what is sent, and to whom.
-      </p>
-    </section>
-
-    <p class="folio">6</p>
-  </article>
+  </div>
+</section>
 
 </main>
 
 <footer class="foot">
-  <p>
-    <a href="https://github.com/priyanshdas/inkleaf">Source code</a>
-    <a href="https://github.com/priyanshdas/inkleaf-releases/releases">All releases</a>
-    <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">Privacy policy</a>
-    <a href="https://github.com/priyanshdas/inkleaf/blob/main/TERMS.md">Terms of use</a>
-    <a href="https://github.com/priyanshdas/inkleaf/blob/main/LICENSE">Licence (GPL-3.0-or-later)</a>
-  </p>
-  <p>© 2026 Priyansh Das</p>
+  <div class="wrap foot-inner">
+    <div>
+      <p><strong>InkLeaf PDF</strong>, free and open source under the GPL.</p>
+      <p>© 2026 Priyansh Das</p>
+    </div>
+    <nav aria-label="More">
+      <a href="https://github.com/priyanshdas/inkleaf">Source code</a>
+      <a href="https://github.com/priyanshdas/inkleaf-releases/releases">All releases</a>
+      <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">Privacy policy</a>
+      <a href="https://github.com/priyanshdas/inkleaf/blob/main/TERMS.md">Terms of use</a>
+      <a href="https://github.com/priyanshdas/inkleaf/blob/main/LICENSE">Licence (GPL-3.0-or-later)</a>
+      <a href="about/#code-signing">Code signing policy</a>
+      <a href="https://ko-fi.com/inkleaf">Buy me a coffee</a>
+    </nav>
+  </div>
 </footer>
 
 <script src="script.js"></script>

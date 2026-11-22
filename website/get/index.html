@@ -8,7 +8,7 @@
 <meta name="description" content="Download a PDF someone sent you with an InkLeaf PDF pickup code.">
 <meta name="robots" content="noindex">
 <meta name="referrer" content="no-referrer">
-<meta name="theme-color" content="#123b2f">
+<meta name="theme-color" content="#0b211b">
 <link rel="icon" type="image/x-icon" href="../favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,8 +21,8 @@
     min-width: 0;
     padding: 12px 14px;
     border: 1px solid var(--line-strong);
-    border-radius: 8px;
-    background: var(--paper);
+    border-radius: 999px;
+    background: var(--panel);
     color: var(--ink);
     font: inherit;
     font-size: 1.15rem;
@@ -33,24 +33,24 @@
   .get-form .button { border: 0; font: inherit; font-weight: 600; cursor: pointer; }
   .get-form .button[disabled] { opacity: 0.6; cursor: progress; }
   .get-status { min-height: 1.6em; margin: 14px 0 0; font-weight: 550; }
-  .get-status.ok { color: var(--accent); }
-  .get-status.bad { color: #c4314b; }
+  .get-status.ok { color: var(--leaf); }
+  .get-status.bad { color: #ff8a8a; }
   .get-note { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 1rem; }
 </style>
 </head>
 <body>
 
 <header class="bar">
-  <a class="brand" href="../">
-    <img src="../icon-48.png" alt="" width="24" height="24">
-    InkLeaf PDF
-  </a>
-  <nav aria-label="Main">
-    <a href="../#download" class="bar-download">Get InkLeaf PDF</a>
-  </nav>
+  <div class="wrap bar-inner">
+    <a class="brand" href="../">
+      <img src="../icon-48.png" alt="" width="28" height="28">
+      InkLeaf PDF
+    </a>
+    <a class="button-quiet" style="margin-left:auto;padding:8px 16px" href="../download/">Get InkLeaf PDF</a>
+  </div>
 </header>
 
-<main>
+<main class="wrap">
   <article class="sheet">
     <h1>Get a file</h1>
     <p class="lead">Someone sent you a PDF with an InkLeaf PDF pickup code. It’s encrypted, and only that code can unlock it. It’s unlocked here in your browser, so the code never leaves this page.</p>
@@ -70,11 +70,14 @@
 </main>
 
 <footer class="foot">
-  <p>
-    <a href="../">InkLeaf PDF</a>
-    <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">Privacy policy</a>
-    <a href="https://github.com/priyanshdas/inkleaf/tree/main/relay">How the relay works</a>
-  </p>
+  <div class="wrap foot-inner">
+    <p>© 2026 Priyansh Das</p>
+    <nav aria-label="More">
+      <a href="../">InkLeaf PDF</a>
+      <a href="https://github.com/priyanshdas/inkleaf/blob/main/PRIVACY.md">Privacy policy</a>
+      <a href="https://github.com/priyanshdas/inkleaf/tree/main/relay">How the relay works</a>
+    </nav>
+  </div>
 </footer>
 
 <script type="module">
