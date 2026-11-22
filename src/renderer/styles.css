@@ -1167,7 +1167,11 @@ button.form-field {
   position: fixed;
   z-index: 60;
   min-width: 232px;
+  max-height: calc(100vh - 16px);
   padding: 5px;
+  /* long menus scroll instead of running off the window */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: var(--radius);
   background: var(--panel);
   box-shadow: var(--pop-shadow);

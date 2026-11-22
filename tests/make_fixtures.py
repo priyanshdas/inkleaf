@@ -207,6 +207,29 @@ def faded(path):
     tmp.unlink()
 
 
+def vertical_cjk(path):
+    """Classical Chinese set top to bottom, so Find has to join one letter per run."""
+    import shutil, tempfile
+    ns = ('xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
+          'xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" '
+          'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" '
+          'xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"')
+    doc = f"""<?xml version="1.0" encoding="UTF-8"?>
+<office:document {ns} office:version="1.2" office:mimetype="application/vnd.oasis.opendocument.text">
+<office:automatic-styles>
+<style:page-layout style:name="pm1"><style:page-layout-properties fo:page-width="21cm" fo:page-height="29.7cm" style:writing-mode="tb-rl" fo:margin="2cm"/></style:page-layout>
+<style:style style:name="P1" style:family="paragraph"><style:text-properties style:font-name-asian="Noto Serif CJK TC" style:font-size-asian="20pt" fo:font-size="20pt"/></style:style>
+</office:automatic-styles>
+<office:master-styles><style:master-page style:name="Standard" style:page-layout-name="pm1"/></office:master-styles>
+<office:body><office:text><text:p text:style-name="P1">上古天真論篇第一</text:p><text:p text:style-name="P1">昔在黃帝，生而神靈，弱而能言。</text:p></office:text></office:body></office:document>
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / f"{path.stem}.fodt"
+        src.write_text(doc, encoding="utf-8")
+        subprocess.run(["soffice", "--headless", "--convert-to", "pdf", "--outdir", tmp, str(src)], check=True, capture_output=True)
+        shutil.copy(Path(tmp) / f"{path.stem}.pdf", path)
+
+
 sample(out / "sample.pdf")
 office(out)
 table_pdf(out / "table.pdf")
@@ -214,6 +237,7 @@ photo(out / "photo.pdf")
 scan(out / "scan.pdf")
 faded(out / "faded.pdf")
 form(out / "form.pdf")
+vertical_cjk(out / "vertical.pdf")
 subprocess.run(["qpdf", "--encrypt", "", "owner-secret", "256", "--modify=none", "--",
                 str(out / "sample.pdf"), str(out / "owner-locked.pdf")], check=True)
 subprocess.run(["qpdf", "--encrypt", "open-sesame", "owner-secret", "256", "--",

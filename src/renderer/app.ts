@@ -1809,6 +1809,8 @@ function buildMenu(items: (MenuItem | 'separator')[], level: number): HTMLElemen
       const towardsLeft = isRtl() ? r.left - sub.offsetWidth - 4 >= 8 : r.right + 4 + sub.offsetWidth > window.innerWidth;
       const left = towardsLeft ? r.left - sub.offsetWidth - 4 : r.right + 4;
       sub.style.left = `${Math.max(8, left)}px`;
+      // a long submenu scrolls rather than running off the bottom (or top) of the window
+      sub.style.maxHeight = `${window.innerHeight - 16}px`;
       sub.style.top = `${Math.max(8, Math.min(r.top - 5, window.innerHeight - sub.offsetHeight - 8))}px`;
     };
     b.addEventListener('pointerenter', openSub);
@@ -1833,7 +1835,11 @@ function showMenu(anchor: HTMLElement, items: (MenuItem | 'separator')[]) {
   // lines up with the button's starting edge
   const left = isRtl() ? r.right - menu.offsetWidth : Math.min(r.left, window.innerWidth - menu.offsetWidth - 8);
   menu.style.left = `${Math.max(8, left)}px`;
-  menu.style.top = `${r.bottom + 6}px`;
+  // open below the button, or above it when there's more room there; scroll if it still doesn't fit
+  const below = window.innerHeight - r.bottom - 14, above = r.top - 14;
+  const upwards = menu.offsetHeight > below && above > below;
+  menu.style.maxHeight = `${Math.max(120, upwards ? above : below)}px`;
+  menu.style.top = upwards ? `${Math.max(8, r.top - 6 - menu.offsetHeight)}px` : `${r.bottom + 6}px`;
   anchor.setAttribute('aria-expanded', 'true');
   menu.querySelector<HTMLElement>('.menu-item')?.focus();
 }
@@ -1905,7 +1911,7 @@ const menus: Record<string, () => MenuItems | Promise<MenuItems>> = {
     'separator',
     { label: t('Open backups folder'), icon: 'folder-open', command: 'open-backups', action: () => run('open-backups') },
   ],
-  app: () => MENU.map((section) => ({ label: section.label, submenu: () => menuFromTable(section.items) })),
+  app: () => MENU.map((section) => ({ label: t(section.label), submenu: () => menuFromTable(section.items) })),
   tools: () => [
     { label: t('Recognise text (OCR)…'), icon: 'scan-text', command: 'ocr', action: () => run('ocr') },
     { label: t('Compress…'), icon: 'file-archive', command: 'compress', action: () => run('compress') },

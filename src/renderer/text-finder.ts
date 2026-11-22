@@ -274,15 +274,25 @@ export interface PageText {
   starts: number[];
 }
 
+/**
+ * Chinese, Japanese and Korean letters. These scripts don't put spaces
+ * between words, and vertical text often comes out one letter per run.
+ */
+const CJK = /^(?:[\u3000-\u303f\u3040-\u30ff\u3100-\u312f\u3130-\u318f\u31a0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]|[\ud840-\ud87f][\udc00-\udfff])$/;
+
 export async function pageText(page: PDFPageProxy): Promise<PageText> {
   const runs = await pageRuns(page);
   let text = '';
   const starts: number[] = [];
-  for (const run of runs) {
+  runs.forEach((run, i) => {
     starts.push(text.length);
     text += run.str;
-    if (!/\s$/.test(run.str)) text += ' ';
-  }
+    if (/\s$/.test(run.str)) return;
+    // no space between two CJK runs, or 上古 split into 上 and 古 could only be found as "上 古"
+    const last = [...run.str].pop() ?? '', first = [...(runs[i + 1]?.str ?? '')][0] ?? '';
+    if (CJK.test(last) && CJK.test(first)) return;
+    text += ' ';
+  });
   return { text, runs, starts };
 }
 

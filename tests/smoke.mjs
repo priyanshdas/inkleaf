@@ -542,6 +542,22 @@ async function v2Test() {
   check('matches are highlighted on the page', (await win.locator('.page .find-mark.current').count()) === 1);
   await win.keyboard.press('Escape');
 
+  // a long menu in a short window scrolls instead of running off the bottom
+  const tall = await win.evaluate(() => [innerWidth, innerHeight]);
+  await win.setViewportSize({ width: tall[0], height: 360 });
+  await win.click('[data-menu="app"]');
+  await win.waitForSelector('.menu');
+  await win.hover('.menu .menu-item.has-sub');
+  await win.waitForFunction(() => document.querySelectorAll('.menu').length === 2);
+  const fits = await win.$$eval('.menu', (menus) => menus.map((m) => {
+    const r = m.getBoundingClientRect();
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom), scrolls: m.scrollHeight > m.clientHeight, height: innerHeight };
+  }));
+  check('menus and submenus stay inside a short window', fits.every((f) => f.top >= 0 && f.bottom <= f.height), JSON.stringify(fits));
+  check('and the long one scrolls', fits.some((f) => f.scrolls), JSON.stringify(fits));
+  await win.keyboard.press('Escape');
+  await win.setViewportSize({ width: tall[0], height: tall[1] });
+
   // free features first: comment, stamp, crop, reading mode, bookmarks
   await win.keyboard.press('n');
   let p = await at(win, 0, 480, 760);
@@ -1344,6 +1360,14 @@ async function uiLanguageTest() {
       return { left: r.left, right: r.right, width: innerWidth };
     });
     check(`${code}: the Tools menu stays inside the window`, box.left >= 0 && box.right <= box.width, JSON.stringify(box));
+    await win.keyboard.press('Escape');
+
+    // the main menu's own headings (File, Edit, View…) are translated too, not just what's inside them
+    await win.click('[data-menu="app"]');
+    await win.waitForSelector('.menu');
+    const headings = await win.$$eval('.menu .menu-label', (els) => els.map((e) => e.textContent.trim()));
+    check(`${code}: main menu headings are translated (“${headings.slice(0, 3).join(', ')}”)`,
+      headings[0] === strings[key('File')] && !headings.includes('Edit') && !headings.includes('View'), headings.join(', '));
     await win.keyboard.press('Escape');
 
     // the page itself is never mirrored
@@ -2688,6 +2712,25 @@ async function findAfterPageChangeTest() {
   await win.keyboard.press('Escape');
   await quit(app, win);
 }
+/** Vertical Chinese comes out one letter per run: a word must be found as typed, with no spaces. */
+async function findCjkTest() {
+  console.log('\nFind in vertical Chinese (vertical.pdf)');
+  const { app, win, errors } = await launch(path.join(fixtures, 'vertical.pdf'));
+  await waitForPages(win);
+  const count = () => win.textContent('.find-count');
+  const find = async (query) => {
+    await win.fill('.find-input', query);
+    await win.waitForFunction(() => /of|No matches/.test(document.querySelector('.find-count')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {});
+    return count();
+  };
+  await win.keyboard.press('Control+f');
+  check('a two-letter word is found without spaces', (await find('上古')) === '1 of 1', await count());
+  check('a word across punctuation in the next column is found', (await find('黃帝，生而')) === '1 of 1', await count());
+  check('the hit is marked over each letter', (await win.locator('.page .find-mark.current').count()) >= 1);
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await win.keyboard.press('Escape');
+  await quit(app, win);
+}
 /** A scan that can't be inserted (the file is rejected) must not leave an error behind when the last page is on screen. */
 async function scanInsertFailTest() {
   console.log('\nscaninsert: a scan that adds no pages, with the last page on screen');
@@ -2746,10 +2789,10 @@ async function recoveryRaceTest() {
   await quit(app, win);
 }
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, scaninsert, recoveryrace) runs just that part
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, findcjk, scaninsert, recoveryrace) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }
