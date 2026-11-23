@@ -35,6 +35,7 @@ import { createRibbon, type Ribbon } from './ribbon';
 import { confirmDialog, h, hydrateIcons, icon, localizeStatic, isModalOpen, liveStatus, modal, pickImage, richText, toast, toastHook } from './ui';
 import { EnhancedView, NEUTRAL, enhancePanel, enhancedCopy, isNeutral, type Enhance } from './enhance';
 import { Viewer } from './viewer';
+import { lastPage, rememberPage } from './reading-place';
 
 const api = window.inkleaf;
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
@@ -463,6 +464,7 @@ async function closeTab(tab: Tab): Promise<boolean> {
     if (choice === 'cancel') return false;
     if (choice === 'save' && !(await save())) return false;
   }
+  rememberReadingPlace(tab);
   const index = tabs.indexOf(tab);
   if (index < 0) return true;
   tabs.splice(index, 1);
@@ -475,6 +477,19 @@ async function closeTab(tab: Tab): Promise<boolean> {
   }
   tab.doc.destroy();
   return true;
+}
+
+/** The page a tab is on, kept so the file opens there again next time. */
+function rememberReadingPlace(tab: Tab) {
+  const page = tab === activeTab && tab.scale !== null && viewer.currentPageId
+    ? Math.max(0, tab.doc.pageIndex(viewer.currentPageId))
+    : tab.pendingPage ?? tab.page;
+  rememberPage(tab.doc.path, fingerprintOf(tab.doc), page);
+}
+
+/** The ID a PDF carries inside it, the same for every copy of the file. */
+function fingerprintOf(d: EditorDoc): string | null {
+  return d.sources.get(d.mainSource)?.pdf.fingerprints?.[0] ?? null;
 }
 
 function cycleTab(step: 1 | -1) {
@@ -536,8 +551,9 @@ async function openFileNow(file: OpenedFile) {
     });
     if (!opened) return;
     const tab = addTab(opened);
-    // last session's file: back on the page it was on
-    if (file.page) tab.pendingPage = file.page;
+    // back on the page it was on: last session's, or wherever it was left last time
+    const page = file.page || lastPage(file.path, fingerprintOf(opened));
+    if (page) tab.pendingPage = page;
     rememberThumbnail(opened);
     // comments already in the file become editable notes
     opened.adoptExistingNotes().then(() => {
@@ -2473,6 +2489,8 @@ async function start() {
   });
   // which files are open here, for next time: on every change, and now and then for the page
   if (api.reportSession) setInterval(reportSession, 3000);
+  // closing the window (or the app) keeps each file's page too
+  addEventListener('pagehide', () => tabs.forEach(rememberReadingPlace));
   offerRecovery();
 
   if (api.engine) await startEngineMode();
@@ -2481,6 +2499,7 @@ async function start() {
   (window as unknown as { __inkleaf: unknown }).__inkleaf = {
     getDoc, viewer, editor, exportPdf, autosave, t, tabCount: () => tabs.length, run: (c: Command) => run(c),
     allDocs: () => tabs.map((t) => t.doc),
+    openFile: (file: OpenedFile) => openFile(file),
     exportBatch: async (d: EditorDoc, groups: string[][]) => (await import('./exporter')).exportBatch(d, groups),
     core: async () => (await import('./core')).core,
   };

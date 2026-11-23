@@ -2713,6 +2713,66 @@ async function findAfterPageChangeTest() {
   await quit(app, win);
 }
 /** Vertical Chinese comes out one letter per run: a word must be found as typed, with no spaces. */
+/** A closed tab, or a file opened again later, comes back on the page it was left on (#34, #35). */
+async function readingPlaceTest() {
+  console.log('\nThe page you were on, after closing a tab');
+  const profile = fs.mkdtempSync(path.join(out, 'profile-place-'));
+  const copy = path.join(out, 'place.pdf');
+  fs.copyFileSync(path.join(fixtures, 'sample.pdf'), copy);
+  let { app, win, errors } = await launch(copy, { profile });
+  await waitForPages(win);
+  const pageNow = () => win.evaluate(() => {
+    const { getDoc, viewer } = window.__inkleaf;
+    return getDoc() && viewer.currentPageId ? getDoc().pageIndex(viewer.currentPageId) : -1;
+  });
+  const onPage = (n) => win.waitForFunction((want) => {
+    const { getDoc, viewer } = window.__inkleaf;
+    return getDoc() && viewer.currentPageId && getDoc().pageIndex(viewer.currentPageId) === want;
+  }, n, { timeout: 8000 }).then(() => true, () => false);
+  const goTo = (n) => win.evaluate((i) => window.__inkleaf.viewer.scrollToPage(window.__inkleaf.getDoc().pages[i].id, false), n);
+  const reopen = (file) => win.evaluate(async (p) => window.__inkleaf.openFile(await window.inkleaf.openPath(p)), file);
+
+  await goTo(2);
+  await onPage(2);
+  await win.evaluate(() => window.__inkleaf.run('close-tab'));
+  await win.waitForFunction(() => window.__inkleaf.allDocs().length === 0);
+  await reopen(copy);
+  check('a PDF closed and opened again is back on its page', await onPage(2), String(await pageNow()));
+
+  // read to the start again: it then opens at the start
+  await goTo(0);
+  await onPage(0);
+  await win.evaluate(() => window.__inkleaf.run('close-tab'));
+  await win.waitForFunction(() => window.__inkleaf.allDocs().length === 0);
+  await reopen(copy);
+  await win.waitForTimeout(600);
+  check('and on the first page when that’s where it was left', await onPage(0), String(await pageNow()));
+
+  // left on a page when the app closes, then opened another day from Recent Files
+  await goTo(1);
+  await onPage(1);
+  await quit(app, win);
+  fs.writeFileSync(path.join(profile, 'session.json'), '{}');
+  ({ app, win, errors } = await launch(null, { profile }));
+  await win.evaluate(async (p) => window.__inkleaf.openFile(await window.inkleaf.openRecent(p)), copy);
+  check('and after a restart, opened from Recent Files', await onPage(1), String(await pageNow()));
+
+  // another app (calibre's "View", say) hands over a copy from its own temporary folder (#35)
+  await win.evaluate(() => window.__inkleaf.run('close-tab'));
+  await win.waitForFunction(() => window.__inkleaf.allDocs().length === 0);
+  const handedOver = path.join(fs.mkdtempSync(path.join(out, 'calibre-')), 'place.pdf');
+  fs.copyFileSync(copy, handedOver);
+  await reopen(handedOver);
+  check('a copy handed over by another app finds the page too', await onPage(1), String(await pageNow()));
+  const other = path.join(out, 'other-place.pdf');
+  fs.copyFileSync(path.join(fixtures, 'table.pdf'), other);
+  await reopen(other);
+  await win.waitForTimeout(600);
+  check('but a different PDF still starts at the beginning', await onPage(0), String(await pageNow()));
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+}
+
 async function findCjkTest() {
   console.log('\nFind in vertical Chinese (vertical.pdf)');
   const { app, win, errors } = await launch(path.join(fixtures, 'vertical.pdf'));
@@ -2789,10 +2849,10 @@ async function recoveryRaceTest() {
   await quit(app, win);
 }
 
-// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, findcjk, scaninsert, recoveryrace) runs just that part
+// ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, findcjk, readingplace, scaninsert, recoveryrace) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }
