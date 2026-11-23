@@ -119,6 +119,9 @@ export interface NoteAnnot extends Base, Box {
   author: string;
   /** Milliseconds since 1970. */
   created: number;
+  /** For a comment read from the file: its object there, and the comment it replies to. */
+  fileRef?: string;
+  replyTo?: string;
 }
 
 /** A rubber stamp such as APPROVED or PAID, optionally with a date. */

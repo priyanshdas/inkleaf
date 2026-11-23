@@ -64,7 +64,7 @@ fn name_is(dict: &Dictionary, key: &[u8], value: &[u8]) -> bool {
 }
 
 /// The filters on a stream, in order, as names.
-fn filters(dict: &Dictionary) -> Vec<Vec<u8>> {
+pub(crate) fn filters(dict: &Dictionary) -> Vec<Vec<u8>> {
     match dict.get(b"Filter") {
         Ok(Object::Name(n)) => vec![n.clone()],
         Ok(Object::Array(a)) => a.iter().filter_map(|o| o.as_name().ok().map(<[u8]>::to_vec)).collect(),
@@ -72,12 +72,12 @@ fn filters(dict: &Dictionary) -> Vec<Vec<u8>> {
     }
 }
 
-fn int(dict: &Dictionary, key: &[u8]) -> Option<i64> {
+pub(crate) fn int(dict: &Dictionary, key: &[u8]) -> Option<i64> {
     dict.get(key).ok().and_then(|o| o.as_i64().ok())
 }
 
 /// Colour channels for the simple colour spaces we know how to re-encode.
-fn channels(doc: &Document, dict: &Dictionary) -> Option<usize> {
+pub(crate) fn channels(doc: &Document, dict: &Dictionary) -> Option<usize> {
     let space = match dict.get(b"ColorSpace").ok()? {
         Object::Reference(id) => doc.get_object(*id).ok()?.clone(),
         other => other.clone(),
@@ -141,7 +141,7 @@ fn downscale(pixels: &[u8], w: usize, h: usize, ch: usize, nw: usize, nh: usize)
     out
 }
 
-fn encode_jpeg(pixels: &[u8], w: usize, h: usize, ch: usize, quality: u8) -> Option<Vec<u8>> {
+pub(crate) fn encode_jpeg(pixels: &[u8], w: usize, h: usize, ch: usize, quality: u8) -> Option<Vec<u8>> {
     let mut out = Vec::new();
     let colour = if ch == 1 { jpeg_encoder::ColorType::Luma } else { jpeg_encoder::ColorType::Rgb };
     jpeg_encoder::Encoder::new(&mut out, quality).encode(pixels, w as u16, h as u16, colour).ok()?;
@@ -169,7 +169,7 @@ fn looks_like_photo(pixels: &[u8], ch: usize) -> bool {
 
 /// Undoes the text-safe and zip wrappers some writers put around image data
 /// (ReportLab, for one, stores JPEGs as ASCII85 text).
-fn unwrap_layers(mut data: Vec<u8>, layers: &[Vec<u8>]) -> Option<Vec<u8>> {
+pub(crate) fn unwrap_layers(mut data: Vec<u8>, layers: &[Vec<u8>]) -> Option<Vec<u8>> {
     for layer in layers {
         data = match layer.as_slice() {
             b"ASCII85Decode" | b"A85" => ascii85(&data)?,

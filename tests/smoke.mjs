@@ -2655,6 +2655,124 @@ async function extractSplitCleanUpTest() {
   await win.keyboard.press('Escape');
   await quit(app, win);
 }
+/**
+ * Deleted or left-out pages must not ride along inside a saved, extracted or
+ * split PDF. A link, a bookmark or a form field pointing at such a page used
+ * to keep it (and its text) in the file, unseen.
+ */
+async function excludedPageLeakTest() {
+  console.log('\nNo trace of deleted or left-out pages in saved files (linked.pdf)');
+  const dir = fs.mkdtempSync(path.join(out, 'leak-'));
+  const file = path.join(fixtures, 'linked.pdf');
+  const { app, win, errors } = await launch(file);
+  await waitForPages(win);
+  // every stream decompressed, so text can't hide inside compressed content
+  const leaks = (bytes, name) => {
+    const target = path.join(dir, name);
+    fs.writeFileSync(target, Buffer.from(bytes));
+    const plain = path.join(dir, `${name}.qdf`);
+    execFileSync('qpdf', ['--qdf', '--object-streams=disable', target, plain]);
+    return fs.readFileSync(plain, 'latin1').includes('SECRET');
+  };
+  const pageCount = (name) => Number(execFileSync('qpdf', ['--show-npages', path.join(dir, name)]).toString().trim());
+
+  const deleted = await win.evaluate(async () => {
+    const { getDoc, exportPdf } = window.__inkleaf;
+    const doc = getDoc();
+    doc.deletePages([doc.pages[2].id]);
+    return Array.from((await exportPdf(doc, undefined, { requireCleanUp: true })).bytes);
+  });
+  check('a deleted page leaves nothing behind when saving', !leaks(deleted, 'saved.pdf') && pageCount('saved.pdf') === 2);
+
+  await win.evaluate(() => window.__inkleaf.getDoc().undo());
+  const extracted = await win.evaluate(async () => {
+    const { getDoc, exportPdf } = window.__inkleaf;
+    const doc = getDoc();
+    return Array.from((await exportPdf(doc, [doc.pages[0].id], { requireCleanUp: true })).bytes);
+  });
+  check('an extracted page brings no other page with it', !leaks(extracted, 'extracted.pdf') && pageCount('extracted.pdf') === 1);
+
+  const split = await win.evaluate(async () => {
+    const { getDoc, exportBatch } = window.__inkleaf;
+    const doc = getDoc();
+    const parts = await exportBatch(doc, [[doc.pages[0].id], [doc.pages[1].id]], { requireCleanUp: true });
+    return parts.map((p) => Array.from(p.bytes));
+  });
+  check('split files hold only their own pages', !leaks(split[0], 'split-1.pdf') && !leaks(split[1], 'split-2.pdf'));
+
+  const whole = await win.evaluate(async () => Array.from((await window.__inkleaf.exportPdf(window.__inkleaf.getDoc())).bytes));
+  check('a full save still keeps the secret page itself', leaks(whole, 'whole.pdf') && pageCount('whole.pdf') === 3);
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+}
+
+async function redactionLeakTest() {
+  console.log('\nRedaction takes out everything under the box (redact-hidden.pdf)');
+  const dir = fs.mkdtempSync(path.join(out, 'redact-'));
+  // the same box on page one in both files, from x 60 to 460 and y 590 to 740
+  const redactAndSave = async (win) => win.evaluate(async () => {
+    const { getDoc, exportPdf } = window.__inkleaf;
+    const doc = getDoc();
+    doc.addAnnot(doc.pages[0].id, { id: 'secret-box', type: 'redact', color: '#000000', x: 60, y: 590, w: 400, h: 150 });
+    try {
+      return { bytes: Array.from((await exportPdf(doc, undefined, { requireCleanUp: true })).bytes) };
+    } catch (err) {
+      return { error: String(err?.message ?? err) };
+    }
+  });
+  // every stream decompressed; words are looked for as plain text and as the
+  // UTF-16 hex that comments are often written in
+  const wordsIn = (file, words) => {
+    const plain = `${file}.qdf`;
+    execFileSync('qpdf', ['--qdf', '--object-streams=disable', file, plain]);
+    const text = fs.readFileSync(plain, 'latin1');
+    const upper = text.toUpperCase();
+    const hex16 = (w) => [...w].map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join('').toUpperCase();
+    return words.filter((w) => text.includes(w) || upper.includes(hex16(w)));
+  };
+
+  {
+    const { app, win, errors } = await launch(path.join(fixtures, 'redact-hidden.pdf'));
+    await waitForPages(win);
+    const r = await redactAndSave(win);
+    check('the redacted file saves', !!r.bytes, r.error);
+    const file = path.join(dir, 'hidden.pdf');
+    fs.writeFileSync(file, Buffer.from(r.bytes ?? []));
+    const secrets = ['DIRECTSECRET', 'XOBJSECRET', 'ALTSECRET', 'ANNOTSECRET', 'STICKYSECRET', 'REPLYSECRET', 'FIELDSECRET'];
+    const left = wordsIn(file, secrets);
+    check('nothing under the box is left anywhere in the file', left.length === 0, `still there: ${left.join(', ')}`);
+    const kept = wordsIn(file, ['PUBLICTEXT', 'KEPTNOTE']);
+    check('text and comments away from the box are kept', kept.length === 2, `kept: ${kept.join(', ')}`);
+    // pictures: the one under the box has no red left, the same one lower down is whole
+    const reds = execFileSync('python3', ['-c', `
+import sys, subprocess, glob, os
+from PIL import Image
+d = sys.argv[1] + '.img'
+os.makedirs(d, exist_ok=True)
+subprocess.run(['pdfimages', '-png', sys.argv[1], d + '/i'], check=True)
+counts = []
+for f in sorted(glob.glob(d + '/i-*.png')):
+    im = Image.open(f).convert('RGB')
+    px = im.tobytes()
+    counts.append(sum(1 for i in range(0, len(px), 3) if px[i] > 150 and px[i + 1] < 80))
+print(' '.join(map(str, counts)))
+`, file]).toString().trim().split(' ').map(Number);
+    check('the picture under the box is wiped and the same picture elsewhere is whole',
+      reds.length === 2 && reds.filter((n) => n === 0).length === 1 && reds.some((n) => n === 40000), `red pixels per picture: ${reds.join(', ')}`);
+    check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+    await quit(app, win);
+  }
+
+  {
+    const { app, win } = await launch(path.join(fixtures, 'redact-unmeasured.pdf'));
+    await waitForPages(win);
+    const r = await redactAndSave(win);
+    check('text that can\'t be taken out stops the save instead of being covered up',
+      !r.bytes && /couldn.t be finished/.test(r.error ?? '') && /vertical writing/.test(r.error ?? ''), r.error);
+    await quit(app, win);
+  }
+}
+
 async function noopPageEditTest() {
   console.log('\nPage edits that change nothing (sample.pdf)');
   const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
@@ -2852,7 +2970,7 @@ async function recoveryRaceTest() {
 // ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, findcjk, readingplace, scaninsert, recoveryrace) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, pageleak: excludedPageLeakTest, redactleak: redactionLeakTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

@@ -27,13 +27,24 @@ impl Rect {
         let (ly, hy) = if self.y0 < self.y1 { (self.y0, self.y1) } else { (self.y1, self.y0) };
         x >= lx && x <= hx && y >= ly && y <= hy
     }
+
+    /// True when the box touches the given area (edges included).
+    pub fn overlaps(&self, area: [f64; 4]) -> bool {
+        let (lx, hx) = (self.x0.min(self.x1), self.x0.max(self.x1));
+        let (ly, hy) = (self.y0.min(self.y1), self.y0.max(self.y1));
+        area[0] <= hx && area[2] >= lx && area[1] <= hy && area[3] >= ly
+    }
+
+    pub fn contains_point(&self, x: f64, y: f64) -> bool {
+        self.contains(x, y)
+    }
 }
 
-type Matrix = [f64; 6];
-const IDENTITY: Matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+pub type Matrix = [f64; 6];
+pub const IDENTITY: Matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
 
 /// `a` then `b`, using PDF's row-vector convention.
-fn mul(a: &Matrix, b: &Matrix) -> Matrix {
+pub fn mul(a: &Matrix, b: &Matrix) -> Matrix {
     [
         a[0] * b[0] + a[1] * b[2],
         a[0] * b[1] + a[1] * b[3],
@@ -44,7 +55,7 @@ fn mul(a: &Matrix, b: &Matrix) -> Matrix {
     ]
 }
 
-fn apply(m: &Matrix, x: f64, y: f64) -> (f64, f64) {
+pub fn apply(m: &Matrix, x: f64, y: f64) -> (f64, f64) {
     (x * m[0] + y * m[2] + m[4], x * m[1] + y * m[3] + m[5])
 }
 
@@ -75,10 +86,44 @@ impl Default for GraphicsState {
     }
 }
 
+/// The area a matrix maps the given box onto, as [left, bottom, right, top].
+pub fn bounds(m: &Matrix, x0: f64, y0: f64, x1: f64, y1: f64) -> [f64; 4] {
+    let corners = [apply(m, x0, y0), apply(m, x1, y0), apply(m, x0, y1), apply(m, x1, y1)];
+    let mut b = [f64::MAX, f64::MAX, f64::MIN, f64::MIN];
+    for (x, y) in corners {
+        b[0] = b[0].min(x);
+        b[1] = b[1].min(y);
+        b[2] = b[2].max(x);
+        b[3] = b[3].max(y);
+    }
+    b
+}
+
 #[derive(Debug, Default, Clone, serde::Serialize)]
 pub struct StreamReport {
     pub removed_glyphs: usize,
     pub skipped_fonts: Vec<String>,
+    /// Inline pictures (BI ... EI) that sat under a box and were taken out.
+    pub removed_inline_images: usize,
+    /// Fonts we can't measure that have text which may sit under a box.
+    /// That text can't be removed safely, so the caller has to stop.
+    pub unsure_fonts: Vec<String>,
+    /// Every `Do` in the stream: the resource name and the matrix it was drawn with.
+    #[serde(skip)]
+    pub drawn: Vec<(Vec<u8>, Matrix)>,
+    /// Marked-content ids whose text lost glyphs, so their tags' alt text can go too.
+    #[serde(skip)]
+    pub touched_mcids: Vec<i64>,
+}
+
+/// One open marked-content section (BMC/BDC ... EMC).
+struct Marked {
+    op: usize,
+    tag: Vec<u8>,
+    mcid: Option<i64>,
+    /// It carries a spoken or copied version of its text (ActualText, Alt, E).
+    has_text_copy: bool,
+    touched: bool,
 }
 
 enum Piece {
@@ -95,10 +140,15 @@ struct Redactor<'a> {
     tlm: Matrix,
     report: StreamReport,
     warned: HashSet<Vec<u8>>,
+    marked: Vec<Marked>,
+    /// `Do` calls (by their order in the stream) that should draw something else.
+    renames: &'a HashMap<usize, Vec<u8>>,
+    /// BDC ops whose copy of the text has to be dropped, with what to write instead.
+    rewrite_marks: Vec<(usize, Vec<u8>)>,
 }
 
 impl<'a> Redactor<'a> {
-    fn new(fonts: &'a HashMap<Vec<u8>, FontMetrics>, rects: &'a [Rect], ctm: Matrix) -> Self {
+    fn new(fonts: &'a HashMap<Vec<u8>, FontMetrics>, rects: &'a [Rect], ctm: Matrix, renames: &'a HashMap<usize, Vec<u8>>) -> Self {
         let gs = GraphicsState { ctm, ..Default::default() };
         Redactor {
             fonts,
@@ -109,6 +159,9 @@ impl<'a> Redactor<'a> {
             tlm: IDENTITY,
             report: StreamReport::default(),
             warned: HashSet::new(),
+            marked: Vec::new(),
+            renames,
+            rewrite_marks: Vec::new(),
         }
     }
 
@@ -123,7 +176,12 @@ impl<'a> Redactor<'a> {
 
     fn current_font(&mut self) -> Option<&'a FontMetrics> {
         let name = self.gs.font.clone()?;
-        let metrics = self.fonts.get(&name)?;
+        let Some(metrics) = self.fonts.get(&name) else {
+            if self.warned.insert(name.clone()) {
+                self.report.skipped_fonts.push(format!("{} (not found)", String::from_utf8_lossy(&name)));
+            }
+            return None;
+        };
         if let Some(reason) = &metrics.unsupported {
             if self.warned.insert(name.clone()) {
                 self.report
@@ -143,8 +201,12 @@ impl<'a> Redactor<'a> {
         let th = self.gs.h_scale;
         let font = self.current_font();
 
-        // Without a usable font we can't place glyphs, so leave the text alone.
-        let font = font.filter(|_| fs != 0.0 && th != 0.0)?;
+        // Without a usable font we can't place glyphs, so the text has to stay.
+        // That's only all right when it's clearly nowhere near a box.
+        let Some(font) = font.filter(|_| fs != 0.0 && th != 0.0) else {
+            self.check_unplaceable(items);
+            return None;
+        };
 
         let mut pieces: Vec<Piece> = Vec::new();
         let mut removed_any = false;
@@ -172,6 +234,9 @@ impl<'a> Redactor<'a> {
 
                         if hit {
                             removed_any = true;
+                            for m in &mut self.marked {
+                                m.touched = true;
+                            }
                             self.report.removed_glyphs += 1;
                             push_shift(&mut pieces, -tx * 1000.0 / (fs * th));
                         } else {
@@ -190,8 +255,34 @@ impl<'a> Redactor<'a> {
         removed_any.then_some(pieces)
     }
 
+    /// Text we can't place glyph by glyph. Each code takes at most about an
+    /// em in any direction (vertical writing goes down, not across), so the
+    /// area around the start point, one em per byte each way, is sure to hold
+    /// it. If that area touches a box, the text might be under it.
+    fn check_unplaceable(&mut self, items: &[Operand]) {
+        let bytes: usize = items.iter().map(|i| if let Operand::Str(s) = i { s.len() } else { 0 }).sum();
+        if bytes == 0 {
+            return;
+        }
+        let reach = bytes as f64 + 1.0;
+        let trm = mul(
+            &[self.gs.font_size * self.gs.h_scale, 0.0, 0.0, self.gs.font_size, 0.0, self.gs.rise],
+            &mul(&self.tm, &self.gs.ctm),
+        );
+        let area = bounds(&trm, -reach, -reach, reach, reach);
+        if self.rects.iter().any(|r| r.overlaps(area)) {
+            let name = self.gs.font.clone().unwrap_or_default();
+            let label = String::from_utf8_lossy(&name).into_owned();
+            let reason = self.fonts.get(&name).and_then(|f| f.unsupported.clone()).unwrap_or_else(|| "not found".into());
+            let entry = format!("{label} ({reason})");
+            if !self.report.unsure_fonts.contains(&entry) {
+                self.report.unsure_fonts.push(entry);
+            }
+        }
+    }
+
     /// Returns replacement bytes for `op`, or None to keep it as-is.
-    fn process(&mut self, op: &Op) -> Option<Vec<u8>> {
+    fn process(&mut self, index: usize, op: &Op, data: &[u8]) -> Option<Vec<u8>> {
         let nums: Vec<f64> = op.operands.iter().filter_map(Operand::num).collect();
         let n = |i: usize| nums.get(i).copied().unwrap_or(0.0);
 
@@ -231,6 +322,60 @@ impl<'a> Redactor<'a> {
                 self.tm = self.tlm;
             }
             "T*" => self.move_line(0.0, -self.gs.leading),
+            "Do" => {
+                if let Some(Operand::Name(name)) = op.operands.first() {
+                    let nth = self.report.drawn.len();
+                    self.report.drawn.push((name.clone(), self.gs.ctm));
+                    if let Some(other) = self.renames.get(&nth) {
+                        let mut out = vec![b'/'];
+                        out.extend(other.iter().flat_map(|&c| name_byte(c)));
+                        out.extend_from_slice(b" Do");
+                        return Some(out);
+                    }
+                }
+            }
+            "BI" => {
+                // an inline picture fills the unit square of the current matrix
+                let area = bounds(&self.gs.ctm, 0.0, 0.0, 1.0, 1.0);
+                if self.rects.iter().any(|r| r.overlaps(area)) {
+                    self.report.removed_inline_images += 1;
+                    return Some(Vec::new());
+                }
+            }
+            "BMC" | "BDC" => {
+                let tag = match op.operands.first() {
+                    Some(Operand::Name(n)) => n.clone(),
+                    _ => b"Span".to_vec(),
+                };
+                let raw = &data[op.start..op.end];
+                self.marked.push(Marked {
+                    op: index,
+                    tag,
+                    mcid: find_mcid(raw),
+                    has_text_copy: op.operator == "BDC" && has_text_copy(raw),
+                    touched: false,
+                });
+            }
+            "EMC" => {
+                if let Some(m) = self.marked.pop() {
+                    if m.touched {
+                        if let Some(id) = m.mcid {
+                            self.report.touched_mcids.push(id);
+                        }
+                        if m.has_text_copy {
+                            // keep the tag and its id, lose the words
+                            let mut out = Vec::new();
+                            out.push(b'/');
+                            out.extend(m.tag.iter().flat_map(|&c| name_byte(c)));
+                            match m.mcid {
+                                Some(id) => out.extend_from_slice(format!(" <</MCID {id}>> BDC").as_bytes()),
+                                None => out.extend_from_slice(b" BMC"),
+                            }
+                            self.rewrite_marks.push((m.op, out));
+                        }
+                    }
+                }
+            }
             "Tj" => {
                 let s = op.operands.first()?.clone();
                 let pieces = self.show(&[s])?;
@@ -261,6 +406,36 @@ impl<'a> Redactor<'a> {
             _ => {}
         }
         None
+    }
+}
+
+/// The MCID in a BDC's property list, if it has one written inline.
+fn find_mcid(raw: &[u8]) -> Option<i64> {
+    let at = raw.windows(5).position(|w| w == b"/MCID")? + 5;
+    let digits: String = raw[at..]
+        .iter()
+        .skip_while(|c| c.is_ascii_whitespace())
+        .take_while(|c| c.is_ascii_digit())
+        .map(|&c| c as char)
+        .collect();
+    digits.parse().ok()
+}
+
+/// Whether a BDC's property list holds a copy of its text.
+fn has_text_copy(raw: &[u8]) -> bool {
+    [&b"/ActualText"[..], b"/Alt", b"/E"].iter().any(|key| {
+        raw.windows(key.len()).enumerate().any(|(i, w)| {
+            w == *key && raw.get(i + key.len()).is_some_and(|c| c.is_ascii_whitespace() || *c == b'(' || *c == b'<')
+        })
+    })
+}
+
+/// One byte of a name, escaped if it needs to be.
+fn name_byte(c: u8) -> Vec<u8> {
+    if c.is_ascii_alphanumeric() || b"-_.".contains(&c) {
+        vec![c]
+    } else {
+        format!("#{c:02X}").into_bytes()
     }
 }
 
@@ -314,13 +489,36 @@ pub fn redact_stream(
     rects: &[Rect],
     ctm: Matrix,
 ) -> (Vec<u8>, StreamReport) {
+    redact_stream_with(data, fonts, rects, ctm, &HashMap::new())
+}
+
+/// Like `redact_stream`, and also points the n-th `Do` at another resource
+/// name, for drawings that got a cleaned copy of their own.
+pub fn redact_stream_with(
+    data: &[u8],
+    fonts: &HashMap<Vec<u8>, FontMetrics>,
+    rects: &[Rect],
+    ctm: Matrix,
+    renames: &HashMap<usize, Vec<u8>>,
+) -> (Vec<u8>, StreamReport) {
     let ops = parse_ops(data);
-    let mut redactor = Redactor::new(fonts, rects, ctm);
+    let mut redactor = Redactor::new(fonts, rects, ctm, renames);
+    let mut replacements: Vec<Option<Vec<u8>>> = Vec::with_capacity(ops.len());
+    for (i, op) in ops.iter().enumerate() {
+        replacements.push(redactor.process(i, op, data));
+    }
+    // a section left open at the end still counts
+    while !redactor.marked.is_empty() {
+        redactor.process(ops.len(), &Op { operator: "EMC".into(), operands: Vec::new(), start: 0, end: 0 }, data);
+    }
+    for (i, bytes) in std::mem::take(&mut redactor.rewrite_marks) {
+        replacements[i] = Some(bytes);
+    }
+
     let mut out = Vec::with_capacity(data.len());
     let mut cursor = 0;
-
-    for op in &ops {
-        if let Some(replacement) = redactor.process(op) {
+    for (op, replacement) in ops.iter().zip(replacements) {
+        if let Some(replacement) = replacement {
             out.extend_from_slice(&data[cursor..op.start]);
             out.extend_from_slice(&replacement);
             cursor = op.end;
