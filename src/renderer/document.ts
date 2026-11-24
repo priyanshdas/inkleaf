@@ -116,6 +116,7 @@ export class EditorDoc extends EventTarget {
         const page = await source.pdf.getPage(index + 1);
         const annots = (await page.getAnnotations({ intent: 'display' })) as {
           subtype?: string; rect?: number[]; contentsObj?: { str?: string }; titleObj?: { str?: string };
+          id?: string; inReplyTo?: string | null;
           color?: Uint8ClampedArray | null; modificationDate?: string | null; creationDate?: string | null;
         }[];
         const notes = annots.filter((a) => a.subtype === 'Text' && a.rect).map((a): NoteAnnot => {
@@ -130,6 +131,8 @@ export class EditorDoc extends EventTarget {
             author: a.titleObj?.str ?? '',
             color: `#${[c[0], c[1], c[2]].map((v) => v.toString(16).padStart(2, '0')).join('')}`,
             created: parsePdfDate(a.creationDate ?? a.modificationDate) ?? Date.now(),
+            ...(a.id ? { fileRef: a.id } : {}),
+            ...(a.inReplyTo ? { replyTo: a.inReplyTo } : {}),
           };
         });
         if (notes.length) found.set(index, notes);

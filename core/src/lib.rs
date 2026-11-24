@@ -11,14 +11,16 @@ pub mod compress;
 pub mod fonts;
 pub mod lexer;
 pub mod redact;
+pub mod redact_doc;
+pub mod stray_pages;
 
 use lopdf::encryption::crypt_filters::{Aes256CryptFilter, CryptFilter};
-use lopdf::{Document, EncryptionState, EncryptionVersion, LoadOptions, Object, ObjectId, Permissions, SaveOptions, Stream};
+use lopdf::{Document, EncryptionState, EncryptionVersion, LoadOptions, Object, ObjectId, Permissions, SaveOptions};
 use std::sync::Arc;
 use redact::Rect;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 pub type CoreResult<T> = Result<T, String>;
 
@@ -104,50 +106,42 @@ pub fn redact(bytes: &[u8], jobs: &[RedactJob]) -> CoreResult<(Vec<u8>, RedactRe
     let pages: Vec<ObjectId> = doc.get_pages().values().copied().collect();
     let mut report = RedactReport::default();
 
-    // Merge jobs per page so each content stream is rewritten once.
+    // Merge jobs per page so each page is gone through once.
     let mut by_page: BTreeMap<usize, Vec<Rect>> = BTreeMap::new();
     for job in jobs {
         by_page.entry(job.page).or_default().extend(job.rects.iter().copied());
     }
 
+    let mut problems = Vec::new();
     for (page_index, rects) in by_page {
         let Some(&page_id) = pages.get(page_index) else {
             report.warnings.push(format!("Page {} doesn't exist", page_index + 1));
             continue;
         };
-
-        let fonts: HashMap<Vec<u8>, fonts::FontMetrics> = doc
-            .get_page_fonts(page_id)
-            .map(|map| map.into_iter().map(|(name, dict)| (name, fonts::load(&doc, dict))).collect())
-            .unwrap_or_default();
-
-        let content = doc.get_page_content(page_id);
-        let (rewritten, stream_report) = redact::redact_stream(&content, &fonts, &rects, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
-
-        for font in stream_report.skipped_fonts {
-            report.warnings.push(format!(
-                "Page {}: text in font {} couldn't be removed, only covered",
-                page_index + 1,
-                font
-            ));
+        let outcome = redact_doc::redact_page(&mut doc, page_id, &rects);
+        for font in &outcome.skipped_fonts {
+            report.warnings.push(format!("Page {}: text in font {} couldn't be checked, but none of it is under a box", page_index + 1, font));
         }
-        if stream_report.removed_glyphs == 0 {
-            continue;
-        }
-
-        report.removed_glyphs += stream_report.removed_glyphs;
-        report.pages_changed.push(page_index);
-
-        let mut stream = Stream::new(lopdf::Dictionary::new(), rewritten);
-        let _ = stream.compress();
-        let stream_id = doc.add_object(stream);
-        if let Ok(page) = doc.get_object_mut(page_id).and_then(Object::as_dict_mut) {
-            page.set("Contents", Object::Reference(stream_id));
+        problems.extend(outcome.problems.iter().map(|p| format!("Page {}: {}.", page_index + 1, p)));
+        if outcome.changed() {
+            report.removed_glyphs += outcome.removed_glyphs;
+            report.pages_changed.push(page_index);
         }
     }
 
-    // The old content streams are now orphaned. Dropping them is the whole
-    // point: otherwise the removed text would still be sitting in the file.
+    // Covering something up without taking it out would hand back a file
+    // that only looks redacted, so stop instead.
+    if !problems.is_empty() {
+        problems.dedup();
+        return Err(format!(
+            "The redaction couldn't be finished, so nothing was saved. {}",
+            problems.join(" ")
+        ));
+    }
+
+    // The old content streams, pictures and comments are now orphaned.
+    // Dropping them is the whole point: otherwise what was removed would
+    // still be sitting in the file.
     doc.prune_objects();
     let bytes = save(&mut doc)?;
     Ok((bytes, report))
@@ -169,8 +163,11 @@ pub fn repair(bytes: &[u8]) -> CoreResult<(Vec<u8>, usize)> {
 
 /// Last pass before writing to disk: throw away anything no longer reachable
 /// from the document (deleted pages, replaced streams, old revisions).
+/// After pages were removed (deleted, or left out of an extract or split):
+/// takes every trace of them out of the file. See stray_pages.rs.
 pub fn finalize(bytes: &[u8]) -> CoreResult<Vec<u8>> {
     let mut doc = load(bytes, None)?;
+    stray_pages::remove_stray_pages(&mut doc)?;
     doc.prune_objects();
     save(&mut doc)
 }

@@ -230,6 +230,108 @@ def vertical_cjk(path):
         shutil.copy(Path(tmp) / f"{path.stem}.pdf", path)
 
 
+def linked(path):
+    """Three pages; the third is secret, and page one links to it, as do a note and a bookmark."""
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject, NumberObject, TextStringObject
+    base = path.with_suffix(".base.pdf")
+    c = canvas.Canvas(str(base))
+    for t in ["Page one is public", "Page two is public", "TOP SECRET SALARY 98765"]:
+        c.drawString(72, 720, t)
+        c.showPage()
+    c.save()
+    w = PdfWriter(clone_from=PdfReader(base))
+    p1, p3 = w.pages[0], w.pages[2]
+    box = lambda *v: ArrayObject([FloatObject(x) for x in v])
+    link = DictionaryObject({NameObject("/Type"): NameObject("/Annot"), NameObject("/Subtype"): NameObject("/Link"),
+                             NameObject("/Rect"): box(72, 700, 200, 730), NameObject("/Border"): ArrayObject([NumberObject(0)] * 3),
+                             NameObject("/Dest"): ArrayObject([p3.indirect_reference, NameObject("/Fit")])})
+    # some programs write a note's page as /P; this one names page three
+    note = DictionaryObject({NameObject("/Type"): NameObject("/Annot"), NameObject("/Subtype"): NameObject("/Text"),
+                             NameObject("/Rect"): box(300, 700, 320, 720), NameObject("/Contents"): TextStringObject("see page 3"),
+                             NameObject("/P"): p3.indirect_reference})
+    p1[NameObject("/Annots")] = ArrayObject([w._add_object(link), w._add_object(note)])
+    w.add_outline_item("Secret", 2)
+    w.write(path)
+    base.unlink()
+
+
+def redact_hidden(path):
+    """Secrets under one box in every place a page can hold them, plus things
+    outside the box that have to survive. The redaction tests box x 60-460,
+    y 590-740 on page one."""
+    import io
+    from PIL import Image
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, FloatObject, NameObject, TextStringObject
+    from reportlab.lib.utils import ImageReader
+    red = Image.new("RGB", (400, 100), (200, 30, 30))
+    base = path.with_suffix(".base.pdf")
+    c = canvas.Canvas(str(base))
+    c.drawString(72, 720, "Name: DIRECTSECRET")
+    c.beginForm("box")  # a Form XObject
+    c.drawString(72, 680, "Code: XOBJSECRET")
+    c.endForm()
+    c.doForm("box")
+    c.drawImage(ImageReader(red), 72, 600, width=200, height=30)  # a picture under the box...
+    c.drawInlineImage(red, 300, 600, width=60, height=20)  # ...an inline one...
+    c.drawImage(ImageReader(red), 72, 100, width=200, height=30)  # ...and the same picture away from it
+    c.drawString(72, 80, "Footer: PUBLICTEXT")
+    c.showPage()
+    c.save()
+
+    w = PdfWriter(clone_from=PdfReader(base))
+    page = w.pages[0]
+    tagged = DecodedStreamObject()
+    tagged.set_data(b"BT /F1 12 Tf 72 700 Td /Span <</ActualText (ALTSECRET) /MCID 0>> BDC (Hidden: xx) Tj EMC ET")
+    page[NameObject("/Contents")] = ArrayObject([page.raw_get("/Contents"), w._add_object(tagged)])
+    box = lambda *v: ArrayObject([FloatObject(x) for x in v])
+    add = lambda d: w._add_object(DictionaryObject({NameObject(k): v for k, v in d.items()}))
+    annot = lambda kind, rect, **more: add({"/Type": NameObject("/Annot"), "/Subtype": NameObject(kind), "/Rect": box(*rect), **more})
+    words = lambda s: TextStringObject(s)
+    free = annot("/FreeText", (72, 640, 300, 660), **{"/Contents": words("Note: ANNOTSECRET"), "/DA": words("/Helv 10 Tf 0 g")})
+    sticky = annot("/Text", (320, 700, 340, 720), **{"/Contents": words("Sticky: STICKYSECRET")})
+    popup = annot("/Popup", (400, 500, 550, 600), **{"/Parent": sticky})
+    sticky.get_object()[NameObject("/Popup")] = popup
+    reply = annot("/Text", (500, 100, 520, 120), **{"/IRT": sticky, "/Contents": words("Reply: REPLYSECRET")})
+    kept = annot("/Text", (500, 50, 520, 70), **{"/Contents": words("Kept: KEPTNOTE")})
+    field = annot("/Widget", (320, 660, 450, 680), **{"/FT": NameObject("/Tx"), "/T": words("ssn"),
+                                                    "/V": words("FIELDSECRET"), "/DA": words("/Helv 10 Tf 0 g")})
+    field.get_object()[NameObject("/P")] = page.indirect_reference
+    page[NameObject("/Annots")] = ArrayObject([free, sticky, popup, reply, kept, field])
+    w._root_object[NameObject("/AcroForm")] = DictionaryObject({NameObject("/Fields"): ArrayObject([field])})
+    w.write(path)
+    base.unlink()
+
+
+def redact_unmeasured(path):
+    """Text under the box in a font InkLeaf can't measure (vertical writing),
+    so it can't be taken out and the redaction has to refuse."""
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject, NumberObject, TextStringObject
+    base = path.with_suffix(".base.pdf")
+    c = canvas.Canvas(str(base))
+    c.drawString(72, 720, "Name: SECRET")
+    c.showPage()
+    c.save()
+    w = PdfWriter(clone_from=PdfReader(base))
+    page = w.pages[0]
+    cid = DictionaryObject({NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/CIDFontType2"),
+                            NameObject("/BaseFont"): NameObject("/Upright"),
+                            NameObject("/CIDSystemInfo"): DictionaryObject({NameObject("/Registry"): TextStringObject("Adobe"),
+                                                                           NameObject("/Ordering"): TextStringObject("Identity"),
+                                                                           NameObject("/Supplement"): NumberObject(0)})})
+    font = DictionaryObject({NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/Type0"),
+                             NameObject("/BaseFont"): NameObject("/Upright"), NameObject("/Encoding"): NameObject("/Identity-V"),
+                             NameObject("/DescendantFonts"): ArrayObject([w._add_object(cid)])})
+    page["/Resources"]["/Font"][NameObject("/FV")] = w._add_object(font)
+    text = DecodedStreamObject()
+    text.set_data(b"BT /FV 12 Tf 400 720 Td <00410042> Tj ET")
+    page[NameObject("/Contents")] = ArrayObject([page.raw_get("/Contents"), w._add_object(text)])
+    w.write(path)
+    base.unlink()
+
+
 sample(out / "sample.pdf")
 office(out)
 table_pdf(out / "table.pdf")
@@ -238,6 +340,9 @@ scan(out / "scan.pdf")
 faded(out / "faded.pdf")
 form(out / "form.pdf")
 vertical_cjk(out / "vertical.pdf")
+linked(out / "linked.pdf")
+redact_hidden(out / "redact-hidden.pdf")
+redact_unmeasured(out / "redact-unmeasured.pdf")
 subprocess.run(["qpdf", "--encrypt", "", "owner-secret", "256", "--modify=none", "--",
                 str(out / "sample.pdf"), str(out / "owner-locked.pdf")], check=True)
 subprocess.run(["qpdf", "--encrypt", "open-sesame", "owner-secret", "256", "--",

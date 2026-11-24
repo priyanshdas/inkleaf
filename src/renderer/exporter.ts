@@ -583,7 +583,32 @@ async function decoratePage(page: PDFPage, ref: PageRef, doc: EditorDoc, writer:
   for (const t of decorTexts(doc, ref)) await writer.drawText(page, t);
   for (const a of annots) if (a.type !== 'highlight') await writer.draw(page, a);
 
-  replaceNotes(page, annots.filter((a): a is NoteAnnot => a.type === 'note'), doc.hasAdoptedNotes(ref.id));
+  replaceNotes(page, notesClearOfRedactions(annots), doc.hasAdoptedNotes(ref.id));
+}
+
+/**
+ * Comments that touch a redaction box are left out of the saved file, with
+ * any replies to them, since their text is usually about what's under the
+ * box. The core does the same for the comments it finds in the file itself.
+ */
+function notesClearOfRedactions(annots: readonly Annot[]): NoteAnnot[] {
+  const notes = annots.filter((a): a is NoteAnnot => a.type === 'note');
+  const boxes = annots.flatMap((a) => (a.type === 'replace' ? [a.cover] : a.type === 'redact' ? [a] : []));
+  if (!boxes.length) return notes;
+  const touches = (n: NoteAnnot) => boxes.some((b) => n.x <= b.x + b.w && n.x + n.w >= b.x && n.y <= b.y + b.h && n.y + n.h >= b.y);
+  const dropped = new Set(notes.filter(touches));
+  // replies, and replies to those
+  for (let grew = true; grew;) {
+    grew = false;
+    const gone = new Set([...dropped].map((n) => n.fileRef).filter(Boolean));
+    for (const n of notes) {
+      if (!dropped.has(n) && n.replyTo && gone.has(n.replyTo)) {
+        dropped.add(n);
+        grew = true;
+      }
+    }
+  }
+  return notes.filter((n) => !dropped.has(n));
 }
 
 const hexColour = (hex: string) => {
@@ -882,8 +907,9 @@ export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[], o
       continue;
     }
 
-    // 2b. Some pages: start a fresh file and copy just those in, so we never
-    //     carry (or have to clean up) the rest of the document.
+    // 2b. Some pages: start a fresh file and copy just those in. A copied page
+    //     can still drag others along (a link, a comment or a form field
+    //     pointing at them), so this gets the clean-up pass too.
     const out = await PDFDocument.create();
     out.registerFontkit(fontkit);
     const writer = new Writer(out, doc);
@@ -896,7 +922,7 @@ export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[], o
     for (const page of copiedPages) out.addPage(page);
     for (let i = 0; i < pages.length; i++) await decoratePage(out.getPage(i), pages[i], doc, writer);
     await finishPages(out, pages, doc, writer);
-    const result = await finish(out, writer, warnings, false, options);
+    const result = await finish(out, writer, warnings, true, options);
     if (formsWriter) result.warnings = [...new Set([...result.warnings, ...(formsWriter as Writer).warnings])];
     results.push(result);
   }
