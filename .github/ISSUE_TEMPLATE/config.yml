@@ -3,3 +3,9 @@ contact_links:
   - name: Report a security problem privately
     url: https://github.com/priyanshdas/inkleaf/security/advisories/new
     about: Please don't post security problems in public issues.
+  - name: Ask a question on Discord
+    url: https://discord.gg/ewnF24GaZg
+    about: Quick questions and chat. Bugs still belong here as issues.
+  - name: Discuss on Reddit
+    url: https://www.reddit.com/r/inkleafapp/
+    about: Ideas, tips and longer discussions.

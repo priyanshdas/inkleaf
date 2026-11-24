@@ -9,6 +9,7 @@ every tool is free. Built by EPD.
 [![Licence: GPL-3.0-or-later](https://img.shields.io/badge/licence-GPL--3.0--or--later-2b7356)](LICENSE)
 [![Support on Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/inkleaf)
 [![Reddit: r/inkleafapp](https://img.shields.io/badge/reddit-r%2Finkleafapp-ff4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/inkleafapp/)
+[![Discord](https://img.shields.io/badge/discord-join%20chat-5865f2?logo=discord&logoColor=white)](https://discord.gg/ewnF24GaZg)
 
 **Download:**
 [Microsoft Store](https://apps.microsoft.com/detail/9NKC5ZQ6P2JR) (Windows) ·
@@ -247,7 +248,8 @@ Bug reports, ideas, translations and pull requests are all welcome. See
 report security problems privately, as described in [SECURITY.md](SECURITY.md).
 
 Want to ask a question, share how you use InkLeaf or suggest an idea? Come
-say hi on [r/inkleafapp](https://www.reddit.com/r/inkleafapp/). Bugs still
+say hi on [r/inkleafapp](https://www.reddit.com/r/inkleafapp/) or the
+[InkLeaf Discord](https://discord.gg/ewnF24GaZg). Bugs still
 go to [GitHub Issues](https://github.com/priyanshdas/inkleaf/issues), so they
 get tracked and fixed.
 
