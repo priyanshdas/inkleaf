@@ -376,6 +376,21 @@ code {
 .platform.later { opacity: 0.7; background: transparent; }
 @media (max-width: 760px) { .platforms { grid-template-columns: 1fr; } }
 
+/* community links on the home page */
+.community { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.community-card {
+  display: grid; grid-template-columns: auto 1fr; column-gap: 16px; row-gap: 4px;
+  padding: 22px; border-radius: var(--radius); border: 1px solid var(--line);
+  color: var(--ink); text-decoration: none; background: var(--panel);
+}
+.community-card:hover { color: var(--ink); border-color: var(--line-strong); background: var(--panel-raised); }
+.community-card svg { grid-row: span 3; width: 34px; height: 34px; color: var(--leaf); }
+.community-card strong { font-size: 1.2rem; font-variation-settings: "wdth" 88; }
+.community-card span { color: var(--muted); font-size: 0.95rem; }
+.community-card em { font-style: normal; color: var(--leaf); font-size: 0.95rem; margin-top: 6px; }
+.community-card:hover em { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 760px) { .community { grid-template-columns: 1fr; } }
+
 /* a closing call, plain */
 .closing { text-align: center; }
 .closing h2 { margin-bottom: 16px; }
