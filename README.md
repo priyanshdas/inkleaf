@@ -8,6 +8,7 @@ every tool is free. Built by EPD.
 [![CI](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml/badge.svg)](https://github.com/priyanshdas/inkleaf/actions/workflows/ci.yml)
 [![Licence: GPL-3.0-or-later](https://img.shields.io/badge/licence-GPL--3.0--or--later-2b7356)](LICENSE)
 [![Support on Ko-fi](https://img.shields.io/badge/support-Ko--fi-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/inkleaf)
+[![Reddit: r/inkleafapp](https://img.shields.io/badge/reddit-r%2Finkleafapp-ff4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/inkleafapp/)
 
 **Download:**
 [Microsoft Store](https://apps.microsoft.com/detail/9NKC5ZQ6P2JR) (Windows) ·
@@ -244,6 +245,11 @@ Bug reports, ideas, translations and pull requests are all welcome. See
 [CONTRIBUTING.md](CONTRIBUTING.md) to get started and
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for how we treat each other. Please
 report security problems privately, as described in [SECURITY.md](SECURITY.md).
+
+Want to ask a question, share how you use InkLeaf or suggest an idea? Come
+say hi on [r/inkleafapp](https://www.reddit.com/r/inkleafapp/). Bugs still
+go to [GitHub Issues](https://github.com/priyanshdas/inkleaf/issues), so they
+get tracked and fixed.
 
 ### Translating InkLeaf PDF
 
