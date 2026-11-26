@@ -55,7 +55,9 @@
   !macroend
 
   !macro inkleafGetModel N
-    ${ifNot} ${FileExists} "${INKLEAF_AI_DIR}\models\${AI_${N}_FILE}.ok"
+    ${if} ${FileExists} "${INKLEAF_AI_DIR}\models\${AI_${N}_FILE}.ok"
+      DetailPrint "The ${AI_${N}_NAME} AI model is already on this computer."
+    ${else}
       Call inkleafGetEngine
       ${if} $R9 == "ok"
         CreateDirectory "${INKLEAF_AI_DIR}\models"
@@ -118,8 +120,10 @@
     ${endif}
   !macroend
 
+  ; $R8 notes that at least one model was asked for, for the log
   !macro inkleafAiGetCase N
     ${if} $inkleafAiWant${N} == ${BST_CHECKED}
+      StrCpy $R8 "yes"
       !insertmacro inkleafGetModel ${N}
     ${endif}
   !macroend
@@ -300,23 +304,48 @@
 
   !macro inkleafApplyChoices
     ${ifNot} ${isUpdated}
-      ${if} $inkleafDesktop != ${BST_CHECKED}
+      ${if} $inkleafDesktop == ${BST_CHECKED}
+        DetailPrint "Added a desktop shortcut."
+      ${else}
         WinShell::UninstShortcut "$newDesktopLink"
         Delete "$newDesktopLink"
+        DetailPrint "No desktop shortcut, as chosen."
       ${endif}
-      ${if} $inkleafStartMenu != ${BST_CHECKED}
+      ${if} $inkleafStartMenu == ${BST_CHECKED}
+        DetailPrint "Added InkLeaf PDF to the Start menu."
+      ${else}
         WinShell::UninstShortcut "$newStartMenuLink"
         Delete "$newStartMenuLink"
         ; "Run InkLeaf PDF" at the end then starts the program itself
         StrCpy $launchLink "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+        DetailPrint "Not added to the Start menu, as chosen."
       ${endif}
       System::Call 'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
+    ${else}
+      DetailPrint "Kept the shortcuts as they were."
     ${endif}
+    StrCpy $R8 ""
     !insertmacro inkleafEachModel inkleafAiGetCase
+    ${if} $R8 == ""
+      DetailPrint "No built-in AI models chosen. They can be added any time in InkLeaf, under Tools > AI Settings."
+    ${endif}
+    DetailPrint "All done."
   !macroend
 !endif
 
 !macro customInstall
+  ; electron-builder hides the log during installing (SetDetailsPrint none in
+  ; its installSection.nsh), which left "View details" empty. Show it again
+  ; from here on, with a line for each step.
+  !ifndef BUILD_UNINSTALLER
+    SetDetailsPrint both
+    ${if} ${isUpdated}
+      DetailPrint "Updated InkLeaf PDF ${VERSION} in $INSTDIR"
+    ${else}
+      DetailPrint "Installed InkLeaf PDF ${VERSION} in $INSTDIR"
+    ${endif}
+    DetailPrint "Registering InkLeaf PDF as an app that can open PDFs..."
+  !endif
   WriteRegStr SHCTX "Software\Classes\Inkleaf.pdf" "" "PDF Document"
   WriteRegStr SHCTX "Software\Classes\Inkleaf.pdf\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME},0"
   WriteRegStr SHCTX "Software\Classes\Inkleaf.pdf\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
@@ -324,6 +353,9 @@
 
   ; File Explorer's thumbnails of PDFs: a picture of the first page, drawn by
   ; Inkleaf's own thumbnail maker (native/thumbnails) once Inkleaf opens PDFs
+  !ifndef BUILD_UNINSTALLER
+    DetailPrint "Adding PDF thumbnails and the preview pane to File Explorer..."
+  !endif
   WriteRegStr SHCTX "Software\Classes\CLSID\{1EBEB7F8-27A7-4B2A-A890-88C35591D436}" "" "InkLeaf PDF thumbnails"
   WriteRegStr SHCTX "Software\Classes\CLSID\{1EBEB7F8-27A7-4B2A-A890-88C35591D436}\InprocServer32" "" "$INSTDIR\resources\thumbnails\inkleaf-thumbs.dll"
   WriteRegStr SHCTX "Software\Classes\CLSID\{1EBEB7F8-27A7-4B2A-A890-88C35591D436}\InprocServer32" "ThreadingModel" "Apartment"
