@@ -45,7 +45,23 @@
   !macroend
   !insertmacro inkleafEachModel inkleafAiVar
 
-  !define INKLEAF_AI_DIR "$APPDATA\Inkleaf\ai"
+  ; The app keeps its models in the person's own AppData. $APPDATA isn't that
+  ; for an install "for anyone who uses this computer" (it's ProgramData
+  ; then), so the folder is asked for directly, for the person installing.
+  Var inkleafAppData
+  !define INKLEAF_AI_DIR "$inkleafAppData\Inkleaf\ai"
+
+  ; takes the line break off the end of a line read from a file
+  !macro inkleafTrimLine VAR
+    StrCpy $9 ${VAR} 1 -1
+    ${if} $9 == "$\n"
+      StrCpy ${VAR} ${VAR} -1
+    ${endif}
+    StrCpy $9 ${VAR} 1 -1
+    ${if} $9 == "$\r"
+      StrCpy ${VAR} ${VAR} -1
+    ${endif}
+  !macroend
 
   ; Writes a model's or the engine's ".ok" mark: the app's sign it's been checked.
   !macro inkleafMarkOk file sha
@@ -70,6 +86,8 @@
       ${if} $R9 == "ok"
         !insertmacro inkleafMarkOk "${INKLEAF_AI_DIR}\models\${AI_${N}_FILE}.ok" "${AI_${N}_SHA256}"
         DetailPrint "The ${AI_${N}_NAME} AI model is ready."
+      ${elseif} $R9 == "skipped"
+        DetailPrint "Skipped the ${AI_${N}_NAME} AI model. InkLeaf can finish downloading it later, under Tools > AI Settings."
       ${else}
         DetailPrint "The ${AI_${N}_NAME} AI model couldn't be downloaded: $R9"
         MessageBox MB_OK|MB_ICONEXCLAMATION "The ${AI_${N}_NAME} AI model couldn't be downloaded ($R9).$\r$\n$\r$\nInkLeaf PDF is installed and works without it. You can download the model later in InkLeaf, under Tools > AI Settings." /SD IDOK
@@ -130,6 +148,9 @@
 
   ; what's ticked to begin with (and what a silent install does)
   !macro customInit
+    ; CSIDL_APPDATA: the roaming AppData of the person running this
+    System::Call 'shell32::SHGetFolderPath(p 0, i 0x1A, p 0, i 0, t .r0)'
+    StrCpy $inkleafAppData $0
     StrCpy $inkleafDesktop ${BST_CHECKED}
     StrCpy $inkleafStartMenu ${BST_CHECKED}
     !insertmacro inkleafEachModel inkleafAiInit
@@ -237,36 +258,105 @@
       ${NSD_SetText} $inkleafAiTotal "Will download: $2 ($3 in all). Make sure there's that much free space."
     FunctionEnd
 
-    ; Downloads $R0 (link) to $R1 (file), checks it against $R2 (SHA-256).
-    ; $R3 names it in the progress window. Leaves "ok" or what went wrong in $R9.
+    ; Downloads $R0 (link) to $R1 (file), checks it against $R2 (SHA-256),
+    ; showing how far it's got in MB and GB. $R3 names it. Leaves "ok",
+    ; "skipped" or what went wrong in $R9.
+    ;
+    ; The download itself is build/installer-fetch.ps1, run hidden; it writes
+    ; its progress to a small file this reads a few times a second. A "Skip
+    ; this download" tick next to View details stops it; what's downloaded so
+    ; far is kept, and InkLeaf finishes it later from AI Settings.
     Function inkleafFetch
       DetailPrint "Downloading $R3 from $R0"
-      inetc::get /CAPTION "Downloading $R3" /RESUME "" /USERAGENT "InkLeaf PDF installer" "$R0" "$R1.part" /END
-      Pop $0
-      ${if} $0 != "OK"
-        Delete "$R1.part"
-        StrCpy $R9 "$0"
-        Return
-      ${endif}
+      InitPluginsDir
+      File "/oname=$PLUGINSDIR\inkleaf-fetch.ps1" "${BUILD_RESOURCES_DIR}\installer-fetch.ps1"
+      StrCpy $R5 "$PLUGINSDIR\inkleaf-status.txt"
+      StrCpy $R6 "$PLUGINSDIR\inkleaf-stop"
+      Delete $R5
+      Delete $R6
+      ; everything goes in through the environment, so no path can upset the command
+      System::Call 'Kernel32::SetEnvironmentVariable(t "INKLEAF_URL", t "$R0")'
+      System::Call 'Kernel32::SetEnvironmentVariable(t "INKLEAF_DEST", t "$R1")'
+      System::Call 'Kernel32::SetEnvironmentVariable(t "INKLEAF_SHA256", t "$R2")'
+      System::Call 'Kernel32::SetEnvironmentVariable(t "INKLEAF_STATUS", t "$R5")'
+      System::Call 'Kernel32::SetEnvironmentVariable(t "INKLEAF_STOP", t "$R6")'
 
-      DetailPrint "Checking $R3 against its SHA-256: $R2"
-      ; the path goes in through the environment, so no folder name can upset the command
-      System::Call 'Kernel32::SetEnvironmentVariable(t "INKLEAF_CHECK", t "$R1.part")'
-      ${DisableX64FSRedirection}
-      nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath $$env:INKLEAF_CHECK).Hash"'
-      ${EnableX64FSRedirection}
-      Pop $0
-      Pop $1
-      StrCpy $1 $1 64
-      ${if} $1 != $R2
-        Delete "$R1.part"
-        StrCpy $R9 "the download didn't match what was expected"
-        Return
+      ; the installing page: its status line, and a "Skip this download" tick
+      ; beside the View details button
+      FindWindow $R4 "#32770" "" $HWNDPARENT
+      GetDlgItem $R8 $R4 1006
+      GetDlgItem $0 $R4 1027
+      System::Call '*(i, i, i, i) p.r1'
+      System::Call 'user32::GetWindowRect(p r0, p r1)'
+      System::Call 'user32::MapWindowPoints(p 0, p R4, p r1, i 2)'
+      System::Call '*$1(i .r2, i .r3, i .r4, i .r5)'
+      GetDlgItem $0 $R4 1004
+      System::Call 'user32::GetWindowRect(p r0, p r1)'
+      System::Call 'user32::MapWindowPoints(p 0, p R4, p r1, i 2)'
+      System::Call '*$1(i, i, i .r6, i)'
+      System::Free $1
+      IntOp $2 $4 + 12
+      IntOp $6 $6 - $2
+      IntOp $5 $5 - $3
+      ; WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX
+      System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "Skip this download (it can be finished later in InkLeaf)", i 0x50010003, i r2, i r3, i r6, i r5, p R4, p 0, p 0, p 0) p.R7'
+      SendMessage $R4 ${WM_GETFONT} 0 0 $0
+      SendMessage $R7 ${WM_SETFONT} $0 1
+
+      ExecShell "" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "$PLUGINSDIR\inkleaf-fetch.ps1"' SW_HIDE
+
+      StrCpy $R9 ""
+      StrCpy $7 0
+      StrCpy $8 0
+      ${do}
+        Sleep 300
+        IntOp $7 $7 + 1
+        SendMessage $R7 ${BM_GETCHECK} 0 0 $0
+        ${if} $0 == ${BST_CHECKED}
+          ${ifNot} ${FileExists} $R6
+            FileOpen $0 $R6 w
+            FileClose $0
+            SendMessage $R8 ${WM_SETTEXT} 0 "STR:Stopping the download of $R3..."
+          ${endif}
+          ; a stalled connection never gets to check for the stop file: move on anyway
+          IntOp $8 $8 + 1
+          ${if} $8 > 50
+            StrCpy $R9 "skipped"
+            ${break}
+          ${endif}
+        ${endif}
+        ClearErrors
+        FileOpen $0 $R5 r
+        ${if} ${errors}
+          ; nothing heard after a minute: PowerShell didn't start
+          ${if} $7 > 200
+            StrCpy $R9 "the download couldn't start"
+            ${break}
+          ${endif}
+          ${continue}
+        ${endif}
+        FileReadUTF16LE $0 $1
+        FileReadUTF16LE $0 $2
+        FileClose $0
+        !insertmacro inkleafTrimLine $1
+        !insertmacro inkleafTrimLine $2
+        ${if} $1 == "progress"
+          SendMessage $R8 ${WM_SETTEXT} 0 "STR:Downloading $R3: $2"
+        ${elseif} $1 == "ok"
+          StrCpy $R9 "ok"
+          ${break}
+        ${elseif} $1 == "stopped"
+          StrCpy $R9 "skipped"
+          ${break}
+        ${elseif} $1 == "error"
+          StrCpy $R9 $2
+          ${break}
+        ${endif}
+      ${loop}
+      System::Call 'user32::DestroyWindow(p R7)'
+      ${if} $R9 == "ok"
+        DetailPrint "Checked against its SHA-256 ($R2) and saved to $R1"
       ${endif}
-      Delete "$R1"
-      Rename "$R1.part" "$R1"
-      DetailPrint "Saved to $R1"
-      StrCpy $R9 "ok"
     FunctionEnd
 
     ; The AI engine (llama.cpp), unpacked where the app expects it. Leaves "ok" or the problem in $R9.

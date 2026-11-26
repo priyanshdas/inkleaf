@@ -26,6 +26,7 @@
     "test:core": "cd core && cargo test",
     "dist": "node scripts/build.mjs && electron-builder --publish never",
     "dist:win": "node scripts/build.mjs && electron-builder --win --publish never",
+    "dist:win:test": "node scripts/build.mjs && electron-builder --win nsis --publish never -c.compression=store",
     "dist:win:store": "node scripts/build.mjs && electron-builder --win appx --x64 --publish never",
     "dist:mac": "node scripts/build.mjs && electron-builder --mac --publish never",
     "dist:linux": "node scripts/build.mjs && electron-builder --linux --publish never",
