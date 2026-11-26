@@ -934,6 +934,12 @@ async function run(command: Command) {
     case 'zoom-fit-page': return viewer.fitPage();
     case 'toggle-sidebar':
     case 'toggle-inspector': {
+      if (command === 'toggle-inspector' && narrowWindow()) {
+        // a narrow window: the panel slides in over the page, and isn't remembered
+        setPanelOver(!$('#app').classList.contains('inspector-over'));
+        panelOpenedForSelection = false;
+        return;
+      }
       const cls = command === 'toggle-sidebar' ? 'sidebar-hidden' : 'inspector-hidden';
       const hidden = $('#app').classList.toggle(cls);
       if (isMobile()) {
@@ -1654,9 +1660,57 @@ let currentTheme: 'system' | 'light' | 'dark' = 'system';
 
 function updatePanelButtons() {
   const app = $('#app');
+  const inspectorShown = narrowWindow() ? app.classList.contains('inspector-over') : !app.classList.contains('inspector-hidden');
   document.querySelectorAll('[data-command="toggle-sidebar"]').forEach((b) => b.setAttribute('aria-pressed', String(!app.classList.contains('sidebar-hidden'))));
-  document.querySelectorAll('[data-command="toggle-inspector"]').forEach((b) => b.setAttribute('aria-pressed', String(!app.classList.contains('inspector-hidden'))));
+  document.querySelectorAll('[data-command="toggle-inspector"]').forEach((b) => b.setAttribute('aria-pressed', String(inspectorShown)));
 }
+
+// --- the properties panel in a narrow window ----------------------------------------------------
+//
+// Under 1100px wide there's no room for the panel beside the page (styles.css),
+// so it slides in over it. Without this, a shape's colour, outline and fill
+// had no way to be changed at all in a smaller window. It opens from its
+// button, and by itself when something with styles is selected or a text box
+// is being typed in; if it opened by itself, it goes again when that's done.
+
+const NARROW = matchMedia('(max-width: 1100px)');
+let panelOpenedForSelection = false;
+
+function narrowWindow(): boolean {
+  return NARROW.matches && !isMobile() && !api.engine;
+}
+
+function setPanelOver(open: boolean) {
+  $('#app').classList.toggle('inspector-over', open);
+  updatePanelButtons();
+}
+
+/** Types that have something to set in the panel (a comment has its own pop-up). */
+const STYLED = new Set<string>(['text', 'replace', 'rect', 'ellipse', 'line', 'arrow', 'ink', 'highlight', 'whiteout', 'stamp', 'field']);
+
+editor.addEventListener('selectionchange', () => {
+  if (!narrowWindow()) return;
+  const active = editor.activeAnnot();
+  const open = $('#app').classList.contains('inspector-over');
+  if (active && STYLED.has(active.annot.type)) {
+    if (!open) {
+      setPanelOver(true);
+      panelOpenedForSelection = true;
+    }
+  } else if (!active && open && panelOpenedForSelection) {
+    setPanelOver(false);
+    panelOpenedForSelection = false;
+  }
+});
+
+NARROW.addEventListener('change', () => {
+  // back to a wide window: the panel goes back to its own column (or stays hidden, as chosen)
+  if (!NARROW.matches) {
+    $('#app').classList.remove('inspector-over');
+    panelOpenedForSelection = false;
+  }
+  updatePanelButtons();
+});
 
 // --- the ribbon ---------------------------------------------------------------------------------
 //

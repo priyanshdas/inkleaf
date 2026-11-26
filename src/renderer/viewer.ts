@@ -799,6 +799,8 @@ export class Viewer extends EventTarget {
 
   /** The device-pixel rectangle an annotation (and its handles) covers. */
   private deviceBox(view: PageView, annot: Annot): [number, number, number, number] {
+    // a picture's turning handle and guide lines reach well outside it
+    if (annot.type === 'image') return [0, 0, ...view.deviceSize];
     const b = annotBounds(annot);
     const t = view.deviceTransform;
     const xs: number[] = [], ys: number[] = [];

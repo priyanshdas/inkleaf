@@ -108,6 +108,12 @@ export interface ImageAnnot extends Base, Box {
   type: 'image';
   /** Rotation of the picture itself; the box is always axis-aligned. */
   angle: number;
+  /**
+   * The picture's own width over its height. Only needed once it's turned
+   * to an angle that isn't a quarter turn: the box then is the area the
+   * turned picture covers, which no longer says what shape the picture is.
+   */
+  ratio?: number;
   asset: string;
 }
 

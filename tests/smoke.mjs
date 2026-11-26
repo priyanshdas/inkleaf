@@ -2773,6 +2773,170 @@ print(' '.join(map(str, counts)))
   }
 }
 
+async function narrowPanelTest() {
+  console.log('\nThe properties panel in a narrow window');
+  const { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'), { ribbon: true });
+  await waitForPages(win);
+  await win.setViewportSize({ width: 1000, height: 800 });
+  await win.waitForTimeout(300);
+  const panel = () => win.evaluate(() => {
+    const r = document.getElementById('inspector').getBoundingClientRect();
+    return { over: document.getElementById('app').classList.contains('inspector-over'), onScreen: r.left < innerWidth - 50 && r.width > 200 };
+  });
+  check('the panel starts closed, leaving the page room', !(await panel()).onScreen);
+
+  // draw a rectangle: the panel slides in with its colour, thickness and fill
+  const page = await win.locator('.page').first().boundingBox();
+  await win.evaluate(() => window.__inkleaf.editor.setTool('rect'));
+  await win.mouse.move(page.x + 80, page.y + 100);
+  await win.mouse.down();
+  await win.mouse.move(page.x + 220, page.y + 180, { steps: 5 });
+  await win.mouse.up();
+  await win.waitForTimeout(400);
+  const opened = await panel();
+  check('selecting a shape opens the panel over the page', opened.over && opened.onScreen, JSON.stringify(opened));
+  const labels = await win.$$eval('#inspector h3', (hs) => hs.map((h) => h.textContent));
+  check('its colour, thickness and fill can be set', ['Outline', 'Thickness', 'Fill'].every((l) => labels.includes(l)), labels.join(', '));
+  await win.click('#inspector .swatch[title="#2b7bd6"]');
+  const color = await win.evaluate(() => {
+    const { getDoc, editor } = window.__inkleaf;
+    return getDoc().annots(editor.selection.pageId).find((a) => a.id === editor.selection.id).color;
+  });
+  check('picking a colour changes the shape', color === '#2b7bd6', color);
+
+  // done with it: the panel goes again
+  await win.keyboard.press('Escape');
+  await win.evaluate(() => window.__inkleaf.editor.select(null));
+  await win.waitForTimeout(300);
+  check('it closes again when nothing is selected', !(await panel()).over);
+
+  // and its button always works
+  const button = await win.evaluate(() => {
+    const b = [...document.querySelectorAll('[data-command="toggle-inspector"]')].find((el) => el.offsetParent);
+    return !!b;
+  });
+  check('the panel has a button to open it', button);
+  await win.evaluate(() => window.__inkleaf.run('toggle-inspector'));
+  await win.waitForTimeout(300);
+  check('the button opens it', (await panel()).onScreen);
+  await win.evaluate(() => window.__inkleaf.editor.select(null));
+  check('opened from the button, it stays open', (await panel()).over);
+
+  // a wide window goes back to the panel in its own column
+  await win.setViewportSize({ width: 1280, height: 800 });
+  await win.waitForTimeout(400);
+  const wide = await win.evaluate(() => ({
+    over: document.getElementById('app').classList.contains('inspector-over'),
+    position: getComputedStyle(document.getElementById('inspector')).position,
+  }));
+  check('a wide window shows it beside the page as before', !wide.over && wide.position !== 'absolute', JSON.stringify(wide));
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+}
+
+async function imageAngleTest() {
+  console.log('\nTurning a picture to any angle');
+  const { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  // a 200 x 100 red picture, placed and selected
+  await win.evaluate(async () => {
+    const { getDoc, editor } = window.__inkleaf;
+    const doc = getDoc();
+    const c = document.createElement('canvas');
+    c.width = 200; c.height = 100;
+    const g = c.getContext('2d');
+    g.fillStyle = '#d00'; g.fillRect(0, 0, 200, 100);
+    const asset = await doc.addAsset(c.toDataURL('image/png'));
+    const pageId = doc.pages[0].id;
+    doc.addAnnot(pageId, { id: 'pic', type: 'image', x: 100, y: 400, w: 200, h: 100, angle: 0, asset: asset.id });
+    doc.commit();
+    editor.setTool('select');
+    editor.select({ pageId, id: 'pic' });
+  });
+  await win.waitForTimeout(300);
+  const box = win.locator('#inspector input[type="number"][title="Angle in degrees, clockwise"]');
+  check('a selected picture has an angle box', await box.count() === 1);
+  await box.fill('12');
+  await box.press('Enter');
+  await win.waitForTimeout(200);
+  const a = await win.evaluate(() => window.__inkleaf.getDoc().annots(window.__inkleaf.getDoc().pages[0].id).find((x) => x.id === 'pic'));
+  const near = (x, y) => Math.abs(x - y) < 0.01;
+  // 12° clockwise on screen is -12° (348°) the way PDF counts
+  check('typing 12 turns it 12° clockwise', near(a.angle, 348), String(a.angle));
+  const c = Math.cos(12 * Math.PI / 180), sn = Math.sin(12 * Math.PI / 180);
+  check('its box grows to cover the turned picture, around the same centre',
+    near(a.w, 200 * c + 100 * sn) && near(a.h, 200 * sn + 100 * c) && near(a.x + a.w / 2, 200) && near(a.y + a.h / 2, 450),
+    JSON.stringify(a));
+  check('and it keeps its shape', near(a.ratio, 2));
+
+  // turning back to straight gives the same picture as before
+  await box.fill('0');
+  await box.press('Enter');
+  await win.waitForTimeout(200);
+  const back = await win.evaluate(() => window.__inkleaf.getDoc().annots(window.__inkleaf.getDoc().pages[0].id).find((x) => x.id === 'pic'));
+  check('turned back, it is 200 by 100 again', near(back.w, 200) && near(back.h, 100) && near(back.x, 100) && near(back.y, 400), JSON.stringify(back));
+  await win.evaluate(() => window.__inkleaf.run('undo'));
+  const undone = await win.evaluate(() => window.__inkleaf.getDoc().annots(window.__inkleaf.getDoc().pages[0].id).find((x) => x.id === 'pic').angle);
+  check('undo goes back one turn', near(undone, 348), String(undone));
+
+  // the round-arrow handle: drag it a quarter turn round the centre
+  await win.evaluate(() => window.__inkleaf.editor.select({ pageId: window.__inkleaf.getDoc().pages[0].id, id: 'pic' }));
+  await win.waitForTimeout(200);
+  const spot = await win.evaluate(() => {
+    const { getDoc, viewer } = window.__inkleaf;
+    const doc = getDoc();
+    const view = viewer.views.get(doc.pages[0].id);
+    const a = doc.annots(doc.pages[0].id).find((x) => x.id === 'pic');
+    const r = view.el.getBoundingClientRect();
+    const xs = [], ys = [];
+    for (const [x, y] of [[a.x, a.y], [a.x + a.w, a.y + a.h]]) {
+      const [lx, ly] = viewer.toLocal(view, x, y);
+      xs.push(lx); ys.push(ly);
+    }
+    const cx = r.left + (xs[0] + xs[1]) / 2, cy = r.top + (ys[0] + ys[1]) / 2;
+    const top = r.top + Math.min(...ys) - 4;
+    return { cx, cy, knobX: cx, knobY: top - 26 };
+  });
+  await win.mouse.move(spot.knobX, spot.knobY);
+  await win.waitForTimeout(100);
+  const cursor = await win.evaluate(() => document.querySelector('.viewport').dataset.hover);
+  check('the pointer shows it can grab the handle', cursor === 'turn', cursor);
+  await win.screenshot({ path: path.join(out, 'turn-handle.png') });
+  await win.mouse.down();
+  const reach = spot.cy - spot.knobY;
+  // it starts at 12° clockwise; sweep 31° further and the 45° guide catches it
+  for (const deg of [10, 20, 31]) {
+    const r = deg * Math.PI / 180;
+    await win.mouse.move(spot.cx + reach * Math.sin(r), spot.cy - reach * Math.cos(r));
+  }
+  await win.waitForTimeout(150);
+  await win.screenshot({ path: path.join(out, 'turn-guides.png') });
+  await win.mouse.up();
+  const dragged = await win.evaluate(() => window.__inkleaf.getDoc().annots(window.__inkleaf.getDoc().pages[0].id).find((x) => x.id === 'pic').angle);
+  check('dragging the handle turns it, and the 45° guide catches it', near(dragged, 315), String(dragged));
+  await win.evaluate(() => window.__inkleaf.run('undo'));
+
+  // saved: drawn turned, at the same size
+  const r = await win.evaluate(async () => {
+    const { getDoc, exportPdf } = window.__inkleaf;
+    return Array.from((await exportPdf(getDoc())).bytes);
+  });
+  const dir = fs.mkdtempSync(path.join(out, 'angle-'));
+  const file = path.join(dir, 'turned.pdf');
+  fs.writeFileSync(file, Buffer.from(r));
+  const qdf = path.join(dir, 'turned.qdf');
+  execFileSync('qpdf', ['--qdf', '--object-streams=disable', file, qdf]);
+  const text = fs.readFileSync(qdf, 'latin1');
+  // pdf-lib writes the turn and the size as two steps, just before drawing it
+  const num = '(-?[\\d.]+)';
+  const drawn = text.match(new RegExp(`${num} ${num} ${num} ${num} 0 0 cm\\s+${num} 0 0 ${num} 0 0 cm\\s+(?:1 0 0 1 0 0 cm\\s+)?\\/[\\w-]+ Do`));
+  const [cosA, sinA, , , width, height] = (drawn ?? []).slice(1).map(Number);
+  check('the saved picture is 200 by 100 and turned 12° clockwise',
+    !!drawn && near(width, 200) && near(height, 100) && near(Math.atan2(sinA, cosA) * 180 / Math.PI, -12), drawn?.[0]);
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+}
+
 async function noopPageEditTest() {
   console.log('\nPage edits that change nothing (sample.pdf)');
   const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
@@ -2970,7 +3134,7 @@ async function recoveryRaceTest() {
 // ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, findcjk, readingplace, scaninsert, recoveryrace) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, pageleak: excludedPageLeakTest, redactleak: redactionLeakTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, pageleak: excludedPageLeakTest, redactleak: redactionLeakTest, narrowpanel: narrowPanelTest, imageangle: imageAngleTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

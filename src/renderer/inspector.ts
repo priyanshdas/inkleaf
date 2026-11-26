@@ -5,7 +5,8 @@ import { getFamily } from './custom-fonts';
 import type { EditorDoc } from './document';
 import { Editor, styleGroupFor } from './editor';
 import { HIGHLIGHT_COLORS, INK_COLORS, NOTE_COLORS, STAMP_COLORS, STAMPS, ToolStyles } from './styles';
-import type { Annot, FieldAnnot, FieldKind, FontFamily, Tool } from './types';
+import type { Annot, FieldAnnot, FieldKind, FontFamily, ImageAnnot, Tool } from './types';
+import { clockwiseDegrees, turnImage } from './geometry';
 import { h, icon } from './ui';
 
 // The properties panel on the right. It describes whatever you're about to
@@ -138,6 +139,7 @@ export class Inspector {
       this.actionButton('maximize-2', msg('Remove crop from this page'), () => this.run('uncrop-page')),
       this.actionButton('files', msg('Remove crop from all pages'), () => this.run('uncrop-all')),
     )));
+    if (active?.annot.type === 'image') parts.push(this.imageAngle(active.pageId, active.annot));
     if (active && !editor.text.active) parts.push(this.section(msg('Actions'), this.actions(active.annot)));
     if (!active && (tool === 'select' || tool === 'hand')) parts.push(...this.documentPanel(doc));
 
@@ -353,6 +355,40 @@ export class Inspector {
     return b;
   }
 
+  /**
+   * Turning a picture to any angle: a slider to drag and a box to type in.
+   * Shown clockwise, the way people describe turning something; PDF counts
+   * the other way round.
+   */
+  private imageAngle(pageId: string, a: ImageAnnot) {
+    const doc = this.getDoc();
+    const start = String(Math.round(clockwiseDegrees(a.angle)));
+    const slider = h('input', { class: 'insp-range', type: 'range', min: '-180', max: '180', step: '1', value: start, 'aria-label': t('Angle') });
+    const box = h('input', { class: 'number', type: 'number', min: '-180', max: '180', step: '1', value: start, title: t('Angle in degrees, clockwise') });
+    const turn = (degrees: number, done: boolean) => {
+      const now = doc?.annots(pageId).find((x) => x.id === a.id);
+      if (!doc || now?.type !== 'image') return;
+      doc.updateAnnot(pageId, turnImage(now, -degrees));
+      if (done) doc.commit();
+    };
+    slider.addEventListener('input', () => {
+      box.value = slider.value;
+      turn(Number(slider.value), false);
+    });
+    slider.addEventListener('change', () => turn(Number(slider.value), true));
+    box.addEventListener('change', () => {
+      const d = Math.max(-180, Math.min(180, Math.round(Number(box.value) || 0)));
+      box.value = slider.value = String(d);
+      turn(d, true);
+    });
+    const straight = h('button', { class: 'step', title: t('Straighten') }, icon('rotate-ccw'));
+    straight.addEventListener('click', () => {
+      box.value = slider.value = '0';
+      turn(0, true);
+    });
+    return this.section(msg('Angle'), slider, h('div', { class: 'insp-row' }, box, h('span', { class: 'insp-note' }, '°'), straight));
+  }
+
   private actions(a: Annot) {
     const editor = this.editor;
     const doc = this.getDoc();
@@ -364,8 +400,7 @@ export class Inspector {
       list.append(this.actionButton('rotate-cw', msg('Rotate 90°'), () => {
         if (!doc || !editor.selection) return;
         // turn clockwise on screen, keeping the image centred in place
-        const cx = a.x + a.w / 2, cy = a.y + a.h / 2;
-        doc.updateAnnot(editor.selection.pageId, { ...a, angle: (a.angle + 270) % 360, x: cx - a.h / 2, y: cy - a.w / 2, w: a.h, h: a.w });
+        doc.updateAnnot(editor.selection.pageId, turnImage(a, a.angle - 90));
         doc.commit();
       }));
     }

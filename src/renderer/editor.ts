@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { clearPageText, holdToSelect, selectWordAt, startTextSelect } from './text-select';
 import type { EditorDoc } from './document';
-import { annotBounds, dragHandle, handlesFor, hitTest, moveAnnot, newId, normBox, Point, simplifyStroke } from './geometry';
+import { annotBounds, clockwiseDegrees, dragHandle, handlesFor, hitTest, moveAnnot, newId, normBox, Point, simplifyStroke, turnHandle, turnImage } from './geometry';
+import { turnGuide } from './render';
 import { DEFAULT_STYLES, loadStyles, saveStyles, ToolStyles } from './styles';
 import { TextEditor } from './text-editor';
 import { originalFamily, replacementFor, runAt, runBox, textRuns, within } from './text-finder';
@@ -14,6 +15,7 @@ type Drag =
   | { kind: 'pan'; x: number; y: number; left: number; top: number }
   | { kind: 'move'; view: PageView; original: Annot; start: Point; moved: boolean; editOnClick?: boolean }
   | { kind: 'handle'; view: PageView; original: Annot; index: number }
+  | { kind: 'turn'; view: PageView; original: ImageAnnot; centre: Point; start: number }
   | { kind: 'ink'; view: PageView; id: string; points: Point[] }
   | { kind: 'box'; view: PageView; id: string; start: Point }
   | { kind: 'line'; view: PageView; id: string; start: Point }
@@ -443,6 +445,18 @@ export class Editor extends EventTarget {
     return -1;
   }
 
+  /** The selected picture's turning handle, if the pointer is on it. */
+  private turnHandleAt(view: PageView, clientX: number, clientY: number): { original: ImageAnnot; centre: Point } | null {
+    const a = this.selectedAnnot();
+    if (a?.type !== 'image' || this.selection!.pageId !== view.ref.id) return null;
+    const b = annotBounds(a);
+    const corners = ([[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]] as Point[])
+      .map(([x, y]) => this.viewer.toLocal(view, x, y) as Point);
+    const { centre, knob, radius } = turnHandle(corners, 1, view.el.getBoundingClientRect().height);
+    const [px, py] = this.viewer.local(view, clientX, clientY);
+    return Math.hypot(px - knob[0], py - knob[1]) <= radius + 3 ? { original: a, centre } : null;
+  }
+
   private onPointerDown(e: PointerEvent) {
     const doc = this.doc;
     if (!doc || e.button === 1 || (e.button === 0 && this.spaceDown)) {
@@ -472,6 +486,15 @@ export class Editor extends EventTarget {
         return;
 
       case 'select': {
+        const turn = this.turnHandleAt(view, e.clientX, e.clientY);
+        if (turn) {
+          const [px, py] = this.viewer.local(view, e.clientX, e.clientY);
+          this.drag = { kind: 'turn', view, original: turn.original, centre: turn.centre, start: Math.atan2(py - turn.centre[1], px - turn.centre[0]) };
+          Object.assign(turnGuide, { active: true, pointer: [px, py], snapped: false });
+          this.viewer.beginLive(pageId, this.selection!.id);
+          capture();
+          return;
+        }
         const handle = this.handleAt(view, e.clientX, e.clientY);
         if (handle >= 0) {
           this.drag = { kind: 'handle', view, original: this.selectedAnnot()!, index: handle };
@@ -740,6 +763,27 @@ export class Editor extends EventTarget {
         doc.updateAnnot(pageId, moveAnnot(drag.original, dx, dy));
         break;
       }
+      case 'turn': {
+        // like turning a dial: the picture follows the pointer around its centre
+        const [px, py] = this.viewer.local(view, e.clientX, e.clientY);
+        const swept = (Math.atan2(py - drag.centre[1], px - drag.centre[0]) - drag.start) * (180 / Math.PI);
+        let shown = clockwiseDegrees(drag.original.angle) + swept;
+        let snapped = false;
+        if (e.shiftKey) {
+          shown = Math.round(shown / 15) * 15; // Shift: steps of 15°
+          snapped = true;
+        } else {
+          // the guide lines catch it when it's close to straight or a diagonal
+          const nearest = Math.round(shown / 45) * 45;
+          if (Math.abs(shown - nearest) < 3) {
+            shown = nearest;
+            snapped = true;
+          }
+        }
+        Object.assign(turnGuide, { pointer: [px, py], snapped });
+        doc.updateAnnot(pageId, turnImage(drag.original, -shown));
+        break;
+      }
       case 'handle':
         doc.updateAnnot(pageId, dragHandle(drag.original, drag.index, ux, uy, drag.original.type === 'image' ? !e.shiftKey : e.shiftKey));
         break;
@@ -828,6 +872,11 @@ export class Editor extends EventTarget {
           }
         }
         break;
+      case 'turn':
+        turnGuide.active = false;
+        doc.commit();
+        this.viewer.redraw([pageId]);
+        break;
       case 'handle':
       case 'erase':
         doc.commit();
@@ -873,6 +922,7 @@ export class Editor extends EventTarget {
   }
 
   cancelDrag() {
+    turnGuide.active = false;
     if (this.drag?.kind === 'crop') this.drag.el.remove();
     else if (this.drag && this.drag.kind !== 'pan') this.doc?.revert();
     this.drag = null;
@@ -918,9 +968,10 @@ export class Editor extends EventTarget {
     const [ux, uy] = this.viewer.toUser(view, e.clientX, e.clientY);
 
     if (this.tool === 'select') {
-      const onHandle = this.handleAt(view, e.clientX, e.clientY) >= 0;
-      const onAnnot = !onHandle && !!this.topmostAt(view, ux, uy);
-      container.dataset.hover = onHandle ? 'handle' : onAnnot ? 'annot' : '';
+      const onTurn = !!this.turnHandleAt(view, e.clientX, e.clientY);
+      const onHandle = !onTurn && this.handleAt(view, e.clientX, e.clientY) >= 0;
+      const onAnnot = !onTurn && !onHandle && !!this.topmostAt(view, ux, uy);
+      container.dataset.hover = onTurn ? 'turn' : onHandle ? 'handle' : onAnnot ? 'annot' : '';
       return;
     }
 

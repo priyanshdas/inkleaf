@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { BASELINE, cssFamily, cssFont, LINE_HEIGHT, lineDirection, lineOffsets, lineWidth, measureText, needsShaping, textLines } from './fonts';
-import { annotBounds, handlesFor, imageLocalSize, Point } from './geometry';
+import { annotBounds, clockwiseDegrees, handlesFor, imageLocalSize, Point, turnHandle } from './geometry';
 import type { Annot, FieldAnnot, ImageAnnot, LineAnnot, NoteAnnot, StampAnnot, TextStyle } from './types';
 
 export type Transform = [number, number, number, number, number, number];
@@ -361,6 +361,13 @@ export function drawAnnots(
   }
 }
 
+/**
+ * While a picture is being turned with its handle: where the pointer is (in
+ * CSS pixels on the page), the angle to show, and whether it snapped to a
+ * guide. Set by the editor, drawn with the selection.
+ */
+export const turnGuide = { active: false, pointer: [0, 0] as Point, snapped: false };
+
 /** Dashed outline and grab handles for the selected annotation, in device pixels. */
 export function drawSelection(ctx: CanvasRenderingContext2D, transform: Transform, a: Annot, dpr: number) {
   const b = annotBounds(a);
@@ -393,5 +400,106 @@ export function drawSelection(ctx: CanvasRenderingContext2D, transform: Transfor
     ctx.fill();
     ctx.stroke();
   }
+  if (a.type === 'image') drawTurnHandle(ctx, transform, a, corners, dpr, accent);
+  ctx.restore();
+}
+
+/**
+ * A picture's turning handle: the outline of the picture itself (its box is
+ * the area it covers once turned), a round-arrow knob on a short stem, and,
+ * while it's being dragged, guide lines through the centre with the angle.
+ */
+function drawTurnHandle(ctx: CanvasRenderingContext2D, transform: Transform, a: ImageAnnot, corners: Point[], dpr: number, accent: string) {
+  const { lw, lh } = imageLocalSize(a);
+  const cx = a.x + a.w / 2, cy = a.y + a.h / 2;
+  const rad = a.angle * RAD, cos = Math.cos(rad), sin = Math.sin(rad);
+  const outline = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => {
+    const lx = (sx * lw) / 2, ly = (sy * lh) / 2;
+    return apply(transform, cx + lx * cos - ly * sin, cy + lx * sin + ly * cos);
+  });
+  ctx.lineWidth = 1.25 * dpr;
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  outline.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  const { centre, knob, edge, radius } = turnHandle(corners, dpr, ctx.canvas.height);
+
+  if (turnGuide.active) {
+    const [px, py] = [turnGuide.pointer[0] * dpr, turnGuide.pointer[1] * dpr];
+    const reach = Math.hypot(px - centre[0], py - centre[1]);
+    ctx.save();
+    ctx.lineWidth = 1 * dpr;
+    ctx.setLineDash([4 * dpr, 4 * dpr]);
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(0, centre[1]);
+    ctx.lineTo(ctx.canvas.width, centre[1]);
+    ctx.moveTo(centre[0], 0);
+    ctx.lineTo(centre[0], ctx.canvas.height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(centre[0], centre[1], reach, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = (turnGuide.snapped ? 2 : 1.25) * dpr;
+    ctx.beginPath();
+    ctx.moveTo(centre[0], centre[1]);
+    ctx.lineTo(px, py);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(centre[0], centre[1], 3 * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = accent;
+    ctx.fill();
+
+    // the angle, in a little label by the pointer
+    const label = `${Math.round(clockwiseDegrees(a.angle))}°`;
+    ctx.font = `600 ${12 * dpr}px system-ui, sans-serif`;
+    const tw = ctx.measureText(label).width, pad = 6 * dpr, lh2 = 20 * dpr;
+    const lx = Math.min(px + 14 * dpr, ctx.canvas.width - tw - pad * 2 - 2), ly = Math.max(py - 30 * dpr, 2);
+    ctx.fillStyle = turnGuide.snapped ? accent : 'rgba(20, 24, 22, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(lx, ly, tw + pad * 2, lh2, 6 * dpr);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, lx + pad, ly + lh2 / 2);
+    ctx.restore();
+    return; // the knob would only be in the way while turning
+  }
+
+  // the stem and the knob with its round arrow
+  ctx.lineWidth = 1.25 * dpr;
+  ctx.beginPath();
+  ctx.moveTo(edge[0], edge[1]);
+  ctx.lineTo(knob[0], knob[1] + (knob[1] < edge[1] ? radius : -radius));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(knob[0], knob[1], radius, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.stroke();
+  // the round arrow points clockwise (drawn anticlockwise, then mirrored)
+  ctx.save();
+  ctx.translate(knob[0], knob[1]);
+  ctx.scale(-1, 1);
+  const r = radius * 0.5;
+  const from = -Math.PI * 0.35, to = Math.PI * 1.25;
+  ctx.lineWidth = 1.6 * dpr;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, from, to);
+  ctx.stroke();
+  const tip: Point = [r * Math.cos(from), r * Math.sin(from)];
+  const head = 3.2 * dpr;
+  ctx.beginPath();
+  ctx.moveTo(tip[0] + head, tip[1] - head * 0.2);
+  ctx.lineTo(tip[0] - head * 0.2, tip[1] - head);
+  ctx.lineTo(tip[0] - head * 0.1, tip[1] + head * 0.7);
+  ctx.closePath();
+  ctx.fillStyle = accent;
+  ctx.fill();
   ctx.restore();
 }

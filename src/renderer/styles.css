@@ -705,6 +705,8 @@ button:disabled { cursor: default; }
 .viewport[data-tool="text"][data-hover="annot"] .page,
 .viewport[data-tool="edit-text"][data-hover="annot"] .page { cursor: move; }
 .viewport[data-tool="select"][data-hover="handle"] .page { cursor: nwse-resize; }
+.viewport[data-tool="select"][data-hover="turn"] .page { cursor: grab; }
+.viewport[data-tool="select"][data-hover="turn"] .page-text-layer :is(span, br) { cursor: inherit; }
 
 /* form fields only take clicks when you're not drawing; the layer itself
    lets clicks through to the words underneath */
@@ -853,6 +855,7 @@ button.form-field {
 .insp-section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .insp-section h3 { margin: 0 0 10px; color: var(--ink-2); font-size: 12px; font-weight: 600; }
 .insp-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.insp-range { width: 100%; accent-color: var(--accent); }
 
 .swatch-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
 .swatch-grid .swatch { width: 100%; height: auto; aspect-ratio: 1; max-width: 26px; }
@@ -1387,13 +1390,28 @@ kbd {
 .toast-error { background: var(--danger); color: #fff; }
 .toast-success { box-shadow: inset 3px 0 0 var(--leaf), var(--pop-shadow); }
 
-/* narrow windows: give the page room */
+/* narrow windows: give the page room. The properties panel no longer fits
+   beside the page, so it slides in over it instead: from its button, or by
+   itself when a shape or text box is picked (see app.ts). */
 @media (max-width: 1100px) {
   #workspace { grid-template-columns: var(--rail-w) 180px minmax(0, 1fr) 0; }
   .sidebar-hidden #workspace { grid-template-columns: var(--rail-w) 0 minmax(0, 1fr) 0; }
   #inspector { visibility: hidden; }
-  #toggle-inspector { display: none; }
   .thumb { width: 150px; }
+  html:not(.mobile):not(.engine) #inspector {
+    grid-area: auto;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    inset-inline-end: 0;
+    width: 264px;
+    z-index: 30;
+    transform: translateX(100%);
+    transition: transform 160ms ease, visibility 160ms;
+    box-shadow: -8px 0 24px rgb(0 0 0 / 0.14);
+  }
+  html:not(.mobile):not(.engine)[dir="rtl"] #inspector { transform: translateX(-100%); box-shadow: 8px 0 24px rgb(0 0 0 / 0.14); }
+  html:not(.mobile):not(.engine) #app.inspector-over #inspector { visibility: visible; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

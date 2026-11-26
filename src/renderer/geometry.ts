@@ -64,8 +64,62 @@ export function textBounds(a: TextAnnot | ReplaceAnnot): Box {
 
 /** Width/height of an image as it appears on the page, before box rotation. */
 export function imageLocalSize(a: ImageAnnot): { lw: number; lh: number } {
-  const sideways = Math.abs(Math.round(a.angle / 90)) % 2 === 1;
-  return sideways ? { lw: a.h, lh: a.w } : { lw: a.w, lh: a.h };
+  if (isQuarterTurn(a.angle)) {
+    const sideways = Math.abs(Math.round(a.angle / 90)) % 2 === 1;
+    return sideways ? { lw: a.h, lh: a.w } : { lw: a.w, lh: a.h };
+  }
+  // the largest picture of the right shape that, turned, fits the box
+  const rad = (a.angle * Math.PI) / 180;
+  const c = Math.abs(Math.cos(rad)), s = Math.abs(Math.sin(rad));
+  const r = a.ratio && a.ratio > 0 ? a.ratio : a.w / a.h;
+  const lh = Math.min(a.w / (r * c + s), a.h / (r * s + c));
+  return { lw: r * lh, lh };
+}
+
+/**
+ * The round-arrow handle for turning a picture, in the page's screen
+ * coordinates (`unit` is one CSS pixel in them). It sits above the picture,
+ * or below it when the picture is too close to the top of the page.
+ */
+export function turnHandle(corners: Point[], unit: number, pageHeight: number): { centre: Point; knob: Point; edge: Point; radius: number } {
+  const xs = corners.map((c) => c[0]), ys = corners.map((c) => c[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const top = Math.min(...ys) - 4 * unit, bottom = Math.max(...ys) + 4 * unit;
+  const gap = 26 * unit, radius = 11 * unit;
+  const above = top - gap - radius >= 0 || bottom + gap + radius > pageHeight;
+  return {
+    centre: [cx, cy],
+    knob: [cx, above ? top - gap : bottom + gap],
+    edge: [cx, above ? top : bottom],
+    radius,
+  };
+}
+
+/** An angle as people describe it: clockwise on screen, from -179 to 180. PDF counts the other way. */
+export function clockwiseDegrees(angle: number): number {
+  let d = -angle % 360;
+  if (d > 180) d -= 360;
+  if (d <= -180) d += 360;
+  return d;
+}
+
+function isQuarterTurn(angle: number): boolean {
+  return Math.abs(angle / 90 - Math.round(angle / 90)) < 1e-9;
+}
+
+/**
+ * The same picture turned to `angle` (degrees, anticlockwise as PDF counts
+ * them), around its centre, with its box grown or shrunk to cover it.
+ */
+export function turnImage(a: ImageAnnot, angle: number): ImageAnnot {
+  const { lw, lh } = imageLocalSize(a);
+  const turned = ((angle % 360) + 360) % 360;
+  const rad = (turned * Math.PI) / 180;
+  const c = Math.abs(Math.cos(rad)), s = Math.abs(Math.sin(rad));
+  const w = lw * c + lh * s, h = lw * s + lh * c;
+  const cx = a.x + a.w / 2, cy = a.y + a.h / 2;
+  return { ...a, angle: turned, ratio: lw / lh, x: cx - w / 2, y: cy - h / 2, w, h };
 }
 
 // --- bounds & hit testing ----------------------------------------------------
