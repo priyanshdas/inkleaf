@@ -5,6 +5,317 @@
 ; the default PDF app" can open Settings straight on Inkleaf's page.
 ; Nothing here changes which app opens PDFs: only the person can choose that.
 
+; --- Choices on the way in: shortcuts, and the built-in AI ------------------
+;
+; Two pages after the folder is chosen. The first asks for a desktop shortcut
+; and a Start menu shortcut (both ticked to begin with). The second offers the
+; built-in AI: a list of the models, the details of the one picked (what it's
+; good for, download size, memory it needs), a tick to download it, and the
+; total. Any number can be ticked, or none. Updates skip both pages and keep
+; the shortcuts as they are.
+;
+; electron-builder makes both shortcuts as usual (so taskbar pinning and
+; updates keep working); an unticked one is then taken away again.
+;
+; The models download straight into the folders the app itself uses
+; (%APPDATA%\Inkleaf\ai), each checked against the same SHA-256 the app checks,
+; so InkLeaf finds them ready. The list comes from the app's own
+; (build/installer-ai.nsh, made by scripts/installer-ai.mjs). If a download
+; fails, InkLeaf is still installed and the model can be downloaded later from
+; Tools > AI Settings. "View details" on the installing page shows each step.
+
+!ifndef BUILD_UNINSTALLER
+  !include "nsDialogs.nsh"
+  !include "${BUILD_RESOURCES_DIR}\installer-ai.nsh"
+
+  Var inkleafDesktop
+  Var inkleafStartMenu
+  Var inkleafDesktopBox
+  Var inkleafStartMenuBox
+  Var inkleafAiList
+  Var inkleafAiDetails
+  Var inkleafAiBox
+  Var inkleafAiTotal
+  ; the model shown in the details, counting from 1
+  Var inkleafAiShown
+
+  ; whether each model is ticked: $inkleafAiWant1, $inkleafAiWant2…
+  !macro inkleafAiVar N
+    Var inkleafAiWant${N}
+  !macroend
+  !insertmacro inkleafEachModel inkleafAiVar
+
+  !define INKLEAF_AI_DIR "$APPDATA\Inkleaf\ai"
+
+  ; Writes a model's or the engine's ".ok" mark: the app's sign it's been checked.
+  !macro inkleafMarkOk file sha
+    FileOpen $0 "${file}" w
+    FileWrite $0 "${sha}"
+    FileClose $0
+  !macroend
+
+  !macro inkleafGetModel N
+    ${ifNot} ${FileExists} "${INKLEAF_AI_DIR}\models\${AI_${N}_FILE}.ok"
+      Call inkleafGetEngine
+      ${if} $R9 == "ok"
+        CreateDirectory "${INKLEAF_AI_DIR}\models"
+        StrCpy $R0 "${AI_${N}_URL}"
+        StrCpy $R1 "${INKLEAF_AI_DIR}\models\${AI_${N}_FILE}"
+        StrCpy $R2 "${AI_${N}_SHA256}"
+        StrCpy $R3 "the ${AI_${N}_NAME} AI model (${AI_${N}_SIZE})"
+        Call inkleafFetch
+      ${endif}
+      ${if} $R9 == "ok"
+        !insertmacro inkleafMarkOk "${INKLEAF_AI_DIR}\models\${AI_${N}_FILE}.ok" "${AI_${N}_SHA256}"
+        DetailPrint "The ${AI_${N}_NAME} AI model is ready."
+      ${else}
+        DetailPrint "The ${AI_${N}_NAME} AI model couldn't be downloaded: $R9"
+        MessageBox MB_OK|MB_ICONEXCLAMATION "The ${AI_${N}_NAME} AI model couldn't be downloaded ($R9).$\r$\n$\r$\nInkLeaf PDF is installed and works without it. You can download the model later in InkLeaf, under Tools > AI Settings." /SD IDOK
+      ${endif}
+    ${endif}
+  !macroend
+
+  ; --- the pieces of the AI page that differ for each model ---
+
+  !macro inkleafAiInit N
+    StrCpy $inkleafAiWant${N} ${BST_UNCHECKED}
+  !macroend
+
+  !macro inkleafAiAddToList N
+    ${NSD_CB_AddString} $inkleafAiList "${AI_${N}_NAME}  (${AI_${N}_SIZE})"
+  !macroend
+
+  !macro inkleafAiShowCase N
+    ${if} $inkleafAiShown == ${N}
+      ${NSD_SetText} $inkleafAiDetails "${AI_${N}_BLURB}$\r$\n$\r$\nDownload: ${AI_${N}_SIZE}$\r$\nMemory: ${AI_${N}_MEMORY} or more is best$\r$\nModel: ${AI_${N}_MODEL}, from Hugging Face (Apache 2.0 licence)"
+      ${if} ${FileExists} "${INKLEAF_AI_DIR}\models\${AI_${N}_FILE}.ok"
+        ${NSD_SetText} $inkleafAiBox "Already downloaded on this computer"
+        ${NSD_Uncheck} $inkleafAiBox
+        EnableWindow $inkleafAiBox 0
+      ${else}
+        ${NSD_SetText} $inkleafAiBox "&Download this model during installation (${AI_${N}_SIZE})"
+        EnableWindow $inkleafAiBox 1
+        ${NSD_SetState} $inkleafAiBox $inkleafAiWant${N}
+      ${endif}
+    ${endif}
+  !macroend
+
+  !macro inkleafAiTickCase N
+    ${if} $inkleafAiShown == ${N}
+      StrCpy $inkleafAiWant${N} $0
+    ${endif}
+  !macroend
+
+  ; adds a ticked model to the total: megabytes in $1, names in $2
+  !macro inkleafAiSumCase N
+    ${if} $inkleafAiWant${N} == ${BST_CHECKED}
+      IntOp $1 $1 + ${AI_${N}_MB}
+      ${if} $2 == ""
+        StrCpy $2 "${AI_${N}_NAME}"
+      ${else}
+        StrCpy $2 "$2, ${AI_${N}_NAME}"
+      ${endif}
+    ${endif}
+  !macroend
+
+  !macro inkleafAiGetCase N
+    ${if} $inkleafAiWant${N} == ${BST_CHECKED}
+      !insertmacro inkleafGetModel ${N}
+    ${endif}
+  !macroend
+
+  ; what's ticked to begin with (and what a silent install does)
+  !macro customInit
+    StrCpy $inkleafDesktop ${BST_CHECKED}
+    StrCpy $inkleafStartMenu ${BST_CHECKED}
+    !insertmacro inkleafEachModel inkleafAiInit
+  !macroend
+
+  ; Electron-builder includes this file before its own helpers (LogicLib, MUI),
+  ; so the functions are defined here, where the installer's pages are.
+  !macro customPageAfterChangeDir
+    Page custom inkleafChoicesPage inkleafChoicesLeave
+    Page custom inkleafAiPage
+
+    ; the installing page gets a "View details" button that shows each step
+    ShowInstDetails hide
+    DetailsButtonText "View details"
+
+    Function inkleafChoicesPage
+      ${if} ${isUpdated}
+        Abort
+      ${endif}
+      !insertmacro MUI_HEADER_TEXT "Shortcuts" "Where you'd like to find InkLeaf PDF."
+      nsDialogs::Create 1018
+      Pop $0
+      ${NSD_CreateCheckbox} 0 4u 100% 12u "Create a &desktop shortcut"
+      Pop $inkleafDesktopBox
+      ${NSD_SetState} $inkleafDesktopBox $inkleafDesktop
+      ${NSD_CreateCheckbox} 0 20u 100% 12u "Add InkLeaf PDF to the &Start menu"
+      Pop $inkleafStartMenuBox
+      ${NSD_SetState} $inkleafStartMenuBox $inkleafStartMenu
+      ${NSD_CreateLabel} 0 44u 100% 20u "Next, you can choose built-in AI models to download, or skip them."
+      Pop $0
+      nsDialogs::Show
+    FunctionEnd
+
+    Function inkleafChoicesLeave
+      ${NSD_GetState} $inkleafDesktopBox $inkleafDesktop
+      ${NSD_GetState} $inkleafStartMenuBox $inkleafStartMenu
+    FunctionEnd
+
+    Function inkleafAiPage
+      ${if} ${isUpdated}
+        Abort
+      ${endif}
+      !insertmacro MUI_HEADER_TEXT "Built-in AI (optional)" "Choose AI models to download now, or skip this and add them later."
+      nsDialogs::Create 1018
+      Pop $0
+      ${NSD_CreateLabel} 0 0 100% 18u "Summarise, translate and ask questions about PDFs with AI that runs on this computer: no account, and your files never leave it."
+      Pop $0
+      ${NSD_CreateLabel} 0 24u 30u 10u "&Model:"
+      Pop $0
+      ${NSD_CreateDropList} 32u 22u 160u 80u ""
+      Pop $inkleafAiList
+      !insertmacro inkleafEachModel inkleafAiAddToList
+      ${NSD_OnChange} $inkleafAiList inkleafAiShow
+      ${NSD_CreateGroupBox} 0 38u 100% 64u "Details"
+      Pop $0
+      ${NSD_CreateLabel} 8u 50u -16u 48u ""
+      Pop $inkleafAiDetails
+      ${NSD_CreateCheckbox} 0 106u 100% 12u ""
+      Pop $inkleafAiBox
+      ${NSD_OnClick} $inkleafAiBox inkleafAiTick
+      ${NSD_CreateLabel} 0 122u 100% 18u ""
+      Pop $inkleafAiTotal
+
+      ; open on the model the app picks to begin with
+      IntOp $0 ${AI_DEFAULT} - 1
+      SendMessage $inkleafAiList ${CB_SETCURSEL} $0 0
+      Call inkleafAiShow
+      Call inkleafAiSum
+      nsDialogs::Show
+    FunctionEnd
+
+    Function inkleafAiShow
+      SendMessage $inkleafAiList ${CB_GETCURSEL} 0 0 $0
+      IntOp $inkleafAiShown $0 + 1
+      !insertmacro inkleafEachModel inkleafAiShowCase
+    FunctionEnd
+
+    Function inkleafAiTick
+      ${NSD_GetState} $inkleafAiBox $0
+      !insertmacro inkleafEachModel inkleafAiTickCase
+      Call inkleafAiSum
+    FunctionEnd
+
+    ; "Will download: Quick, Better (4.0 GB in all)"
+    Function inkleafAiSum
+      StrCpy $1 0
+      StrCpy $2 ""
+      !insertmacro inkleafEachModel inkleafAiSumCase
+      ${if} $1 == 0
+        ${NSD_SetText} $inkleafAiTotal "Nothing will be downloaded. You can add AI models any time in InkLeaf, under Tools > AI Settings."
+        Return
+      ${endif}
+      ${ifNot} ${FileExists} "${INKLEAF_AI_DIR}\${AI_ENGINE_DIR}\.ok"
+        IntOp $1 $1 + ${AI_ENGINE_MB}
+        StrCpy $2 "$2, and the AI engine"
+      ${endif}
+      ${if} $1 < 1000
+        StrCpy $3 "$1 MB"
+      ${else}
+        IntOp $3 $1 / 1000
+        IntOp $4 $1 % 1000
+        IntOp $4 $4 / 100
+        StrCpy $3 "$3.$4 GB"
+      ${endif}
+      ${NSD_SetText} $inkleafAiTotal "Will download: $2 ($3 in all). Make sure there's that much free space."
+    FunctionEnd
+
+    ; Downloads $R0 (link) to $R1 (file), checks it against $R2 (SHA-256).
+    ; $R3 names it in the progress window. Leaves "ok" or what went wrong in $R9.
+    Function inkleafFetch
+      DetailPrint "Downloading $R3 from $R0"
+      inetc::get /CAPTION "Downloading $R3" /RESUME "" /USERAGENT "InkLeaf PDF installer" "$R0" "$R1.part" /END
+      Pop $0
+      ${if} $0 != "OK"
+        Delete "$R1.part"
+        StrCpy $R9 "$0"
+        Return
+      ${endif}
+
+      DetailPrint "Checking $R3 against its SHA-256: $R2"
+      ; the path goes in through the environment, so no folder name can upset the command
+      System::Call 'Kernel32::SetEnvironmentVariable(t "INKLEAF_CHECK", t "$R1.part")'
+      ${DisableX64FSRedirection}
+      nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath $$env:INKLEAF_CHECK).Hash"'
+      ${EnableX64FSRedirection}
+      Pop $0
+      Pop $1
+      StrCpy $1 $1 64
+      ${if} $1 != $R2
+        Delete "$R1.part"
+        StrCpy $R9 "the download didn't match what was expected"
+        Return
+      ${endif}
+      Delete "$R1"
+      Rename "$R1.part" "$R1"
+      DetailPrint "Saved to $R1"
+      StrCpy $R9 "ok"
+    FunctionEnd
+
+    ; The AI engine (llama.cpp), unpacked where the app expects it. Leaves "ok" or the problem in $R9.
+    Function inkleafGetEngine
+      ${if} ${FileExists} "${INKLEAF_AI_DIR}\${AI_ENGINE_DIR}\.ok"
+        StrCpy $R9 "ok"
+        Return
+      ${endif}
+      CreateDirectory "${INKLEAF_AI_DIR}"
+      StrCpy $R0 "${AI_ENGINE_URL}"
+      StrCpy $R1 "${INKLEAF_AI_DIR}\${AI_ENGINE_FILE}"
+      StrCpy $R2 "${AI_ENGINE_SHA256}"
+      StrCpy $R3 "the AI engine (${AI_ENGINE_SIZE})"
+      Call inkleafFetch
+      ${if} $R9 != "ok"
+        Return
+      ${endif}
+      RMDir /r "${INKLEAF_AI_DIR}\${AI_ENGINE_DIR}"
+      CreateDirectory "${INKLEAF_AI_DIR}\${AI_ENGINE_DIR}"
+      DetailPrint "Unpacking the AI engine..."
+      ${DisableX64FSRedirection}
+      nsExec::ExecToLog '"$SYSDIR\tar.exe" -xf "${INKLEAF_AI_DIR}\${AI_ENGINE_FILE}" -C "${INKLEAF_AI_DIR}\${AI_ENGINE_DIR}"'
+      ${EnableX64FSRedirection}
+      Pop $0
+      Delete "${INKLEAF_AI_DIR}\${AI_ENGINE_FILE}"
+      ${if} $0 != 0
+        RMDir /r "${INKLEAF_AI_DIR}\${AI_ENGINE_DIR}"
+        StrCpy $R9 "the AI engine couldn't be unpacked"
+        Return
+      ${endif}
+      !insertmacro inkleafMarkOk "${INKLEAF_AI_DIR}\${AI_ENGINE_DIR}\.ok" "${AI_ENGINE_SHA256}"
+      StrCpy $R9 "ok"
+    FunctionEnd
+  !macroend
+
+  !macro inkleafApplyChoices
+    ${ifNot} ${isUpdated}
+      ${if} $inkleafDesktop != ${BST_CHECKED}
+        WinShell::UninstShortcut "$newDesktopLink"
+        Delete "$newDesktopLink"
+      ${endif}
+      ${if} $inkleafStartMenu != ${BST_CHECKED}
+        WinShell::UninstShortcut "$newStartMenuLink"
+        Delete "$newStartMenuLink"
+        ; "Run InkLeaf PDF" at the end then starts the program itself
+        StrCpy $launchLink "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+      ${endif}
+      System::Call 'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
+    ${endif}
+    !insertmacro inkleafEachModel inkleafAiGetCase
+  !macroend
+!endif
+
 !macro customInstall
   WriteRegStr SHCTX "Software\Classes\Inkleaf.pdf" "" "PDF Document"
   WriteRegStr SHCTX "Software\Classes\Inkleaf.pdf\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME},0"
@@ -41,6 +352,8 @@
 
   ; tell Explorer the list of apps for file types has changed
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+
+  !insertmacro inkleafApplyChoices
 !macroend
 
 !macro customUnInstall

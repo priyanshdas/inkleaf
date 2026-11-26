@@ -1852,21 +1852,23 @@ async function builtinAiTest() {
   await win.fill('.ask-input', 'What is the total due?');
   await win.press('.ask-input', 'Enter');
   await win.waitForSelector('.modal .local-models');
-  check('the built-in AI is picked, with its two sizes', await win.isChecked('.ai-option input[value="builtin"]')
-    && (await win.locator('.local-model').count()) === 2);
+  check('the built-in AI is picked, with its four sizes', await win.isChecked('.ai-option input[value="builtin"]')
+    && (await win.locator('.local-model').count()) === 4);
+  // Lite, Quick, Better, Best: Quick is the second row, Better the third
+  check('Quick is the one picked to begin with', await win.isChecked('.local-model:nth-child(2) input'));
   await modalButton(win, 'Save');
   check('saving before downloading says to download first', /Download the model first/.test(await win.textContent('.modal .field-error')));
 
   // a download with a wrong checksum is refused and thrown away
-  await win.click('.local-model:nth-child(2) button:has-text("Download")');
+  await win.click('.local-model:nth-child(3) button:has-text("Download")');
   await win.waitForFunction(() => /didn’t match/.test(document.querySelector('.modal .field-error')?.textContent ?? ''), null, { timeout: 30000 });
   check('a download that doesn’t match its checksum is refused', !fs.existsSync(path.join(profile, 'ai', 'models', 'better.gguf')));
 
   // the real one: llama.cpp and the model, with progress
-  await win.click('.local-model:nth-child(1) button:has-text("Download")');
+  await win.click('.local-model:nth-child(2) button:has-text("Download")');
   await win.waitForSelector('.local-model .meter', { timeout: 10000 });
   check('it shows progress while downloading', true);
-  await win.waitForSelector('.local-model:nth-child(1) .badge:has-text("Downloaded")', { timeout: 60000 });
+  await win.waitForSelector('.local-model:nth-child(2) .badge:has-text("Downloaded")', { timeout: 60000 });
   check('llama.cpp is unpacked and the model checked', fs.existsSync(path.join(profile, 'ai', 'models', 'quick.gguf.ok'))
     && fs.readdirSync(path.join(profile, 'ai'), { withFileTypes: true }).some((e) => e.isDirectory() && e.name.startsWith('llama-')));
   await modalButton(win, 'Save');
@@ -1901,8 +1903,8 @@ async function builtinAiTest() {
   // removing the model removes llama.cpp too
   await win.evaluate(() => { void window.__inkleaf.run('ai-settings'); });
   await win.waitForSelector('.modal .local-models');
-  await win.click('.local-model:nth-child(1) button:has-text("Remove")');
-  await win.waitForSelector('.local-model:nth-child(1) button:has-text("Download")');
+  await win.click('.local-model:nth-child(2) button:has-text("Remove")');
+  await win.waitForSelector('.local-model:nth-child(2) button:has-text("Download")');
   check('Remove deletes the model and llama.cpp', !fs.existsSync(path.join(profile, 'ai', 'models', 'quick.gguf'))
     && !fs.readdirSync(path.join(profile, 'ai'), { withFileTypes: true }).some((e) => e.isDirectory() && e.name.startsWith('llama-')));
   await modalButton(win, 'Cancel');
@@ -2937,6 +2939,34 @@ async function imageAngleTest() {
   await quit(app, win);
 }
 
+async function communityAndInstallerTest() {
+  console.log('\nCommunity links, and the installer’s list of AI models');
+  const { app, win, errors } = await launch(path.join(fixtures, 'sample.pdf'));
+  await waitForPages(win);
+  await win.evaluate(() => window.__inkleaf.run('about'));
+  await win.waitForSelector('.about-links');
+  const links = await win.$$eval('.about-links a', (as) => as.map((a) => [a.textContent.trim(), a.getAttribute('href')]));
+  check('About links to GitHub, Discord and Reddit',
+    JSON.stringify(links) === JSON.stringify([['GitHub', 'https://github.com/priyanshdas/inkleaf'], ['Discord', 'https://discord.gg/ewnF24GaZg'], ['Reddit', 'https://www.reddit.com/r/inkleafapp/']]),
+    JSON.stringify(links));
+  const help = await app.evaluate(({ Menu }) => {
+    const menu = Menu.getApplicationMenu();
+    return menu ? menu.items.flatMap((m) => m.submenu?.items ?? []).map((i) => i.label) : [];
+  });
+  check('the Help menu has Discord and Reddit next to GitHub',
+    ['InkLeaf PDF on GitHub', 'InkLeaf PDF on Discord', 'InkLeaf PDF on Reddit'].every((l) => help.includes(l)) || help.length === 0, help.join(', '));
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+
+  let upToDate = true;
+  try {
+    execFileSync('node', [path.join(root, 'scripts', 'installer-ai.mjs'), '--check'], { stdio: 'pipe' });
+  } catch {
+    upToDate = false;
+  }
+  check('the Windows installer offers the same AI models, sizes and checksums as the app', upToDate);
+}
+
 async function noopPageEditTest() {
   console.log('\nPage edits that change nothing (sample.pdf)');
   const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
@@ -3134,7 +3164,7 @@ async function recoveryRaceTest() {
 // ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, findcjk, readingplace, scaninsert, recoveryrace) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, pageleak: excludedPageLeakTest, redactleak: redactionLeakTest, narrowpanel: narrowPanelTest, imageangle: imageAngleTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, pageleak: excludedPageLeakTest, redactleak: redactionLeakTest, narrowpanel: narrowPanelTest, imageangle: imageAngleTest, community: communityAndInstallerTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

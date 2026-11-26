@@ -1250,6 +1250,10 @@ button.form-field {
 
 .warning-list { margin: 6px 0 0; padding-inline-start: 18px; color: var(--ink-2); line-height: 1.5; }
 .about p { margin: 0 0 8px; line-height: 1.5; }
+.about-links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.about-link { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); text-decoration: none; font-weight: 550; }
+.about-link:hover { text-decoration: underline; }
+.about-link .icon { width: 16px; height: 16px; }
 
 .shortcuts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 8px 0 0; }
 .shortcuts dt { text-align: end; color: var(--ink-2); }

@@ -35,7 +35,7 @@ must travel with any copy of InkLeaf PDF you share.
 | [Noto fonts](https://fonts.google.com/noto) | Typing in Hindi, Bengali, Arabic and other scripts | SIL Open Font License 1.1 |
 | [PDFium](https://pdfium.googlesource.com/pdfium/), built by [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) | Drawing File Explorer's PDF thumbnails (Windows) | BSD-3-Clause; the libraries inside it (FreeType, ICU, libjpeg-turbo, OpenJPEG, Little CMS, libpng, zlib, Abseil, AGG and others) are under their own permissive licences, shipped in `resources/thumbnails/licenses` |
 | [llama.cpp](https://github.com/ggml-org/llama.cpp) | The built-in AI (downloaded on a computer when you turn it on; built into the Android app) | MIT |
-| [Qwen 3.5](https://huggingface.co/Qwen) models | The built-in AI's Quick and Better models (downloaded when you choose one; not bundled) | Apache-2.0 |
+| [Qwen 3.5](https://huggingface.co/Qwen) models | The built-in AI's Lite, Quick, Better and Best models (downloaded when you choose one; not bundled) | Apache-2.0 |
 | sRGB colour profile by Graeme W. Gill (from ArgyllCMS) | Colour profile for PDF/A | Public domain |
 | The AI service you pick in AI settings (Claude, ChatGPT, Gemini, Grok, Perplexity, a local model or any compatible service) | AI Summarizer and Translate (optional, your own key; not bundled) | That service's own terms |
 

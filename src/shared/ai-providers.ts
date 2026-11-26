@@ -7,7 +7,7 @@
 // points: the settings screen can also ask the provider for its current list.
 
 import { msg } from './i18n';
-import { LOCAL_MODELS } from './local-models';
+import { DEFAULT_LOCAL_MODEL, LOCAL_MODELS } from './local-models';
 
 /** How a provider expects to be called. */
 export type AiProtocol = 'anthropic' | 'openai' | 'perplexity' | 'builtin';
@@ -42,7 +42,8 @@ export const AI_PROVIDERS: AiProvider[] = [
     // runs inside Inkleaf (computer app only): see src/main/local-ai.ts
     id: 'builtin', name: msg('Built-in AI'), company: msg('this computer'), protocol: 'builtin',
     baseUrl: '', needsKey: false, onDevice: true,
-    models: LOCAL_MODELS.map((m) => m.id),
+    // the default first, as the first model is the one used until another is picked
+    models: [DEFAULT_LOCAL_MODEL, ...LOCAL_MODELS.map((m) => m.id).filter((id) => id !== DEFAULT_LOCAL_MODEL)],
     blurb: msg('Runs inside InkLeaf PDF. No key, no account, and nothing leaves your computer. Downloads once.'),
   },
   {

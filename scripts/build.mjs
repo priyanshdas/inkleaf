@@ -62,6 +62,7 @@ const iconNames = [
   'scan-line', 'camera', 'aperture', 'maximize', 'sliders-horizontal', 'sparkles', 'languages', 'file-minus', 'layout-grid', 'sheet', 'archive', 'list-ordered',
   'corner-down-right', 'chevrons-down-up', 'chevrons-up-down', 'arrow-right-left',
   'clipboard-paste', 'chevron-up', 'ratio', 'app-window', 'fullscreen', 'settings-2', 'file-down',
+  'git-branch', 'message-circle', 'messages-square',
 ];
 
 function writeIcons() {

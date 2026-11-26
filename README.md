@@ -133,10 +133,13 @@ If one of them already does what you need, it's a fine choice.
   number to jump there). Pick the AI in Tools › AI settings:
   - **Built-in AI**, free, with no key and no account. InkLeaf PDF downloads a
     small open model once ([Qwen 3.5](https://huggingface.co/Qwen), Apache
-    2.0: Quick is 1.3 GB, Better 2.7 GB) and runs it with
+    2.0, in four sizes: Lite 0.5 GB, Quick 1.3 GB, Better 2.7 GB and Best
+    5.6 GB) and runs it with
     [llama.cpp](https://github.com/ggml-org/llama.cpp), on your graphics card
     if it can. It works offline after that and nothing leaves your computer.
-    The Android app runs the same models on the phone itself.
+    The Android app runs the same models on the phone itself. On Windows,
+    the installer can download them for you, and add desktop and Start menu
+    shortcuts if you want them.
   - **Claude, ChatGPT, Gemini, Grok or Perplexity**, with your own API key.
     You pay the provider directly, and each key is stored encrypted and
     only ever sent to its own provider.

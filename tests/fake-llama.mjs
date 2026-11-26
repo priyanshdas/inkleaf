@@ -69,9 +69,9 @@ export async function startFakeLlamaDownloads() {
     env: {
       INKLEAF_TEST_LLAMA_RUNTIME: JSON.stringify({ file: 'runtime.tar.gz', url: `${base}/runtime.tar.gz`, sha256: sha(files['runtime.tar.gz']), size: files['runtime.tar.gz'].length }),
       INKLEAF_TEST_LOCAL_MODELS: JSON.stringify([
-        { file: 'quick.gguf', url: `${base}/quick.gguf`, sha256: sha(files['quick.gguf']), size: files['quick.gguf'].length },
+        { id: 'qwen3.5-2b', file: 'quick.gguf', url: `${base}/quick.gguf`, sha256: sha(files['quick.gguf']), size: files['quick.gguf'].length },
         // a wrong hash, to see a bad download refused
-        { file: 'better.gguf', url: `${base}/better.gguf`, sha256: '0'.repeat(64), size: files['better.gguf'].length },
+        { id: 'qwen3.5-4b', file: 'better.gguf', url: `${base}/better.gguf`, sha256: '0'.repeat(64), size: files['better.gguf'].length },
       ]),
     },
     close: () => {

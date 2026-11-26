@@ -9,7 +9,7 @@ import { OutlinePanel } from './outline';
 import { printDocument } from './print';
 import { compressDialog, decorDialog, imagesToPdf, pdfToImages, protectDialog, ToolHost } from './tools';
 import { NO_DECOR } from './document';
-import { DONATE_URL, ISSUES_URL, REPO_URL } from '../shared/config';
+import { DISCORD_URL, DONATE_URL, ISSUES_URL, REDDIT_URL, REPO_URL } from '../shared/config';
 import { isMobile, supports } from '../shared/platform';
 import { AutoSave, SaveState } from './autosave';
 import type { Box } from './types';
@@ -856,7 +856,7 @@ async function readingDirection(d: EditorDoc): Promise<boolean> {
 
 const NO_DOC_NEEDED = new Set<Command>([
   'new', 'open', 'about', 'shortcuts', 'close', 'close-tab', 'new-window', 'quit', 'fullscreen', 'devtools',
-  'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'default-app', 'receive-code', 'receive-file', 'toggle-autosave', 'open-backups', 'open-github', 'report-problem', 'donate',
+  'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'default-app', 'receive-code', 'receive-file', 'toggle-autosave', 'open-backups', 'open-github', 'open-discord', 'open-reddit', 'report-problem', 'donate',
   'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'language', 'terms', 'privacy', 'link-pair',
   'app-settings', 'combine-files', 'toggle-ribbon',
 ]);
@@ -1099,6 +1099,8 @@ async function run(command: Command) {
       return;
     case 'open-backups': return api.listBackups ? backupsDialog() : api.openBackups();
     case 'open-github': return api.openExternal(REPO_URL);
+    case 'open-discord': return api.openExternal(DISCORD_URL);
+    case 'open-reddit': return api.openExternal(REDDIT_URL);
     case 'report-problem': return api.openExternal(ISSUES_URL);
     case 'donate': return api.openExternal(DONATE_URL || REPO_URL);
     case 'show-comments': return showSide('comments');
@@ -2399,6 +2401,7 @@ async function showAbout() {
         ? t('A free, open-source PDF editor. Everything happens on this phone; no files are uploaded anywhere.')
         : t('A free, open-source PDF editor. Everything happens on this computer; no files are uploaded anywhere.')),
       h('p', { class: 'muted' }, t('Built by EPD (Priyansh Das). Licensed under the GNU GPL, version 3 or later: you’re free to use, study, share and change it.')),
+      communityLinks(),
       h('p', { class: 'muted small' },
         t('Built with pdf.js (Apache 2.0), pdf-lib (MIT), lopdf (MIT), Tesseract OCR (Apache 2.0), docx (MIT), Instrument Sans and DejaVu fonts (OFL / Bitstream Vera), Lucide icons (ISC). '),
         t('Electron {electron}.', { electron: info.electron })),
@@ -2412,6 +2415,23 @@ async function showAbout() {
     if (choice === 'code') api.openExternal(REPO_URL);
     if (choice === 'support') api.openExternal(DONATE_URL || REPO_URL);
   });
+}
+
+/** GitHub, Discord and Reddit, for the About box. Brand names, so not translated. */
+function communityLinks() {
+  const link = (label: string, iconName: string, url: string) => {
+    const a = h('a', { href: url, class: 'about-link' }, icon(iconName), label);
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      api.openExternal(url);
+    });
+    return a;
+  };
+  return h('p', { class: 'about-links' },
+    link('GitHub', 'git-branch', REPO_URL),
+    link('Discord', 'message-circle', DISCORD_URL),
+    link('Reddit', 'messages-square', REDDIT_URL),
+  );
 }
 
 function showShortcuts() {

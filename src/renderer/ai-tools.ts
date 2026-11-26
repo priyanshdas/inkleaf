@@ -19,7 +19,7 @@ import { colorsAround, pageRuns, runBox, type RGB, TextRun } from './text-finder
 import type { ReplaceAnnot } from './types';
 import { h, icon, modal, toast } from './ui';
 import { AI_PROVIDERS, LOCAL_SERVERS, providerById } from '../shared/ai-providers';
-import { LOCAL_MODELS, LocalAiStatus } from '../shared/local-models';
+import { DEFAULT_LOCAL_MODEL, LOCAL_MODELS, LocalAiStatus } from '../shared/local-models';
 
 const api = () => window.inkleaf;
 
@@ -88,7 +88,7 @@ export async function aiSettings(): Promise<boolean> {
 
   // --- the built-in AI: pick a size, download it once ---
   let local: LocalAiStatus = status.local ?? { supported: false, installed: [], sizes: {}, downloading: null, device: null };
-  let localChoice = status.models.builtin ?? LOCAL_MODELS[0].id;
+  let localChoice = status.models.builtin ?? DEFAULT_LOCAL_MODEL;
   const gb = (bytes: number) => (bytes / 1e9).toLocaleString(undefined, { maximumFractionDigits: 1 });
   const size = (bytes: number) => bytes >= 1e9 ? t('{n} GB', { n: gb(bytes) }) : t('{n} MB', { n: Math.max(1, Math.round(bytes / 1e6)).toLocaleString() });
   const localRows = h('div', { class: 'local-models', role: 'radiogroup' });

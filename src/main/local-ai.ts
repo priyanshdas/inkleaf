@@ -83,8 +83,9 @@ const runtimeInstalled = () => existsSync(path.join(runtimeDir(), OK)) && !!find
 function catalogue(): LocalModel[] {
   const test = testing() && process.env.INKLEAF_TEST_LOCAL_MODELS;
   if (!test) return LOCAL_MODELS;
+  // stand-ins for the models named by id; the rest are left out
   const overrides = JSON.parse(test) as Partial<LocalModel>[];
-  return LOCAL_MODELS.map((m, i) => ({ ...m, ...overrides[i] }));
+  return LOCAL_MODELS.map((m) => ({ ...m, ...overrides.find((o) => o.id === m.id) }));
 }
 const modelById = (id: string) => catalogue().find((m) => m.id === id) ?? catalogue()[0];
 const modelFile = (model: LocalModel) => path.join(modelsDir(), model.file);

@@ -160,6 +160,8 @@ export const MENU: MenuSection[] = [
       'separator',
       { label: msg('Report a Problem…'), command: 'report-problem' },
       { label: msg('InkLeaf PDF on GitHub'), command: 'open-github' },
+      { label: msg('InkLeaf PDF on Discord'), command: 'open-discord' },
+      { label: msg('InkLeaf PDF on Reddit'), command: 'open-reddit' },
       { label: msg('Buy Me a Coffee…'), command: 'donate' },
       'separator',
       { label: msg('Terms of Use'), command: 'terms' },
