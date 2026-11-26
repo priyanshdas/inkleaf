@@ -856,7 +856,7 @@ async function readingDirection(d: EditorDoc): Promise<boolean> {
 
 const NO_DOC_NEEDED = new Set<Command>([
   'new', 'open', 'about', 'shortcuts', 'close', 'close-tab', 'new-window', 'quit', 'fullscreen', 'devtools',
-  'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'default-app', 'receive-code', 'receive-file', 'toggle-autosave', 'open-backups', 'open-github', 'open-discord', 'open-reddit', 'report-problem', 'donate',
+  'theme-system', 'theme-light', 'theme-dark', 'images-to-pdf', 'convert-to-pdf', 'check-updates', 'default-app', 'receive-code', 'receive-file', 'toggle-autosave', 'open-backups', 'open-github', 'open-discord', 'open-reddit', 'report-problem', 'donate', 'get-started',
   'web-to-pdf', 'scan-to-pdf', 'repair', 'unlock', 'ai-settings', 'all-tools', 'language', 'terms', 'privacy', 'link-pair',
   'app-settings', 'combine-files', 'toggle-ribbon',
 ]);
@@ -1101,6 +1101,10 @@ async function run(command: Command) {
     case 'open-github': return api.openExternal(REPO_URL);
     case 'open-discord': return api.openExternal(DISCORD_URL);
     case 'open-reddit': return api.openExternal(REDDIT_URL);
+    case 'get-started': return tool(t('Couldn’t open Get Started'), async () => {
+      const [{ getStarted }, info] = await Promise.all([import('./get-started'), api.info()]);
+      await getStarted(api, !!info.store);
+    });
     case 'report-problem': return api.openExternal(ISSUES_URL);
     case 'donate': return api.openExternal(DONATE_URL || REPO_URL);
     case 'show-comments': return showSide('comments');
@@ -2543,6 +2547,11 @@ async function start() {
   renderWelcome();
   // in engine mode the phone app asks itself, on its own welcome screen
   if (info.needsAgreement && !api.engine) await askForAgreement();
+  // the first time, offer the built-in AI (installed builds only: the
+  // Windows installer may already have asked, and then this stays away)
+  if (info.packaged && !isMobile() && !api.engine) {
+    setTimeout(() => void import('./get-started').then((m) => m.maybeGetStarted(api, !!info.store)).catch(() => {}), 1500);
+  }
 
   // exact font widths and the PDF writer aren't needed until you edit, so
   // fetch them once the window is showing

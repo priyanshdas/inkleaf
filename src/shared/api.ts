@@ -88,7 +88,7 @@ export type MenuCommand =
   | 'find' | 'print' | 'enhance' | 'compress' | 'protect' | 'ocr' | 'compare' | 'decor' | 'remove-decor'
   | 'images-to-pdf' | 'pdf-to-images' | 'pdf-to-word' | 'crop' | 'uncrop-page' | 'uncrop-all' | 'form-builder'
   | 'combine-files' | 'toggle-ribbon' | 'mode-continuous' | 'mode-spread' | 'mode-single' | 'reading-rtl' | 'check-updates' | 'default-app' | 'secure-share' | 'receive-code' | 'receive-file' | 'show-comments' | 'show-bookmarks'
-  | 'toggle-autosave' | 'open-backups' | 'open-github' | 'open-discord' | 'open-reddit' | 'report-problem' | 'donate'
+  | 'toggle-autosave' | 'open-backups' | 'open-github' | 'open-discord' | 'open-reddit' | 'report-problem' | 'donate' | 'get-started'
   | 'convert-to-pdf' | 'convert-from-pdf' | 'web-to-pdf' | 'scan-to-pdf' | 'repair' | 'pdf-to-pdfa'
   | 'ai-summarize' | 'ai-translate' | 'ai-ask' | 'ai-settings' | 'all-tools' | 'unlock' | 'language' | 'terms' | 'privacy'
   | 'link-pair' | 'link-send' | 'share' | 'app-settings';
@@ -113,6 +113,8 @@ export interface AppInfo {
   userName: string;
   /** True when the person hasn't agreed to the current terms yet (builds with no installer page). */
   needsAgreement: boolean;
+  /** Installed from the Microsoft Store. */
+  store?: boolean;
 }
 
 export type UpdateState =

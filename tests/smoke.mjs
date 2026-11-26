@@ -2967,6 +2967,38 @@ async function communityAndInstallerTest() {
   check('the Windows installer offers the same AI models, sizes and checksums as the app', upToDate);
 }
 
+async function getStartedTest() {
+  console.log('\nGet started: the built-in AI offered the first time');
+  const fake = await startFakeLlamaDownloads();
+  const { app, win, errors, profile } = await launch(path.join(fixtures, 'sample.pdf'), { env: fake.env });
+  await waitForPages(win);
+  await win.evaluate(() => { void window.__inkleaf.run('get-started'); });
+  await win.waitForSelector('.modal .get-started');
+  const options = await win.$$eval('.get-started select option', (os) => os.map((o) => o.textContent));
+  check('it lists all four models with their sizes', options.length === 4 && /^Lite \(/.test(options[0]) && /^Best \(/.test(options[3]), options.join(' | '));
+  check('it starts on Quick, with its details', (await win.inputValue('.get-started select')) === 'qwen3.5-2b'
+    && /Memory/.test(await win.textContent('.get-started-details')));
+  check('nothing is ticked to begin with', /Nothing is ticked/.test(await win.textContent('.get-started-total')));
+  await win.check('.get-started-tick input');
+  check('ticking it adds it to the total', /Will download: Quick/.test(await win.textContent('.get-started-total')));
+  await win.screenshot({ path: path.join(out, 'get-started.png') });
+  await modalButton(win, 'Download');
+  await win.waitForSelector('.get-started-progress');
+  check('it shows each download’s progress', true);
+  await win.waitForSelector('.get-started-progress', { state: 'detached', timeout: 60000 });
+  check('the model and the engine are downloaded and checked', fs.existsSync(path.join(profile, 'ai', 'models', 'quick.gguf.ok')));
+  const s = await win.evaluate(() => window.inkleaf.aiStatus());
+  check('and the built-in AI is ready to use with it', s.provider === 'builtin' && s.ready && s.model === 'qwen3.5-2b', JSON.stringify({ p: s.provider, r: s.ready, m: s.model }));
+  check('it won’t offer itself again', await win.evaluate(() => localStorage.getItem('inkleaf.getStarted') === '1'));
+  check('Help has Get Started', await app.evaluate(({ Menu }) => {
+    const menu = Menu.getApplicationMenu();
+    return !menu || menu.items.some((m) => m.submenu?.items.some((i) => i.label === 'Get Started…'));
+  }));
+  check('no errors in the renderer', errors.length === 0, errors.join('\n      '));
+  await quit(app, win);
+  fake.close();
+}
+
 async function noopPageEditTest() {
   console.log('\nPage edits that change nothing (sample.pdf)');
   const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
@@ -3164,7 +3196,7 @@ async function recoveryRaceTest() {
 // ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, findcjk, readingplace, scaninsert, recoveryrace) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, pageleak: excludedPageLeakTest, redactleak: redactionLeakTest, narrowpanel: narrowPanelTest, imageangle: imageAngleTest, community: communityAndInstallerTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, pageleak: excludedPageLeakTest, redactleak: redactionLeakTest, narrowpanel: narrowPanelTest, imageangle: imageAngleTest, community: communityAndInstallerTest, getstarted: getStartedTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

@@ -154,6 +154,7 @@ export const MENU: MenuSection[] = [
   {
     label: msg('Help'),
     items: [
+      { label: msg('Get Started…'), command: 'get-started' },
       { label: msg('Keyboard Shortcuts'), command: 'shortcuts', key: 'Mod+/' },
       { label: msg('Check for Updates…'), command: 'check-updates' },
       { label: msg('Make InkLeaf PDF the Default PDF App…'), command: 'default-app' },

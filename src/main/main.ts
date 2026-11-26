@@ -604,6 +604,7 @@ function registerIpc() {
     platform: process.platform,
     electron: process.versions.electron,
     packaged: app.isPackaged,
+    store: !!process.windowsStore,
     userName: (() => {
       try {
         return os.userInfo().username;

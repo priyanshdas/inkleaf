@@ -363,6 +363,8 @@ const unsupported: string[] = [
   'insert-scan',
   // starting at sign-in, the tray and File Explorer are the computer's
   'app-settings',
+  // the phone's AI is set up in AI settings; Get Started is the computer's first-run screen
+  'get-started',
 ];
 if (platform === 'web') unsupported.push('print', 'web-to-pdf');
 

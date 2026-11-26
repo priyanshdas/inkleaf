@@ -966,6 +966,18 @@ button.form-field {
 .facts dt { color: var(--ink-3); }
 .facts dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
+/* Get Started: the built-in AI offered the first time (get-started.ts) */
+.get-started p { margin: 0 0 12px; line-height: 1.5; }
+.get-started .field-select { max-width: 320px; }
+.get-started-details { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.get-started-details p { margin: 0 0 10px; }
+.get-started-tick { margin-top: 14px; }
+.get-started-total { margin-top: 8px; }
+.get-started-progress { display: grid; gap: 12px; margin-bottom: 12px; }
+.get-started-row { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.get-started-row .meter { width: 100%; }
+.get-started-state { color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 
 /* --- welcome --------------------------------------------------------------------------------------- */
 

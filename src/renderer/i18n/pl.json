@@ -1471,6 +1471,25 @@
   "17x0c34": "Mały i szybki, dla starszych lub wolniejszych komputerów. Prostsze odpowiedzi.",
   "1nntp6u": "Najlepsze odpowiedzi i tłumaczenia. Wymaga mocnego komputera, najlepiej z kartą graficzną.",
   "081vxfa": "Mały i szybki, dla starszych telefonów. Prostsze odpowiedzi.",
-  "0sfswkx": "Najlepsze odpowiedzi, ale na telefonie działa bardzo wolno. Wymaga telefonu z 12 GB pamięci."
+  "0sfswkx": "Najlepsze odpowiedzi, ale na telefonie działa bardzo wolno. Wymaga telefonu z 12 GB pamięci.",
+  "0j4mjhw": "Najlepiej {n} GB lub więcej",
+  "0qr8e68": "Już pobrano",
+  "1iimiy2": "Nie udało się otworzyć ekranu Pierwsze kroki",
+  "0sv5bc3": "Nie pobrano",
+  "03e9ni6": "Pobierz ten model",
+  "0qbtd12": "Pobieranie wbudowanej AI",
+  "12omjvk": "Pierwsze kroki z InkLeaf PDF",
+  "0fvgz3s": "Pierwsze kroki…",
+  "0wz2wai": "InkLeaf PDF może streszczać i tłumaczyć Twoje pliki PDF oraz odpowiadać na pytania o nie, korzystając z AI działającej na tym komputerze: bez konta, a Twoje pliki nigdy go nie opuszczają.",
+  "0oopaku": "Pamięć",
+  "0m6g4vj": "Nic jeszcze nie zaznaczono. Modele AI możesz dodać w każdej chwili w Narzędzia › Ustawienia AI.",
+  "1hpqu3m": "Pomiń",
+  "061guq5": "Rozpoczynanie…",
+  "118y86m": "Zatrzymano",
+  "12wu2nk": "Wbudowana AI jest gotowa. Wypróbuj Narzędzia › Zapytaj ten PDF.",
+  "0imasfq": "Wskazówka: InkLeaf PDF jest w menu Start. Aby mieć go na pasku zadań, kliknij go tam prawym przyciskiem i wybierz Przypnij do paska zadań.",
+  "1jufdxk": "Oczekuje",
+  "0cweert": "Zostanie pobrane: {names} (razem {size}).",
+  "0feo6rt": "Możesz dalej pracować podczas pobierania. Zatrzymane pobieranie następnym razem wznowi się od miejsca, w którym przerwano."
  }
 }
