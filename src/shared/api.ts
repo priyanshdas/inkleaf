@@ -79,7 +79,7 @@ export interface PickedFile {
 }
 
 export type MenuCommand =
-  | 'new' | 'open' | 'save' | 'save-as' | 'close'
+  | 'new' | 'open' | 'save' | 'save-as' | 'save-regular' | 'close'
   | 'undo' | 'redo' | 'copy' | 'cut' | 'paste' | 'delete' | 'duplicate' | 'select-all-pages'
   | 'zoom-in' | 'zoom-out' | 'zoom-reset' | 'zoom-fit-width' | 'zoom-fit-page' | 'toggle-sidebar'
   | 'insert-pdf' | 'insert-blank' | 'insert-scan' | 'extract' | 'split' | 'rotate-left' | 'rotate-right' | 'delete-pages'

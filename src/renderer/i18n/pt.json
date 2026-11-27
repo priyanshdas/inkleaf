@@ -1490,6 +1490,15 @@
   "0imasfq": "Dica: o InkLeaf PDF está no menu Iniciar. Para mantê-lo na barra de tarefas, clique nele com o botão direito e escolha Fixar na barra de tarefas.",
   "1jufdxk": "Aguardando",
   "0cweert": "Será baixado: {names} ({size} no total).",
-  "0feo6rt": "Você pode continuar trabalhando enquanto baixa. Um download interrompido continua da próxima vez de onde parou."
+  "0feo6rt": "Você pode continuar trabalhando enquanto baixa. Um download interrompido continua da próxima vez de onde parou.",
+  "18sfq2j": "Comentários, desenhos e alterações de páginas não podem ser mantidos em um formulário XFA. Use Arquivo › Salvar como PDF comum para mantê-los.",
+  "0dy1pus": "Não foi possível criar um PDF comum",
+  "0s430p6": "Aqui está uma cópia em PDF comum do formulário. Todas as ferramentas funcionam nela; salve-a para mantê-la.",
+  "1hlyiwd": "Criando um PDF comum…",
+  "1yfpjer": "Não é possível tirar páginas de um formulário XFA. Use primeiro Arquivo › Salvar como PDF comum e depois trabalhe nessa cópia.",
+  "1tfeuj1": "Salvar como PDF comum…",
+  "1tpbg8z": "Essa ferramenta não pode ser usada em um formulário XFA. Use Arquivo › Salvar como PDF comum para criar uma cópia que você possa comentar, assinar e editar.",
+  "0lki814": "Este já é um PDF comum.",
+  "0dznurp": "Formulário XFA: digite suas respostas e salve como de costume. Os botões e somas do próprio formulário ainda não funcionam aqui."
  }
 }

@@ -1490,6 +1490,15 @@
   "0imasfq": "Suggerimento: InkLeaf PDF è nel menu Start. Per tenerlo sulla barra delle applicazioni, fai clic destro lì e scegli Aggiungi alla barra delle applicazioni.",
   "1jufdxk": "In attesa",
   "0cweert": "Verrà scaricato: {names} ({size} in tutto).",
-  "0feo6rt": "Puoi continuare a lavorare durante il download. Un download interrotto riprende la volta successiva da dove si era fermato."
+  "0feo6rt": "Puoi continuare a lavorare durante il download. Un download interrotto riprende la volta successiva da dove si era fermato.",
+  "18sfq2j": "Commenti, disegni e modifiche alle pagine non si possono tenere in un modulo XFA. Usa File › Salva come PDF normale per conservarli.",
+  "0dy1pus": "Impossibile creare un PDF normale",
+  "0s430p6": "Ecco una copia PDF normale del modulo. Tutti gli strumenti funzionano; salvala per conservarla.",
+  "1hlyiwd": "Creazione del PDF normale…",
+  "1yfpjer": "Non si possono estrarre pagine da un modulo XFA. Usa prima File › Salva come PDF normale, poi lavora su quella copia.",
+  "1tfeuj1": "Salva come PDF normale…",
+  "1tpbg8z": "Questo strumento non funziona su un modulo XFA. Usa File › Salva come PDF normale per creare una copia da commentare, firmare e modificare.",
+  "0lki814": "Questo è già un PDF normale.",
+  "0dznurp": "Modulo XFA: scrivi le risposte e salva come sempre. I pulsanti e i calcoli del modulo non funzionano ancora qui."
  }
 }

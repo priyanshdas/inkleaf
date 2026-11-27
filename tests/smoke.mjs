@@ -18,7 +18,7 @@ import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixtures = path.join(root, 'tests', 'fixtures');
@@ -2999,6 +2999,132 @@ async function getStartedTest() {
   fake.close();
 }
 
+// --- XFA forms and PDF 2.0 ---------------------------------------------------------------------
+
+/** Reads an XFA form back with pdf.js, as another reader would, and looks for an answer in it. */
+async function xfaHolds(file, text) {
+  const pdfjs = await import(pathToFileURL(path.join(root, 'node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);
+  const task = pdfjs.getDocument({ data: new Uint8Array(fs.readFileSync(file)), enableXfa: true, verbosity: 0 });
+  const pdf = await task.promise;
+  let found = false;
+  for (let i = 1; i <= pdf.numPages && !found; i++) found = JSON.stringify(await (await pdf.getPage(i)).getXfa()).includes(text);
+  const pure = pdf.isPureXfa;
+  await task.destroy();
+  return { pure, found };
+}
+
+async function xfaTest() {
+  console.log('\nAn XFA form (xfa-imm1344e.pdf)');
+  const { app, win, errors } = await launch(path.join(fixtures, 'xfa-imm1344e.pdf'));
+  await waitForPages(win);
+  await win.waitForSelector('.page-forms .xfaLayer input', { state: 'attached', timeout: 30000 });
+  const shown = await win.evaluate(() => ({
+    pages: window.__inkleaf.getDoc().pages.length,
+    fields: document.querySelectorAll('.page-forms .xfaLayer :is(input, select, textarea)').length,
+    bar: !document.querySelector('.xfa-bar')?.hidden,
+    warning: [...document.querySelectorAll('.page-forms .xfaDraw')].some((el) => /javascript/i.test(el.textContent) && getComputedStyle(el).visibility !== 'hidden'),
+  }));
+  check('the form opens with its pages and fields', shown.pages === 7 && shown.fields > 20, JSON.stringify(shown));
+  check('the note bar explains what works', shown.bar);
+  check('the form\'s "JavaScript has been disabled" line is hidden', !shown.warning);
+
+  // the thumbnails show the form, not the "please wait" page under it
+  await win.waitForSelector('.thumb-xfa .xfaLayer', { timeout: 15000 }).catch(() => {});
+  check('thumbnails show the form', (await win.locator('.thumb-xfa .xfaLayer').count()) > 0);
+
+  // type an answer: the document has something to save
+  const field = win.locator('.page-forms .xfaLayer input[type="text"]:not([readonly]):visible').nth(3);
+  await field.scrollIntoViewIfNeeded();
+  await field.fill('INKL');
+  await win.waitForTimeout(200);
+  check('typing marks the form unsaved', await win.evaluate(() => window.__inkleaf.getDoc().dirty));
+
+  // only selecting and panning: the other tools need a regular copy
+  const locked = await win.evaluate(() => window.__inkleaf.editor.canUseTool?.('rect') === false);
+  check('drawing tools are locked on an XFA form', locked);
+
+  // saved, it's still an XFA form, with the answer in the form's data
+  const file = path.join(out, 'xfa-filled.pdf');
+  const warnings = await save(win, file);
+  check('saved without warnings', warnings.length === 0, warnings.join('; '));
+  const back = await xfaHolds(file, 'INKL');
+  check('the saved file is still an XFA form', back.pure);
+  check('the typed answer is in the saved form', back.found);
+
+  // Find looks through the form's words
+  await win.keyboard.press('Control+f');
+  await win.fill('.find-input', 'sponsor');
+  await win.waitForFunction(() => / of \d+$/.test(document.querySelector('.find-count')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => {});
+  const found = await win.textContent('.find-count');
+  check('Find finds words in the form', /^1 of \d+$/.test(found), found);
+  await win.waitForSelector('.find-mark.current', { timeout: 5000 }).catch(() => {});
+  check('the current hit is marked on the page', (await win.locator('.find-mark.current').count()) > 0);
+  if (shots) await win.screenshot({ path: path.join(shots, 'xfa-find.png') });
+  await win.keyboard.press('Escape');
+
+  // a regular copy: an ordinary PDF with the answers as searchable text
+  await win.evaluate(() => window.__inkleaf.run('save-regular'));
+  await win.waitForFunction(() => /\(regular\)\.pdf$/.test(window.__inkleaf.getDoc()?.name ?? ''), null, { timeout: 60000 });
+  await waitForPages(win);
+  const regular = path.join(out, 'xfa-regular.pdf');
+  await save(win, regular);
+  const text = execFileSync('pdftotext', [regular, '-']).toString();
+  const regularInfo = await xfaHolds(regular, 'INKL');
+  check('the regular copy has the same number of pages', (await win.evaluate(() => window.__inkleaf.getDoc().pages.length)) === 7);
+  check('the regular copy is not an XFA form', !regularInfo.pure);
+  check('the regular copy has the answers and the form text', text.includes('INKL') && /sponsor/i.test(text), text.slice(0, 120));
+  check('the regular copy has no "JavaScript disabled" line', !/javascript has been disabled/i.test(text));
+  check('no errors', errors.length === 0, errors.join(' | '));
+  await quit(app, win);
+}
+
+/** A form with both ordinary fields and an XFA copy: filled here, the XFA copy must not show old answers. */
+async function hybridFormTest() {
+  console.log('\nA hybrid form (ordinary fields plus an XFA copy)');
+  const hybrid = path.join(out, 'hybrid.pdf');
+  execFileSync('python3', ['-c', `
+import pikepdf, sys
+pdf = pikepdf.open(sys.argv[1])
+xdp = b'<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><xfa:datasets xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"><xfa:data><form><guest_name>OLD ANSWER</guest_name></form></xfa:data></xfa:datasets></xdp:xdp>'
+pdf.Root.AcroForm.XFA = pdf.make_stream(xdp)
+pdf.save(sys.argv[2])`, path.join(fixtures, 'form.pdf'), hybrid]);
+  const { app, win } = await launch(hybrid);
+  await waitForPages(win);
+  await win.waitForSelector('.form-field');
+  await win.fill('.form-field[title="guest_name"]', 'New Answer');
+  const file = path.join(out, 'hybrid-filled.pdf');
+  await save(win, file);
+  const r = JSON.parse(execFileSync('python3', ['-c', `
+import json, pypdf, sys
+r = pypdf.PdfReader(sys.argv[1])
+af = r.trailer['/Root']['/AcroForm']
+print(json.dumps({'xfa': '/XFA' in af, 'name': str(r.get_fields()['guest_name'].get('/V'))}))`, file]).toString());
+  check('the new answer is in the field', r.name === 'New Answer', JSON.stringify(r));
+  check('the stale XFA copy is gone, so no reader shows the old answer', !r.xfa);
+  await quit(app, win);
+}
+
+/** A PDF 2.0 file stays PDF 2.0 when it's saved. */
+async function pdf20Test() {
+  console.log('\nA PDF 2.0 file');
+  const v20 = path.join(out, 'v20.pdf');
+  execFileSync('python3', ['-c', `
+import pikepdf, sys
+pikepdf.open(sys.argv[1]).save(sys.argv[2], force_version='2.0')`, path.join(fixtures, 'sample.pdf'), v20]);
+  const { app, win } = await launch(v20);
+  await waitForPages(win);
+  const header = (file) => fs.readFileSync(file).subarray(0, 8).toString('latin1');
+  const plain = path.join(out, 'v20-saved.pdf');
+  await save(win, plain);
+  check('saved unchanged, it stays PDF 2.0', header(plain) === '%PDF-2.0', header(plain));
+  // dropping a page sends it through the clean-up pass too
+  await win.evaluate(() => { const doc = window.__inkleaf.getDoc(); doc.deletePages([doc.pages[0].id]); });
+  const edited = path.join(out, 'v20-edited.pdf');
+  await save(win, edited);
+  check('after page changes, it stays PDF 2.0', header(edited) === '%PDF-2.0', header(edited));
+  await quit(app, win);
+}
+
 async function noopPageEditTest() {
   console.log('\nPage edits that change nothing (sample.pdf)');
   const { app, win } = await launch(path.join(fixtures, 'sample.pdf'));
@@ -3196,7 +3322,7 @@ async function recoveryRaceTest() {
 // ONLY=fonts (or editing, forms, protected, v2, ocr, pagedelete, editstyle, readonly, thumbanchor, extractsplit, noop, findpages, findcjk, readingplace, scaninsert, recoveryrace) runs just that part
 const only = process.env.ONLY;
 for (const [name, test] of Object.entries({
-  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, pageleak: excludedPageLeakTest, redactleak: redactionLeakTest, narrowpanel: narrowPanelTest, imageangle: imageAngleTest, community: communityAndInstallerTest, getstarted: getStartedTest, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
+  editing: editingTest, forms: formTest, protected: protectedTest, fonts: fontTest, v2: v2Test, ocr: ocrAndCompressTest, autosave: autosaveTest, convert: convertTest, tools: moreToolsTest, languages: languagesTest, ui: uiLanguageTest, ai: aiProvidersTest, link: linkTest, enhance: enhanceTest, defaultapp: defaultAppTest, share: shareTest, rail: railTest, selecttext: selectTextTest, builtin: builtinAiTest, scanner: scannerTest, desktop: desktopTest, ribbon: ribbonTest, pagedelete: pageDeleteTest, editstyle: editStyleTest, readonly: readOnlyFolderTest, thumbanchor: thumbAnchorTest, extractsplit: extractSplitCleanUpTest, pageleak: excludedPageLeakTest, redactleak: redactionLeakTest, narrowpanel: narrowPanelTest, imageangle: imageAngleTest, community: communityAndInstallerTest, getstarted: getStartedTest, xfa: xfaTest, hybrid: hybridFormTest, pdf20: pdf20Test, noop: noopPageEditTest, findpages: findAfterPageChangeTest, findcjk: findCjkTest, readingplace: readingPlaceTest, scaninsert: scanInsertFailTest, recoveryrace: recoveryRaceTest,
 })) {
   if (!only || only.split(',').includes(name)) await test();
 }

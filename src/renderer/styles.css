@@ -591,6 +591,8 @@ button:disabled { cursor: default; }
   line-height: 0;
 }
 .thumb-canvas { width: 132px; height: auto; display: block; border-radius: 2px; }
+/* an XFA form's page, laid out small over its thumbnail (xfa.ts) */
+.thumb-xfa { position: absolute; inset: 0; overflow: hidden; pointer-events: none; transform-origin: 0 0; line-height: normal; }
 .thumb.selected .thumb-frame { box-shadow: 0 0 0 2px var(--accent), 0 2px 6px rgba(20, 32, 27, 0.12); }
 .thumb.current .thumb-label { color: var(--ink); font-weight: 650; }
 .thumb-label { color: var(--ink-3); font-size: 12px; font-weight: 520; font-variant-numeric: tabular-nums; }
@@ -1606,6 +1608,34 @@ kbd {
 .find-btn .icon { width: 16px; height: 16px; }
 .find-btn:hover { background: var(--panel-2); color: var(--ink); }
 .find-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+/* the note over an XFA form's pages (xfa.ts) */
+.xfa-bar {
+  position: absolute;
+  grid-area: viewport;
+  justify-self: start;
+  align-self: start;
+  z-index: 29;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(640px, calc(100% - 300px));
+  margin: 10px 0 0 14px;
+  padding: 8px 8px 8px 12px;
+  background: var(--panel);
+  color: var(--ink-2);
+  border-radius: var(--radius);
+  box-shadow: var(--pop-shadow);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.xfa-bar[hidden] { display: none; }
+.xfa-bar > .icon { width: 16px; height: 16px; flex: none; color: var(--accent); }
+.xfa-bar-btn { flex: none; height: 28px; padding: 0 10px; border: 0; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); font: 600 12.5px var(--font); cursor: pointer; }
+.xfa-bar-btn:hover { filter: brightness(0.96); }
+.xfa-bar-close { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-3); cursor: pointer; }
+.xfa-bar-close .icon { width: 14px; height: 14px; }
+.xfa-bar-close:hover { background: var(--panel-2); color: var(--ink); }
+@media (max-width: 900px) { .xfa-bar { max-width: calc(100% - 28px); margin-top: 56px; } }
 .find-mark { position: absolute; background: rgba(255, 200, 0, 0.35); border-radius: 2px; pointer-events: none !important; mix-blend-mode: multiply; }
 .find-mark.current { background: rgba(255, 120, 0, 0.5); box-shadow: 0 0 0 2px rgba(255, 120, 0, 0.85); }
 

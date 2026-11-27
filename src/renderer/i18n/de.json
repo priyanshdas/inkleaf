@@ -1490,6 +1490,15 @@
   "0imasfq": "Tipp: InkLeaf PDF ist im Startmenü. Um es in der Taskleiste zu behalten, klicken Sie es dort mit der rechten Maustaste an und wählen Sie „An Taskleiste anheften“.",
   "1jufdxk": "Wartet",
   "0cweert": "Wird heruntergeladen: {names} (insgesamt {size}).",
-  "0feo6rt": "Sie können weiterarbeiten, während es lädt. Ein angehaltener Download macht beim nächsten Mal dort weiter, wo er war."
+  "0feo6rt": "Sie können weiterarbeiten, während es lädt. Ein angehaltener Download macht beim nächsten Mal dort weiter, wo er war.",
+  "18sfq2j": "Kommentare, Zeichnungen und Seitenänderungen können in einem XFA-Formular nicht gespeichert werden. Nutzen Sie Datei › Als normales PDF speichern, um sie zu behalten.",
+  "0dy1pus": "Normales PDF konnte nicht erstellt werden",
+  "0s430p6": "Hier ist eine normale PDF-Kopie des Formulars. Alle Werkzeuge funktionieren damit; speichern Sie sie, um sie zu behalten.",
+  "1hlyiwd": "Normales PDF wird erstellt…",
+  "1yfpjer": "Aus einem XFA-Formular lassen sich keine Seiten herausnehmen. Nutzen Sie zuerst Datei › Als normales PDF speichern und arbeiten Sie dann mit dieser Kopie.",
+  "1tfeuj1": "Als normales PDF speichern…",
+  "1tpbg8z": "Dieses Werkzeug funktioniert nicht in einem XFA-Formular. Nutzen Sie Datei › Als normales PDF speichern, um eine Kopie zu erstellen, die Sie kommentieren, unterschreiben und bearbeiten können.",
+  "0lki814": "Das ist bereits ein normales PDF.",
+  "0dznurp": "XFA-Formular: Antworten eintragen und wie gewohnt speichern. Eigene Schaltflächen und Summen des Formulars laufen hier noch nicht."
  }
 }

@@ -1490,6 +1490,15 @@
   "0imasfq": "Wskazówka: InkLeaf PDF jest w menu Start. Aby mieć go na pasku zadań, kliknij go tam prawym przyciskiem i wybierz Przypnij do paska zadań.",
   "1jufdxk": "Oczekuje",
   "0cweert": "Zostanie pobrane: {names} (razem {size}).",
-  "0feo6rt": "Możesz dalej pracować podczas pobierania. Zatrzymane pobieranie następnym razem wznowi się od miejsca, w którym przerwano."
+  "0feo6rt": "Możesz dalej pracować podczas pobierania. Zatrzymane pobieranie następnym razem wznowi się od miejsca, w którym przerwano.",
+  "18sfq2j": "Komentarzy, rysunków i zmian stron nie da się zachować w formularzu XFA. Użyj Plik › Zapisz jako zwykły PDF, aby je zachować.",
+  "0dy1pus": "Nie udało się utworzyć zwykłego PDF",
+  "0s430p6": "Oto zwykła kopia PDF formularza. Działają na niej wszystkie narzędzia; zapisz ją, aby ją zachować.",
+  "1hlyiwd": "Tworzenie zwykłego PDF…",
+  "1yfpjer": "Z formularza XFA nie można wyjąć stron. Najpierw użyj Plik › Zapisz jako zwykły PDF, a potem pracuj na tej kopii.",
+  "1tfeuj1": "Zapisz jako zwykły PDF…",
+  "1tpbg8z": "Tego narzędzia nie można użyć w formularzu XFA. Użyj Plik › Zapisz jako zwykły PDF, aby utworzyć kopię, którą można komentować, podpisywać i edytować.",
+  "0lki814": "To już jest zwykły PDF.",
+  "0dznurp": "Formularz XFA: wpisz odpowiedzi i zapisz jak zwykle. Własne przyciski i sumy formularza jeszcze tu nie działają."
  }
 }

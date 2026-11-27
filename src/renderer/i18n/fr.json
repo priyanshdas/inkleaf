@@ -1490,6 +1490,15 @@
   "0imasfq": "Astuce : InkLeaf PDF est dans le menu Démarrer. Pour le garder dans la barre des tâches, faites un clic droit dessus et choisissez Épingler à la barre des tâches.",
   "1jufdxk": "En attente",
   "0cweert": "Sera téléchargé : {names} ({size} au total).",
-  "0feo6rt": "Vous pouvez continuer à travailler pendant le téléchargement. Un téléchargement arrêté reprend la prochaine fois là où il s’était arrêté."
+  "0feo6rt": "Vous pouvez continuer à travailler pendant le téléchargement. Un téléchargement arrêté reprend la prochaine fois là où il s’était arrêté.",
+  "18sfq2j": "Les commentaires, dessins et changements de pages ne peuvent pas être conservés dans un formulaire XFA. Utilisez Fichier › Enregistrer en PDF normal pour les garder.",
+  "0dy1pus": "Impossible de créer un PDF normal",
+  "0s430p6": "Voici une copie PDF normale du formulaire. Tous les outils fonctionnent dessus ; enregistrez-la pour la garder.",
+  "1hlyiwd": "Création d’un PDF normal…",
+  "1yfpjer": "On ne peut pas extraire de pages d’un formulaire XFA. Utilisez d’abord Fichier › Enregistrer en PDF normal, puis travaillez sur cette copie.",
+  "1tfeuj1": "Enregistrer en PDF normal…",
+  "1tpbg8z": "Cet outil ne fonctionne pas sur un formulaire XFA. Utilisez Fichier › Enregistrer en PDF normal pour créer une copie que vous pourrez commenter, signer et modifier.",
+  "0lki814": "C’est déjà un PDF normal.",
+  "0dznurp": "Formulaire XFA : saisissez vos réponses et enregistrez comme d’habitude. Ses propres boutons et calculs ne fonctionnent pas encore ici."
  }
 }

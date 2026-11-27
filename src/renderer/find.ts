@@ -7,10 +7,13 @@ import type { EditorDoc } from './document';
 import { matchQuads, pageText, PageText, placeQuad, Quad } from './text-finder';
 import { h, icon } from './ui';
 import type { PageView, Viewer } from './viewer';
+import { xfaCount, xfaHitBoxes, xfaOf } from './xfa';
 
 interface Match {
   pageId: string;
   quads: Quad[];
+  /** On an XFA form: which hit on its page this is (xfa.ts). */
+  nth?: number;
 }
 
 export class FindBar {
@@ -23,6 +26,9 @@ export class FindBar {
   private matchCase = false;
   private searchId = 0;
   private timer = 0;
+  /** What the last search looked for, as compared (lower case unless matching case). */
+  private needle = '';
+  private needleCase = false;
   /** Page text, per source document and page index. */
   private texts = new WeakMap<object, Map<number, Promise<PageText>>>();
 
@@ -126,13 +132,25 @@ export class FindBar {
       return;
     }
     const needle = this.matchCase ? query : query.toLowerCase();
+    this.needle = needle;
+    this.needleCase = this.matchCase;
     this.count.textContent = t('Searching…');
+    const xfa = xfaOf(doc);
 
     // start from the page you're on, so the first hit is the nearest one
     const startAt = Math.max(0, this.viewer.currentPageId ? doc.pageIndex(this.viewer.currentPageId) : 0);
     let firstAfter = -1;
     for (let k = 0; k < doc.pages.length; k++) {
       const ref = doc.pages[k];
+      if (xfa) {
+        const hits = await xfaCount(xfa, ref.index, needle, this.matchCase);
+        if (id !== this.searchId) return;
+        for (let nth = 0; nth < hits; nth++) {
+          if (firstAfter < 0 && k >= startAt) firstAfter = this.matches.length;
+          this.matches.push({ pageId: ref.id, quads: [], nth });
+        }
+        continue;
+      }
       const pending = this.text(doc, ref.id);
       if (!pending) continue;
       const pt = await pending;
@@ -182,6 +200,11 @@ export class FindBar {
 
   private reveal(view: PageView, m: Match) {
     const c = this.viewer.container;
+    if (m.nth !== undefined) {
+      this.paintAll();
+      view.overlay.querySelector('.find-mark.current')?.scrollIntoView({ block: 'center', inline: 'nearest' });
+      return;
+    }
     const quad = m.quads[0];
     if (!quad) return;
     let top = view.el.offsetTop, left = view.el.offsetLeft;
@@ -209,11 +232,36 @@ export class FindBar {
     view.overlay.querySelectorAll('.find-mark').forEach((el) => el.remove());
     if (!this.isOpen || !view.viewport || !this.matches.length) return;
     const active = this.matches[this.current];
+    if (this.matches.some((m) => m.nth !== undefined && m.pageId === view.ref.id)) {
+      this.layoutXfa(view, active);
+      return;
+    }
     for (const m of this.matches) {
       if (m.pageId !== view.ref.id) continue;
       for (const q of m.quads) {
         const el = h('div', { class: `find-mark${m === active ? ' current' : ''}` });
         placeQuad(el, q, (x, y) => this.viewer.toLocal(view, x, y));
+        view.overlay.append(el);
+      }
+    }
+  }
+
+  /** Marks the hits on a page of an XFA form, over the words on screen. */
+  private layoutXfa(view: PageView, active: Match) {
+    const boxes = xfaHitBoxes(view.forms, this.needle, this.needleCase);
+    const base = view.overlay.getBoundingClientRect();
+    // the page may be scaled while zooming: boxes are in screen pixels
+    const k = view.overlay.offsetWidth ? base.width / view.overlay.offsetWidth : 1;
+    for (const m of this.matches) {
+      if (m.pageId !== view.ref.id || m.nth === undefined) continue;
+      for (const r of boxes[m.nth] ?? []) {
+        const el = h('div', { class: `find-mark${m === active ? ' current' : ''}` });
+        Object.assign(el.style, {
+          left: `${(r.left - base.left) / k}px`,
+          top: `${(r.top - base.top) / k}px`,
+          width: `${r.width / k}px`,
+          height: `${r.height / k}px`,
+        });
         view.overlay.append(el);
       }
     }

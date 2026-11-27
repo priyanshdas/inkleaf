@@ -46,6 +46,7 @@ import { decorTexts } from './decor';
 import { arrowHead, STAMP_BASELINE, stampLayout, TEXT_PAD, UNDERLINE_OFFSET, UNDERLINE_THICKNESS } from './render';
 import type { Annot, FieldAnnot, NoteAnnot, OutlineItem, PageRef, StampAnnot, TextStyle } from './types';
 import { PDF_LIB_STEP } from './pdf';
+import { saveXfa, xfaOf, xfaUnsaveable } from './xfa';
 
 export interface ExportResult {
   bytes: Uint8Array;
@@ -532,6 +533,11 @@ async function fillForms(out: PDFDocument, doc: EditorDoc, writer: Writer) {
   const entries = Object.entries(doc.forms);
   if (!entries.length) return;
   const form = out.getForm();
+  // A "hybrid" form carries the same fields twice: as ordinary fields and as
+  // an XFA copy. Readers that prefer XFA (Acrobat, government portals) would
+  // show the XFA copy's old answers, not the ones typed here, so the XFA copy
+  // goes and the ordinary fields, which hold the new answers, are what's read.
+  form.acroForm.dict.delete(PDFName.of('XFA'));
 
   for (const [name, value] of entries) {
     let field;
@@ -776,6 +782,38 @@ async function compressNewContent(out: PDFDocument) {
   await Promise.all(jobs);
 }
 
+/** The PDF version a file says it is, from its first line ("%PDF-2.0"). */
+function versionOf(bytes: Uint8Array): [number, number] | null {
+  const head = new TextDecoder('latin1').decode(bytes.subarray(0, 1024));
+  const m = /%PDF-(\d)\.(\d)/.exec(head);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+}
+
+/** The version each output file should say it is, when that's newer than 1.7. */
+const versionFor = new WeakMap<PDFDocument, [number, number]>();
+
+/**
+ * pdf-lib writes every file as PDF 1.7. A PDF 2.0 file has to stay 2.0, or
+ * readers stop trusting what's new in it, so the saved copy keeps the
+ * newest version among the files its pages came from (never older than 1.7).
+ */
+function keepVersion(out: PDFDocument, sources: Uint8Array[]) {
+  let best: [number, number] = [1, 7];
+  for (const bytes of sources) {
+    const v = versionOf(bytes);
+    if (v && (v[0] > best[0] || (v[0] === best[0] && v[1] > best[1]))) best = v;
+  }
+  if (best[0] !== 1 || best[1] !== 7) versionFor.set(out, best);
+}
+
+/** Puts the version into the "%PDF-1.7" line pdf-lib wrote: same length, so nothing else moves. */
+function stampVersion(bytes: Uint8Array, [major, minor]: [number, number]) {
+  const line = new TextDecoder('latin1').decode(bytes.subarray(0, 8));
+  if (line !== '%PDF-1.7' || major > 9 || minor > 9) return;
+  bytes[5] = 0x30 + major;
+  bytes[7] = 0x30 + minor;
+}
+
 export interface ExportOptions {
   /**
    * When pages were dropped, a final clean-up pass removes their content from
@@ -797,6 +835,8 @@ async function finish(out: PDFDocument, writer: Writer, warnings: string[], need
   out.setProducer('InkLeaf PDF');
   out.setModificationDate(new Date());
   const saved = await out.save({ useObjectStreams: true, updateFieldAppearances: false, objectsPerTick: PDF_LIB_STEP });
+  const version = versionFor.get(out);
+  if (version) stampVersion(saved, version);
   let bytes: Uint8Array = saved;
   // Only needed when pages were dropped: their content would otherwise linger
   // unreferenced in the file. It's a full re-parse, so skip it when we can.
@@ -828,6 +868,15 @@ export async function exportPdf(doc: EditorDoc, pageIds?: string[], options: Exp
  * A null group means the whole document.
  */
 export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[], options: ExportOptions = {}): Promise<ExportResult[]> {
+  // An XFA form is saved by pdf.js, with what was typed into it written into
+  // the form's own data, so it stays an XFA form (xfa.ts)
+  const xfa = xfaOf(doc);
+  if (xfa) {
+    if (groups.some((g) => g)) throw new Error(t('Pages can’t be taken out of an XFA form. Use File › Save as a Regular PDF first, then work on that copy.'));
+    if (xfaUnsaveable(doc)) throw new Error(t('Comments, drawings and page changes can’t be kept in an XFA form. Use File › Save as a Regular PDF to keep them.'));
+    const bytes = await saveXfa(xfa);
+    return groups.map(() => ({ bytes, warnings: [] }));
+  }
   await loadFontMetrics();
   const groupPages = groups.map((ids) => {
     const wanted = ids ? new Set(ids) : null;
@@ -903,6 +952,7 @@ export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[], o
       }
       for (let i = 0; i < pages.length; i++) await decoratePage(out.getPage(i), pages[i], doc, writer);
       await finishPages(out, pages, doc, writer);
+      keepVersion(out, [...new Set(pages.map((p) => p.src))].map(bytesFor));
       results.push(await finish(out, writer, warnings, !unchanged, options));
       continue;
     }
@@ -922,6 +972,7 @@ export async function exportBatch(doc: EditorDoc, groups: (string[] | null)[], o
     for (const page of copiedPages) out.addPage(page);
     for (let i = 0; i < pages.length; i++) await decoratePage(out.getPage(i), pages[i], doc, writer);
     await finishPages(out, pages, doc, writer);
+    keepVersion(out, [...new Set(pages.map((p) => p.src))].map(bytesFor));
     const result = await finish(out, writer, warnings, true, options);
     if (formsWriter) result.warnings = [...new Set([...result.warnings, ...(formsWriter as Writer).warnings])];
     results.push(result);

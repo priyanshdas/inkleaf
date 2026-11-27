@@ -1490,6 +1490,15 @@
   "0imasfq": "İpucu: InkLeaf PDF Başlat menüsünde. Görev çubuğunda tutmak için oradan sağ tıklayıp Görev çubuğuna sabitle’yi seçin.",
   "1jufdxk": "Bekliyor",
   "0cweert": "İndirilecek: {names} (toplam {size}).",
-  "0feo6rt": "İndirme sürerken çalışmaya devam edebilirsiniz. Durdurulan bir indirme, bir dahaki sefere kaldığı yerden devam eder."
+  "0feo6rt": "İndirme sürerken çalışmaya devam edebilirsiniz. Durdurulan bir indirme, bir dahaki sefere kaldığı yerden devam eder.",
+  "18sfq2j": "Yorumlar, çizimler ve sayfa değişiklikleri bir XFA formunda tutulamaz. Bunları saklamak için Dosya › Normal PDF olarak kaydet kullanın.",
+  "0dy1pus": "Normal PDF oluşturulamadı",
+  "0s430p6": "Formun normal bir PDF kopyası burada. Tüm araçlar bunda çalışır; saklamak için kaydedin.",
+  "1hlyiwd": "Normal PDF oluşturuluyor…",
+  "1yfpjer": "Bir XFA formundan sayfa çıkarılamaz. Önce Dosya › Normal PDF olarak kaydet kullanın, sonra o kopya üzerinde çalışın.",
+  "1tfeuj1": "Normal PDF olarak kaydet…",
+  "1tpbg8z": "Bu araç bir XFA formunda kullanılamaz. Yorum ekleyebileceğiniz, imzalayabileceğiniz ve düzenleyebileceğiniz bir kopya için Dosya › Normal PDF olarak kaydet kullanın.",
+  "0lki814": "Bu zaten normal bir PDF.",
+  "0dznurp": "XFA formu: yanıtlarınızı yazın ve her zamanki gibi kaydedin. Formun kendi düğmeleri ve toplamları burada henüz çalışmıyor."
  }
 }

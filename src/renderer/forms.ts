@@ -3,6 +3,7 @@ import { t } from '../shared/i18n';
 import type { EditorDoc } from './document';
 import type { FormValue } from './types';
 import type { PageView, Viewer } from './viewer';
+import { xfaOf } from './xfa';
 
 // The subset of pdf.js's widget annotation data we use.
 interface Widget {
@@ -84,6 +85,8 @@ export class FormLayer extends EventTarget {
   /** Called by the viewer each time a page renders (zoom changes size). */
   async layout(view: PageView) {
     const doc = this.getDoc();
+    // an XFA form's fields are its own (xfa.ts)
+    if (xfaOf(doc)) return;
     if (!doc || view.ref.src !== doc.mainSource || !view.pdfPage || !view.viewport) {
       view.forms.replaceChildren();
       return;

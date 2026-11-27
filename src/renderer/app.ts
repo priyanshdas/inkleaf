@@ -21,6 +21,7 @@ import { pageTextSelection } from './text-select';
 import type { ExportOptions, ExportResult } from './exporter';
 import { loadFontMetrics } from './fonts';
 import { FormLayer, SignFieldRequest } from './forms';
+import { XfaBar, XfaPages, xfaOf, xfaToRegularPdf } from './xfa';
 import { newId } from './geometry';
 import { Inspector } from './inspector';
 import {
@@ -81,11 +82,21 @@ const viewer: Viewer = new Viewer($('#viewport'), $('#pages'), {
   afterRender: (view) => {
     forms.layout(view);
     findBar.layout(view);
+    // an XFA page's words arrive a moment later; mark Find's hits once they're there
+    if (xfaOf(doc)) void xfaPages.layout(view).then(() => findBar.layout(view));
     if (editor.text.active) editor.text.layout();
   },
 });
 const editor = new Editor(viewer, getDoc);
 const forms = new FormLayer(viewer, getDoc);
+// XFA forms: laid out over their pages to be filled in (xfa.ts)
+const xfaPages = new XfaPages(getDoc, (d) => d.markUnsaved());
+const xfaBar = new XfaBar($('#workspace'), () => void run('save-regular'));
+// an XFA form can only keep what's typed into it: the other tools work on a regular copy
+editor.canUseTool = (tool) => !xfaOf(doc) || tool === 'select' || tool === 'hand';
+editor.addEventListener('locked', () => {
+  if (xfaOf(doc)) toast(t('That tool can’t be used on an XFA form. Use File › Save as a Regular PDF to make a copy you can comment on, sign and edit.'), 'info', 7000);
+});
 const thumbs = new Thumbnails($('#thumbs'), viewer, getDoc);
 const inspector = new Inspector($('#inspector'), editor, getDoc, (command) => run(command as Command));
 const textToolbar = new TextToolbar(editor, viewer, getDoc);
@@ -401,6 +412,7 @@ function activate(tab: Tab | null) {
   inspector.render();
   textToolbar.update();
   findBar.reset();
+  xfaBar.update(doc);
   renderSide();
   updateChrome();
 }
@@ -502,7 +514,8 @@ function cycleTab(step: 1 | -1) {
 
 /** Stores a small picture of page one for the welcome screen. */
 async function rememberThumbnail(opened: EditorDoc) {
-  if (!opened.path) return;
+  // an XFA form's pages are HTML, and pdf.js would only draw a blank page
+  if (!opened.path || xfaOf(opened)) return;
   try {
     const page = await opened.sources.get(opened.mainSource)!.pdf.getPage(1);
     const base = page.getViewport({ scale: 1 });
@@ -562,7 +575,10 @@ async function openFileNow(file: OpenedFile) {
     if (opened.wasProtected) {
       toast(t('This PDF was protected. InkLeaf PDF will save it without the protection.'), 'info', 8000);
     }
-    if (await forms.hasFields()) toast(t('This PDF has form fields. Click a field to fill it in.'), 'info');
+    // an XFA form gets its own note over the pages (XfaBar)
+    if (!xfaOf(opened) && await forms.hasFields()) {
+      toast(t('This PDF has form fields. Click a field to fill it in.'), 'info');
+    }
     // "Print with Inkleaf" or "Compress with Inkleaf" from File Explorer, once the pages are in place
     if (file.then) {
       const then = file.then;
@@ -581,6 +597,23 @@ async function openFileNow(file: OpenedFile) {
     });
     if (choice === 'repair') await tool(t('Couldn’t repair the PDF'), () => repairFile(file));
   }
+}
+
+/**
+ * An XFA form as an ordinary PDF, in a new tab: the pages as filled in, which
+ * every InkLeaf tool can then work on. The form itself is left as it is.
+ */
+async function saveRegular(form: EditorDoc) {
+  const pdf = xfaOf(form);
+  if (!pdf) {
+    toast(t('This is already a regular PDF.'), 'info');
+    return;
+  }
+  const bytes = await withBusy(t('Making a regular PDF…'), () => xfaToRegularPdf(pdf, (html) => api.htmlToPdf(html, { margin: 0 })));
+  const copy = await EditorDoc.open(bytes, form.name.replace(/(\.pdf)?$/i, ' (regular).pdf'), null);
+  copy.markUnsaved();
+  addTab(copy);
+  toast(t('Here’s a regular PDF copy of the form. Every tool works on it; save it to keep it.'), 'success', 7000);
 }
 
 async function newBlank() {
@@ -886,6 +919,7 @@ async function run(command: Command) {
     }
     case 'save': return void save();
     case 'save-as': return void save(true);
+    case 'save-regular': return tool(t('Couldn’t make a regular PDF'), () => saveRegular(doc!));
     case 'close':
     case 'close-tab':
       if (activeTab) await closeTab(activeTab);

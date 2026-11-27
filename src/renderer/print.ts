@@ -21,7 +21,12 @@ const MAX_SIDE = 4200;
  */
 export async function printDocument(doc: EditorDoc, progress: (done: number, total: number) => void, current = 0, beforePreview?: () => void): Promise<void> {
   const { exportPdf } = await import('./exporter');
-  const { bytes } = await exportPdf(doc);
+  // an XFA form is printed from a regular PDF copy, as its pages are HTML (xfa.ts)
+  const { xfaOf, xfaToRegularPdf } = await import('./xfa');
+  const form = xfaOf(doc);
+  const { bytes } = form
+    ? { bytes: await xfaToRegularPdf(form, (html) => window.inkleaf.htmlToPdf(html, { margin: 0 })) }
+    : await exportPdf(doc);
   // phones print the PDF itself, which is sharper and lighter than pictures of the pages
   if (window.inkleaf.printPdf) {
     progress(1, 1);

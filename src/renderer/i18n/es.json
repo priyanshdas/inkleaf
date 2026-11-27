@@ -1490,6 +1490,15 @@
   "0imasfq": "Consejo: InkLeaf PDF está en el menú Inicio. Para tenerlo en la barra de tareas, haz clic derecho en él y elige Anclar a la barra de tareas.",
   "1jufdxk": "En espera",
   "0cweert": "Se descargará: {names} ({size} en total).",
-  "0feo6rt": "Puedes seguir trabajando mientras se descarga. Una descarga detenida continúa la próxima vez desde donde se quedó."
+  "0feo6rt": "Puedes seguir trabajando mientras se descarga. Una descarga detenida continúa la próxima vez desde donde se quedó.",
+  "18sfq2j": "Los comentarios, dibujos y cambios de páginas no se pueden guardar en un formulario XFA. Usa Archivo › Guardar como PDF normal para conservarlos.",
+  "0dy1pus": "No se pudo crear un PDF normal",
+  "0s430p6": "Aquí tienes una copia en PDF normal del formulario. Todas las herramientas funcionan con ella; guárdala para conservarla.",
+  "1hlyiwd": "Creando un PDF normal…",
+  "1yfpjer": "No se pueden sacar páginas de un formulario XFA. Usa primero Archivo › Guardar como PDF normal y luego trabaja con esa copia.",
+  "1tfeuj1": "Guardar como PDF normal…",
+  "1tpbg8z": "Esa herramienta no se puede usar en un formulario XFA. Usa Archivo › Guardar como PDF normal para crear una copia que puedas comentar, firmar y editar.",
+  "0lki814": "Esto ya es un PDF normal.",
+  "0dznurp": "Formulario XFA: escribe tus respuestas y guarda como siempre. Sus propios botones y sumas aún no funcionan aquí."
  }
 }

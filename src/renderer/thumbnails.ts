@@ -6,6 +6,7 @@ import { AnnotationMode, pageViewport } from './pdf';
 import { drawAnnots, Transform } from './render';
 import { h, icon, toast } from './ui';
 import type { Viewer } from './viewer';
+import { xfaOf, xfaThumbnail } from './xfa';
 
 const THUMB_WIDTH = 132;
 
@@ -19,6 +20,8 @@ interface Thumb {
   decor: unknown;
   /** The PDF page alone, cached so a new mark doesn't re-render the page. */
   page: HTMLCanvasElement | null;
+  /** An XFA form's page, laid out small over the (blank) picture of it. */
+  xfa?: HTMLElement | null;
   /** Rotation, crop and source the cached page was drawn for. */
   pageKey: string;
   rendering: boolean;
@@ -315,5 +318,22 @@ export class Thumbnails extends EventTarget {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(t.page, 0, 0);
     drawAnnots(ctx, viewport.transform as Transform, [...decorTexts(doc, ref), ...doc.annots(id)], doc.images);
+
+    // an XFA form's page is HTML, which a canvas can't show: lay a small,
+    // untouchable copy of it over the picture instead
+    const form = xfaOf(doc);
+    if (form && ref.src === doc.mainSource) {
+      if (!t.xfa || t.xfa.dataset.key !== key) {
+        t.xfa?.remove();
+        t.xfa = await xfaThumbnail(form, page, THUMB_WIDTH / width);
+        t.xfa.dataset.key = key;
+        t.canvas.after(t.xfa);
+      }
+      const shown = t.canvas.clientWidth || THUMB_WIDTH;
+      t.xfa.style.transform = `scale(${shown / THUMB_WIDTH})`;
+    } else if (t.xfa) {
+      t.xfa.remove();
+      t.xfa = null;
+    }
   }
 }

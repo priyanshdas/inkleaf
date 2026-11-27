@@ -28,7 +28,9 @@ export async function loadPdf(bytes: Uint8Array): Promise<PDFDocumentProxy> {
     standardFontDataUrl: './vendor/pdfjs/standard_fonts/',
     wasmUrl: './vendor/pdfjs/wasm/',
     iccUrl: './vendor/pdfjs/iccs/',
-    enableXfa: false,
+    // XFA forms (many government and tax forms) are laid out as HTML over
+    // their pages, to be filled in (xfa.ts)
+    enableXfa: true,
     // keeps each font's real name ("ABCDEF+Calibri-Bold") on hand, which
     // Edit text uses to match weight, slant and the original font file
     fontExtraProperties: true,

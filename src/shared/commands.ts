@@ -41,6 +41,7 @@ export const MENU: MenuSection[] = [
       'separator',
       { label: msg('Save'), command: 'save', key: 'Mod+S' },
       { label: msg('Save As…'), command: 'save-as', key: 'Mod+Shift+S' },
+      { label: msg('Save as a Regular PDF…'), command: 'save-regular' },
       { label: msg('Print…'), command: 'print', key: 'Mod+P' },
       { label: msg('Share…'), command: 'share' },
       'separator',

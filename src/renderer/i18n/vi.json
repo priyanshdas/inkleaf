@@ -1490,6 +1490,15 @@
   "0imasfq": "Mẹo: InkLeaf PDF có trong menu Start. Để giữ trên thanh tác vụ, hãy nhấp chuột phải vào nó ở đó và chọn Ghim vào thanh tác vụ.",
   "1jufdxk": "Đang chờ",
   "0cweert": "Sẽ tải: {names} (tổng cộng {size}).",
-  "0feo6rt": "Bạn có thể tiếp tục làm việc trong lúc tải. Lượt tải đã dừng sẽ tiếp tục từ chỗ cũ vào lần sau."
+  "0feo6rt": "Bạn có thể tiếp tục làm việc trong lúc tải. Lượt tải đã dừng sẽ tiếp tục từ chỗ cũ vào lần sau.",
+  "18sfq2j": "Không thể giữ nhận xét, hình vẽ và thay đổi trang trong biểu mẫu XFA. Dùng Tệp › Lưu thành PDF thường để giữ chúng.",
+  "0dy1pus": "Không tạo được PDF thường",
+  "0s430p6": "Đây là bản PDF thường của biểu mẫu. Mọi công cụ đều dùng được; hãy lưu lại để giữ.",
+  "1hlyiwd": "Đang tạo PDF thường…",
+  "1yfpjer": "Không thể tách trang khỏi biểu mẫu XFA. Hãy dùng Tệp › Lưu thành PDF thường trước, rồi làm việc trên bản sao đó.",
+  "1tfeuj1": "Lưu thành PDF thường…",
+  "1tpbg8z": "Không dùng được công cụ này trên biểu mẫu XFA. Dùng Tệp › Lưu thành PDF thường để tạo bản sao có thể nhận xét, ký và chỉnh sửa.",
+  "0lki814": "Đây đã là PDF thường.",
+  "0dznurp": "Biểu mẫu XFA: nhập câu trả lời và lưu như bình thường. Các nút và phép tính riêng của biểu mẫu chưa chạy ở đây."
  }
 }

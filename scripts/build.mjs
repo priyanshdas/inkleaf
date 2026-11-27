@@ -182,6 +182,13 @@ function copyStatic() {
     copy(nm('pdfjs-dist', dir), path.join(pdfjs, dir));
   }
   copy(nm('pdfjs-dist', 'LICENSE'), path.join(pdfjs, 'LICENSE'));
+  // the look of XFA forms (src/renderer/xfa.ts): only pdf.js's XFA rules,
+  // as the rest of its viewer styles would clash with InkLeaf's own
+  const viewerCss = fs.readFileSync(nm('pdfjs-dist', 'web', 'pdf_viewer.css'), 'utf8');
+  const xfaStart = viewerCss.indexOf(':root {\n  --xfa-unfocused-field-background');
+  const xfaEnd = viewerCss.indexOf('\n.canvasWrapper {', xfaStart);
+  if (xfaStart < 0 || xfaEnd < 0) throw new Error('pdf.js has changed its XFA styles: update scripts/build.mjs');
+  fs.writeFileSync(path.join(pdfjs, 'xfa.css'), viewerCss.slice(xfaStart, xfaEnd));
 
   // OCR runs fully offline: the engine, its worker and the language models
   // all ship with the app. Only the LSTM builds are needed (that's the
